@@ -1,0 +1,131 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource/noto-sans-arabic/400.css";
+@import "@fontsource/noto-sans-arabic/600.css";
+
+/* Design tokens. Components only use these semantic names, so dark mode is a variable swap. */
+@theme {
+  --font-sans: "Inter Variable", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+
+  --color-canvas: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f3f9;
+  --color-line: #e3e6ef;
+  --color-line-strong: #cfd4e2;
+  --color-ink: #151a2d;
+  --color-ink-2: #3b4259;
+  --color-muted: #6b7289;
+
+  --color-brand-50: #eef0ff;
+  --color-brand-100: #e0e3ff;
+  --color-brand-200: #c5caff;
+  --color-brand-300: #a1a7fb;
+  --color-brand-400: #7c80f4;
+  --color-brand-500: #6160ea;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4238c9;
+  --color-brand-800: #362fa3;
+  --color-brand-900: #2f2c81;
+
+  --color-accent-50: #fff8eb;
+  --color-accent-100: #feecc7;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+
+  --color-success-50: #ecfdf5;
+  --color-success-500: #10b981;
+  --color-success-700: #047857;
+  --color-warn-50: #fffbeb;
+  --color-warn-600: #b45309;
+  --color-danger-50: #fef2f2;
+  --color-danger-500: #ef4444;
+  --color-danger-700: #b91c1c;
+
+  --color-chart-1: #4f46e5; /* validated: passes contrast/band vs light surface */
+  --color-chart-grid: #e8eaf1;
+
+  --radius-card: 1rem;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 10px 30px -10px rgb(16 24 40 / 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-canvas: #0d1020;
+    --color-surface: #151a2e;
+    --color-surface-2: #1c2238;
+    --color-line: #262d47;
+    --color-line-strong: #353e5f;
+    --color-ink: #eef0f8;
+    --color-ink-2: #c7cbe0;
+    --color-muted: #9097b3;
+    --color-brand-50: #1d1f45;
+    --color-brand-100: #25285a;
+    --color-accent-50: #2a2112;
+    --color-success-50: #0f2a22;
+    --color-warn-50: #2a2212;
+    --color-danger-50: #2d1517;
+    --color-chart-1: #7c80f4; /* validated against dark surface #151a2e */
+    --color-chart-grid: #232a42;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-canvas: #0d1020;
+  --color-surface: #151a2e;
+  --color-surface-2: #1c2238;
+  --color-line: #262d47;
+  --color-line-strong: #353e5f;
+  --color-ink: #eef0f8;
+  --color-ink-2: #c7cbe0;
+  --color-muted: #9097b3;
+  --color-brand-50: #1d1f45;
+  --color-brand-100: #25285a;
+  --color-accent-50: #2a2112;
+  --color-success-50: #0f2a22;
+  --color-warn-50: #2a2212;
+  --color-danger-50: #2d1517;
+  --color-chart-1: #7c80f4;
+  --color-chart-grid: #232a42;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: var(--color-brand-200);
+}
+
+@layer components {
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+  }
+  .prose-chat p {
+    @apply my-1.5 leading-relaxed;
+  }
+  .prose-chat ul {
+    @apply my-1.5 list-disc ps-5;
+  }
+  .prose-chat li {
+    @apply my-0.5;
+  }
+  .prose-chat strong {
+    @apply font-semibold text-ink;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

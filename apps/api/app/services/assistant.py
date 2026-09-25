@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -160,7 +161,7 @@ async def run_action(db: AsyncSession, user: User, intent: Intent, text: str) ->
         reply = _fmt_day(res["days"][0])
         if res["lessons_queued"]:
             reply += f"\n\nI'm preparing {res['lessons_queued']} lesson(s) now — they'll be ready in a few minutes."
-        actions.append({"type": "open", "label": "Open day plan", "href": f"/calendar?date={day.isoformat()}"})
+        actions.append({"type": "open", "label": "Open day plan", "href": "/calendar"})
         return reply, actions
     if intent.intent == "plan_week":
         days = await planner.week_days(db, user, today)
@@ -168,13 +169,25 @@ async def run_action(db: AsyncSession, user: User, intent: Intent, text: str) ->
         reply = "\n\n".join(_fmt_day(d) for d in res["days"])
         if res["lessons_queued"]:
             reply += f"\n\nPreparing {res['lessons_queued']} lesson(s) for the week in the background."
-        actions.append({"type": "open", "label": "Open week", "href": "/calendar?view=week"})
+        actions.append({"type": "open", "label": "Open week", "href": "/calendar"})
         return reply, actions
     if intent.intent == "history":
         cs = await _find_class(db, user, intent.class_name)
         items = await planner.history(db, user, class_id=cs.id if cs else None, days=14)
         if not items:
-            return "I couldn't find lessons in the last two weeks.", actions
+            since = datetime.now(UTC) - timedelta(days=14)
+            recent = (await db.execute(
+                select(Lesson, Course).join(Course, Course.id == Lesson.course_id)
+                .where(Lesson.owner_id == user.id, Lesson.created_at >= since)
+                .order_by(Lesson.created_at.desc()).limit(10))).all()
+            if not recent:
+                return ("I couldn't find any lessons taught, scheduled or prepared in the last two weeks. "
+                        "Add your timetable so I can track what each class has covered."), actions
+            lines = [f"- {c.topic} L{lsn.number}: {lsn.title} ({lsn.status})" for lsn, c in recent]
+            actions.append({"type": "open", "label": "Add timetable", "href": "/calendar?tab=timetable"})
+            return ("Nothing is marked as taught or scheduled in the last two weeks, "
+                    "but you prepared these lessons:\n" + "\n".join(lines) +
+                    "\n\nAdd your timetable (or schedule these lessons) and I'll track coverage per class."), actions
         lines = [f"- {i['date'] or 'unscheduled'} {i['class'] or ''} {i['topic']} L{i['lesson']}: {i['title']} "
                  f"({i['status']})" for i in items[:15]]
         return "Here's what you've covered recently:\n" + "\n".join(lines), actions
