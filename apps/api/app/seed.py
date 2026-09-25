@@ -1,7 +1,7 @@
 """Seed data: plans, built-in templates, curriculum frameworks + sample outcomes, calendar, demo accounts.
 
     python -m app.seed            # plans, templates, frameworks, outcomes, calendar
-    python -m app.seed --demo     # + admin and demo teacher with classes and a timetable
+    python -m app.seed --demo     # + admin and demo teacher with classes and a timetable (or SEED_DEMO=true)
 
 The outcome library below is an ILLUSTRATIVE starter set (topic-level strands with our own codes) so planning
 and coverage features work out of the box. Import the official framework documents for production use.
@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import uuid
 from datetime import date, time
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.security import hash_password
 from app.models import (
@@ -168,7 +170,10 @@ async def seed_demo() -> dict[str, str]:
 
 async def main(demo: bool) -> None:
     await seed_core()
-    if demo:
+    if demo and get_settings().is_production:
+        # Demo accounts have published passwords; never create them on a production deployment.
+        print("Skipping demo accounts: ENVIRONMENT=production.")
+    elif demo:
         creds = await seed_demo()
         print("Demo accounts:", creds)
     print("Seed complete.")
@@ -176,5 +181,6 @@ async def main(demo: bool) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--demo", action="store_true")
+    ap.add_argument("--demo", action="store_true",
+                    default=os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes"))
     asyncio.run(main(ap.parse_args().demo))

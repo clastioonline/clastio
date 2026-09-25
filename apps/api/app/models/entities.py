@@ -30,6 +30,12 @@ from app.core.db import Base, TimestampMixin, uuid7
 EMBED_DIM = get_settings().embedding_dim
 
 
+def hnsw_index(table: str) -> Index:
+    """Approximate-nearest-neighbour index for cosine-distance search over `embedding`."""
+    return Index(f"ix_{table}_embedding_hnsw", "embedding", postgresql_using="hnsw",
+                 postgresql_ops={"embedding": "vector_cosine_ops"})
+
+
 def pk() -> Mapped[uuid.UUID]:
     return mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid7)
 
@@ -154,6 +160,7 @@ class TeacherPreference(TimestampMixin, Base):
 
 class TeacherMemory(TimestampMixin, Base):
     __tablename__ = "teacher_memory"
+    __table_args__ = (hnsw_index("teacher_memory"),)
     id: Mapped[uuid.UUID] = pk()
     user_id: Mapped[uuid.UUID] = fk("users.id")
     kind: Mapped[str] = mapped_column(String(40))  # lesson_summary | misconception | feedback | note | chat_summary
@@ -217,7 +224,7 @@ class CurriculumFramework(Base):
 
 class LearningOutcome(TimestampMixin, Base):
     __tablename__ = "learning_outcomes"
-    __table_args__ = (Index("ix_outcomes_lookup", "framework_code", "subject", "grade"),)
+    __table_args__ = (Index("ix_outcomes_lookup", "framework_code", "subject", "grade"), hnsw_index("learning_outcomes"))
     id: Mapped[uuid.UUID] = pk()
     framework_code: Mapped[str] = mapped_column(ForeignKey("curriculum_frameworks.code", ondelete="CASCADE"))
     owner_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True)  # custom outcomes
@@ -253,6 +260,7 @@ class UploadedFile(TimestampMixin, Base):
 
 class SourceChunk(Base):
     __tablename__ = "source_chunks"
+    __table_args__ = (hnsw_index("source_chunks"),)
     id: Mapped[uuid.UUID] = pk()
     file_id: Mapped[uuid.UUID] = fk("uploaded_files.id")
     owner_id: Mapped[uuid.UUID] = fk("users.id")
@@ -379,6 +387,7 @@ class LessonReflection(TimestampMixin, Base):
 
 class Asset(TimestampMixin, Base):
     __tablename__ = "assets"
+    __table_args__ = (hnsw_index("assets"),)
     id: Mapped[uuid.UUID] = pk()
     owner_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True)
     kind: Mapped[str] = mapped_column(String(20))  # image | icon | diagram

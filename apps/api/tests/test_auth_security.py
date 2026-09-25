@@ -49,6 +49,9 @@ async def test_login_rate_limit(client):
         statuses.append(r.status_code)
     assert 429 in statuses
     assert statuses[0] == 401
+    # The limit is per account: another teacher on the same school IP is not blocked.
+    r = await client.post("/api/v1/auth/login", json={"email": "someone-else@example.com", "password": "x" * 10})
+    assert r.status_code == 401
 
 
 async def test_admin_routes_forbidden_for_teachers(client, teacher):

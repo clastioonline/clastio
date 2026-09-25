@@ -1,4 +1,9 @@
-"""Token-bucket rate limiting. Uses Redis when configured, otherwise an in-process bucket."""
+"""Token-bucket rate limiting. Uses Redis when configured, otherwise an in-process bucket.
+
+Per-IP limits use `request.client.host`, which uvicorn derives from X-Forwarded-For only for requests that come
+from a trusted proxy (FORWARDED_ALLOW_IPS; the Docker image trusts private networks). Many teachers can share one
+school IP, so per-IP limits are generous and sensitive actions are also limited per account.
+"""
 
 from __future__ import annotations
 
@@ -64,6 +69,13 @@ class RateLimiter:
 limiter = RateLimiter()
 
 
+async def enforce(key: str, capacity: int, per_seconds: float) -> None:
+    """Raise 429 when `key` has used up `capacity` requests in `per_seconds`."""
+    if not await limiter.hit(key, capacity, capacity / per_seconds):
+        raise HTTPException(status_code=429, detail="Too many requests. Please slow down.",
+                            headers={"Retry-After": str(int(per_seconds / capacity) + 1)})
+
+
 def rate_limit(name: str, capacity: int, per_seconds: float, *, by_user: bool = True):
     """FastAPI dependency factory: `Depends(rate_limit("login", 10, 60))`."""
 
@@ -72,8 +84,6 @@ def rate_limit(name: str, capacity: int, per_seconds: float, *, by_user: bool = 
         uid = getattr(request.state, "user_id", None)
         if by_user and uid:
             ident = str(uid)
-        if not await limiter.hit(f"{name}:{ident}", capacity, capacity / per_seconds):
-            raise HTTPException(status_code=429, detail="Too many requests. Please slow down.",
-                                headers={"Retry-After": str(int(per_seconds / capacity) + 1)})
+        await enforce(f"{name}:{ident}", capacity, per_seconds)
 
     return dep

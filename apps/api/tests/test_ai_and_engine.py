@@ -252,3 +252,30 @@ async def test_openverse_search_records_license():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         found = await search_openverse("leaf", client)
     assert found and found["license"] == "CC BY 4.0" and "Ana" in found["attribution"]
+
+
+async def test_refused_jobs_fail_once_with_a_clear_message(database):
+    """A refusal repeats on every attempt, so the job must fail immediately instead of retrying (and re-paying)."""
+    from app.ai.base import AIRefusal
+    from app.core.db import get_sessionmaker
+    from app.jobs import queue
+    from app.models import GenerationJob
+
+    calls = []
+
+    @queue.handler("test_refusal")
+    async def refuse(ctx):
+        calls.append(ctx.job_id)
+        raise AIRefusal("declined", provider="anthropic")
+
+    async with get_sessionmaker()() as db:
+        job = await queue.enqueue(db, "test_refusal", {}, owner_id=None)
+        await db.commit()
+        job_id = job.id
+    await queue.run_job(job_id)
+    async with get_sessionmaker()() as db:
+        job = await db.get(GenerationJob, job_id)
+        assert job.status == "failed" and job.attempts == 1
+        assert job.error == queue.REFUSAL_MESSAGE
+    assert len(calls) == 1
+    queue.HANDLERS.pop("test_refusal")

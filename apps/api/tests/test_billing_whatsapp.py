@@ -151,3 +151,41 @@ async def test_admin_metrics_and_limits(client):
     r = await client.put("/api/v1/admin/settings/credit_costs", headers=admin["headers"], json={"slide": 2})
     assert r.json()["slide"] == 2
     await client.put("/api/v1/admin/settings/credit_costs", headers=admin["headers"], json={"slide": 1})
+
+
+async def test_scheduler_runs_once_across_workers(client):
+    """Two workers ticking at the same moment must not both send the morning message."""
+    from sqlalchemy import select, text
+
+    from app.core.db import get_sessionmaker
+    from app.models import User, WhatsAppContact
+    from app.services import whatsapp as wa
+    from app.services.planner import today_for, working_days
+
+    u = await make_user(client, plan="assistant")
+    uid = uuid.UUID(u["id"])
+    async with get_sessionmaker()() as db:
+        db.add(WhatsAppContact(user_id=uid, phone_e164="+971529990001", verified=True, opted_in=True,
+                               daily_time="00:00", reflection_time="23:59", quiet_start="00:00", quiet_end="00:00"))
+        await db.commit()
+
+    async def last_sent():
+        async with get_sessionmaker()() as db:
+            c = (await db.execute(select(WhatsAppContact).where(WhatsAppContact.user_id == uid))).scalars().one()
+            return c.last_daily_sent_on
+
+    # Another worker is mid-tick (holds the lock): this tick must do nothing.
+    async with get_sessionmaker()() as other:
+        await other.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": wa.SCHEDULER_LOCK_KEY})
+        assert await wa.scheduler_tick() == {"daily": 0, "reflection": 0}
+        assert await last_sent() is None
+        await other.rollback()
+
+    # Once the lock is free the tick runs and records the send, so a second tick doesn't repeat it.
+    await wa.scheduler_tick()
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, uid)
+        today = today_for(user)
+        is_working_day = today.weekday() in await working_days(db, user)
+    if is_working_day:
+        assert await last_sent() == today

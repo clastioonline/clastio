@@ -20,7 +20,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -333,11 +333,18 @@ async def send_today_details(db: AsyncSession, user: User, contact: WhatsAppCont
 # --------------------------------------------------------------------------- scheduler (called by the worker)
 
 
+SCHEDULER_LOCK_KEY = 0x7EAC4E5  # arbitrary constant shared by all workers
+
+
 async def scheduler_tick() -> dict[str, int]:
     from app.services.planner import today_for, working_days
 
     sent = {"daily": 0, "reflection": 0}
     async with get_sessionmaker()() as db:
+        # Several workers may run the scheduler; the transaction-scoped advisory lock lets only one tick send
+        # messages at a time, so nobody gets the same morning plan twice.
+        if not (await db.execute(text("SELECT pg_try_advisory_xact_lock(:k)"), {"k": SCHEDULER_LOCK_KEY})).scalar():
+            return sent
         contacts = (await db.execute(select(WhatsAppContact).where(WhatsAppContact.verified.is_(True),
                                                                      WhatsAppContact.opted_in.is_(True)))
                     ).scalars().all()

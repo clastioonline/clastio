@@ -13,13 +13,14 @@ API_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(".env", "../../.env"), extra="ignore")
+    # env_ignore_empty: a blank line such as "SECRET_KEY=" copied from .env.example means "use the default".
+    model_config = SettingsConfigDict(env_file=(".env", "../../.env"), extra="ignore", env_ignore_empty=True)
 
     # --- core ---
     environment: Literal["development", "test", "production"] = "development"
     app_name: str = "AI Teacher Assistant"
+    # The one origin browsers use. The web app proxies /api to the API, so OAuth callbacks and cookies live here too.
     public_web_url: str = "http://localhost:3000"
-    public_api_url: str = "http://localhost:8000"
     secret_key: str = "dev-insecure-change-me-please-0123456789abcdef"
     access_token_minutes: int = 60 * 24 * 7
     cookie_secure: bool = False

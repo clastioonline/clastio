@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.base import AIError, AIRefusal
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker, utcnow
 from app.core.logging import job_id_var, log
@@ -136,11 +137,15 @@ async def run_job(job_id: uuid.UUID) -> None:
             await s.commit()
         log(logger, logging.INFO, "job_succeeded", type=job_type)
     except Exception as e:  # noqa: BLE001 - job boundary
-        retryable = not isinstance(e, (PermanentJobError,)) and attempts < max_attempts
+        # Refusals and non-retryable AI errors (bad request, invalid key) fail the same way on every attempt,
+        # so retrying would only add cost.
+        permanent = isinstance(e, PermanentJobError) or (isinstance(e, AIError) and not e.retryable)
+        retryable = not permanent and attempts < max_attempts
+        message = (REFUSAL_MESSAGE if isinstance(e, AIRefusal) else str(e))[:4000]
         tb = traceback.format_exc(limit=8)
         log(logger, logging.ERROR, "job_failed", type=job_type, error=str(e), retry=retryable, trace=tb)
         async with get_sessionmaker()() as s:
-            values: dict[str, Any] = {"error": str(e)[:4000], "locked_by": None}
+            values: dict[str, Any] = {"error": message, "locked_by": None}
             if retryable:
                 values.update(status="queued", stage="Retrying", run_after=utcnow() + timedelta(seconds=10 * attempts))
             else:
@@ -151,11 +156,14 @@ async def run_job(job_id: uuid.UUID) -> None:
             failure_hook = FAILURE_HOOKS.get(job_type)
             if failure_hook:
                 try:
-                    await failure_hook(ctx, str(e))
+                    await failure_hook(ctx, message)
                 except Exception:  # noqa: BLE001
                     pass
     finally:
         job_id_var.reset(token)
+
+
+REFUSAL_MESSAGE = "The AI model declined this request. Please rephrase the topic or instructions and try again."
 
 
 class PermanentJobError(Exception):

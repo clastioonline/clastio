@@ -33,8 +33,8 @@ async def lifespan(app: FastAPI):
 
     ai = get_ai()
     log(logger, logging.INFO, "startup", ai_mode=ai.mode, providers=ai.live_providers)
-    if settings.environment == "production" and settings.secret_key.startswith("dev-insecure"):
-        raise RuntimeError("SECRET_KEY must be set in production")
+    if settings.is_production and (settings.secret_key.startswith("dev-insecure") or len(settings.secret_key) < 32):
+        raise RuntimeError("SECRET_KEY must be set to a random value of at least 32 characters in production")
     yield
 
 

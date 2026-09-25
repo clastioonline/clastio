@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.db import utcnow
 from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError
-from app.core.ratelimit import rate_limit
+from app.core.ratelimit import enforce, rate_limit
 from app.core.security import (
     COOKIE_NAME,
     create_access_token,
@@ -72,7 +72,8 @@ async def _create_user(db, email: str, name: str, password: str | None) -> User:
     return user
 
 
-@router.post("/signup", dependencies=[Depends(rate_limit("signup", 5, 300, by_user=False))])
+# Per IP. Generous because a whole staff room may sign up together from one school IP.
+@router.post("/signup", dependencies=[Depends(rate_limit("signup", 30, 3600, by_user=False))])
 async def signup(data: SignupIn, response: Response, db: DB):
     if not data.accept_terms:
         raise AppError("terms_required", "Please accept the terms to continue.", 400)
@@ -87,8 +88,11 @@ async def signup(data: SignupIn, response: Response, db: DB):
     return {"user": user_out(user), "token": token}
 
 
-@router.post("/login", dependencies=[Depends(rate_limit("login", 10, 300, by_user=False))])
+@router.post("/login", dependencies=[Depends(rate_limit("login", 60, 300, by_user=False))])
 async def login(data: LoginIn, request: Request, response: Response, db: DB):
+    # Per account, so password guessing is throttled even when attempts come from many IPs, and one busy
+    # school IP doesn't lock out everyone else.
+    await enforce(f"login-account:{data.email.lower()}", 10, 300)
     user = (await db.execute(select(User).where(User.email == data.email.lower()))).scalars().first()
     if user is None or not verify_password(data.password, user.password_hash):
         raise AppError("invalid_credentials", "Email or password is incorrect.", 401)
@@ -163,7 +167,7 @@ async def oauth_start(provider: str):
     s = get_settings()
     state = secrets.token_urlsafe(24)
     params = {"client_id": cid, "response_type": "code", "scope": OAUTH[provider]["scope"], "state": state,
-              "redirect_uri": f"{s.public_api_url}/api/v1/auth/oauth/{provider}/callback", "prompt": "select_account"}
+              "redirect_uri": f"{s.public_web_url}/api/v1/auth/oauth/{provider}/callback", "prompt": "select_account"}
     resp = RedirectResponse(f"{OAUTH[provider]['auth']}?{urlencode(params)}")
     resp.set_cookie("oauth_state", state, httponly=True, secure=s.cookie_secure, samesite="lax", max_age=600)
     return resp
@@ -178,7 +182,7 @@ async def oauth_callback(provider: str, request: Request, db: DB, code: str = ""
     async with httpx.AsyncClient(timeout=15) as client:
         tok = await client.post(OAUTH[provider]["token"], data={
             "client_id": cid, "client_secret": secret, "code": code, "grant_type": "authorization_code",
-            "redirect_uri": f"{s.public_api_url}/api/v1/auth/oauth/{provider}/callback"})
+            "redirect_uri": f"{s.public_web_url}/api/v1/auth/oauth/{provider}/callback"})
         if tok.status_code != 200:
             raise AppError("oauth_failed", "Could not complete sign-in.", 400)
         info = (await client.get(OAUTH[provider]["userinfo"],
