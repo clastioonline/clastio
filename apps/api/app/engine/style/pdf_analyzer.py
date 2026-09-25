@@ -37,7 +37,7 @@ def _overlap(a, b) -> float:
 
 
 def _int_color(c: int) -> str:
-    return "#{:02X}{:02X}{:02X}".format((c >> 16) & 255, (c >> 8) & 255, c & 255)
+    return f"#{(c >> 16) & 255:02X}{(c >> 8) & 255:02X}{c & 255:02X}"
 
 
 def _tuple_color(c) -> str | None:

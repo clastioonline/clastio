@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 import uuid
@@ -50,6 +51,11 @@ class TimestampMixin:
     )
 
 
+def _json_dumps(value) -> str:
+    # JSONB columns may receive UUIDs / dates inside payloads; store them as strings.
+    return json.dumps(value, default=str)
+
+
 _engine = None
 _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
@@ -58,7 +64,8 @@ def get_engine():
     global _engine, _sessionmaker
     if _engine is None:
         settings = get_settings()
-        _engine = create_async_engine(settings.database_url, pool_pre_ping=True, pool_size=10, max_overflow=20)
+        _engine = create_async_engine(settings.database_url, pool_pre_ping=True, pool_size=10, max_overflow=20,
+                                      json_serializer=_json_dumps)
         _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

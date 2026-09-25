@@ -760,6 +760,13 @@ class DeckRenderer:
             parts.append(f"Visual suggestion: {spec.visual.description}")
         if spec.timing_minutes:
             parts.append(f"Timing: about {spec.timing_minutes:g} min")
+        credits = [src.get("attribution") for src in spec.sources if src.get("type") == "image" and
+                   src.get("attribution")]
+        refs = [f"{src['file']} p.{src['page']}" for src in spec.sources if src.get("file")]
+        if credits:
+            parts.append("Image credit: " + "; ".join(credits))
+        if refs:
+            parts.append("Sources: " + "; ".join(refs))
         return "\n\n".join(parts)
 
     # ================================================================== main

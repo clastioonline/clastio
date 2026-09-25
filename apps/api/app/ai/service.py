@@ -13,7 +13,6 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel
 from sqlalchemy import update
 
 from app.ai.anthropic_provider import AnthropicProvider

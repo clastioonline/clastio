@@ -32,6 +32,8 @@ dependencies = [
   "sse-starlette>=2.1",
   "email-validator>=2.2",
   "tenacity>=8.5",
+  "python-dateutil>=2.9",
+  "sentry-sdk>=2.0",
 ]
 
 [project.optional-dependencies]

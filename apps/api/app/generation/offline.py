@@ -40,13 +40,13 @@ from app.generation.specs import (
 )
 
 ANGLES = [
-    ("What is {t}?", ["meaning of {t}", "why {t} matters"]),
-    ("The key parts of {t}", ["components of {t}", "vocabulary of {t}"]),
-    ("How {t} works", ["process of {t}", "cause and effect in {t}"]),
-    ("{T} in everyday life", ["real-world examples of {t}", "{t} in the UAE"]),
-    ("Investigating {t}", ["fair testing with {t}", "measuring {t}"]),
-    ("Solving problems with {t}", ["applying {t}", "common mistakes with {t}"]),
-    ("{T}: making connections", ["links between {t} and other topics", "comparing ideas in {t}"]),
+    ("What is {t}?", ["meaning of {t}", "importance of {t}"]),
+    ("The key parts of {t}", ["main parts of {t}", "key vocabulary of {t}"]),
+    ("How {t} works", ["process of {t}", "causes and effects in {t}"]),
+    ("{T} in everyday life", ["real-world examples of {t}", "local examples of {t}"]),
+    ("Investigating {t}", ["fair testing in {t}", "measurements in {t}"]),
+    ("Solving problems with {t}", ["applications of {t}", "common mistakes with {t}"]),
+    ("{T}: making connections", ["links between {t} and other topics", "comparisons within {t}"]),
     ("Review: bringing {t} together", ["summary of {t}", "exam-style practice on {t}"]),
 ]
 

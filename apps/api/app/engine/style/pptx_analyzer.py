@@ -18,7 +18,7 @@ from pptx.enum.dml import MSO_COLOR_TYPE, MSO_FILL
 from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
 from pptx.oxml.ns import qn
 
-from app.engine.pptx_xml import NS, emu_to_pt, read_theme
+from app.engine.pptx_xml import NS, read_theme
 from app.engine.style.common import (
     ColorTally,
     ContentStats,
