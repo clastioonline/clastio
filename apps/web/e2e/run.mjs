@@ -32,18 +32,29 @@ try {
   step("Landing & pricing");
   await page.goto(BASE + "/");
   await page.getByRole("heading", { level: 1 }).waitFor();
+  await page.getByRole("dialog", { name: "Cookie preferences" }).waitFor();
   await shot("01-landing");
+  await page.getByRole("button", { name: "Essential only" }).click();
+  ok("cookie banner offers a choice and remembers it");
   await page.goto(BASE + "/pricing");
   await page.getByText("Genie Assistant").first().waitFor();
   await shot("02-pricing");
-  ok("marketing pages render");
+  await page.goto(BASE + "/legal/terms");
+  await page.getByRole("heading", { name: "Terms & Conditions", level: 1 }).waitFor();
+  await page.goto(BASE + "/status");
+  await page.getByText(/All systems operational|Some systems degraded/).waitFor();
+  await shot("02b-status");
+  ok("marketing, legal and status pages render");
 
   step("Sign up");
   const email = `e2e-${Date.now()}@example.com`;
   await page.goto(BASE + "/signup");
   await page.getByLabel("Your name").fill("Amira Hassan");
-  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password").fill("e2e-password-123");
+  assert(await page.getByRole("button", { name: "Create account" }).isDisabled(), "sign-up needs the Terms checkbox");
+  assert(!(await page.getByRole("checkbox", { name: /tips and product news/ }).isChecked()), "marketing consent is unticked by default");
+  await page.getByRole("checkbox", { name: /I agree to the Terms/ }).check();
   await page.getByRole("button", { name: "Create account" }).click();
   await page.waitForURL("**/onboarding");
   ok("redirected to onboarding");
@@ -149,13 +160,43 @@ try {
     ok(`${route}`);
   }
 
+  step("Notifications, support and account security");
+  await page.goto(BASE + "/notifications");
+  await page.getByRole("heading", { name: "Notifications" }).waitFor();
+  await page.getByText(/Lesson ready:|Unit planned:/).first().waitFor();
+  ok("lesson-ready notices arrive in the notification list");
+  const unread = await page.request.get(BASE + "/api/v1/me/notifications").then((r) => r.json());
+  assert(unread.unread > 0, `bell shows unread count (${unread.unread})`);
+  await shot("18c-notifications");
+  await page.goto(BASE + "/support");
+  await page.getByRole("button", { name: "New request" }).click();
+  await page.getByLabel("Subject").fill("How do I share a lesson?");
+  await page.getByLabel("Details").fill("I want to send a lesson to a colleague.");
+  await page.getByRole("dialog").getByRole("button", { name: "Send" }).click();
+  await page.getByText("How do I share a lesson?").waitFor();
+  ok("support request created");
+  await page.goto(BASE + "/settings");
+  await page.getByText("Active sessions").waitFor();
+  await page.getByText("This device", { exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Notifications" }).first().waitFor();
+  await shot("18d-settings-security");
+  ok("settings show sessions, notification preferences and consents");
+
   step("Demo teacher: dashboard with a timetable");
   await ctx.clearCookies();
   await page.goto(BASE + "/login");
-  await page.getByLabel("Email").fill("sara@example.com");
+  await page.getByLabel("Email", { exact: true }).fill("sara@example.com");
   await page.getByLabel("Password").fill("teacher-demo-123");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL("**/dashboard");
+  if (await page.getByRole("dialog", { name: "We've updated our policies" }).isVisible().catch(() => false)
+      || await page.getByText("We've updated our policies").waitFor({ timeout: 4000 }).then(() => true).catch(() => false)) {
+    await shot("19a-updated-terms");
+    await page.getByRole("checkbox", { name: /I have read and agree/ }).check();
+    await page.getByRole("button", { name: "Accept and continue" }).click();
+    await page.getByText("We've updated our policies").waitFor({ state: "detached" });
+    ok("updated-terms prompt accepted and recorded");
+  }
   await page.getByText("Today's classes").waitFor();
   await page.waitForTimeout(1200);
   await shot("19-demo-dashboard");
@@ -177,7 +218,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   await ctx.clearCookies();
   await page.goto(BASE + "/login");
-  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Email", { exact: true }).fill("admin@example.com");
   await page.getByLabel("Password").fill("admin-demo-123");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/admin|dashboard|onboarding/);
@@ -204,6 +245,45 @@ try {
   await page.goto(BASE + "/admin/media");
   await page.getByRole("heading", { name: "Payment gateway" }).waitFor();
   await shot("24-admin-media");
+
+  step("Admin console");
+  await page.goto(BASE + "/admin/users");
+  await page.getByText("sara@example.com").click();
+  await page.waitForURL(/admin\/users\/[0-9a-f-]+/);
+  await page.getByRole("button", { name: "Suspend" }).waitFor();
+  await shot("25-admin-user");
+  await page.getByRole("tab", { name: "Sessions & security" }).click();
+  await page.getByText("login success").first().waitFor();
+  await page.getByRole("tab", { name: "Notes & audit" }).click();
+  await page.getByPlaceholder("Add a note…").fill("Demo account — do not suspend.");
+  await page.getByRole("button", { name: "Add note" }).click();
+  await page.getByText("Demo account — do not suspend.").waitFor();
+  ok("user detail with sessions, audit trail and notes");
+  for (const [route, text, name] of [
+    ["/admin/staff", "Permission matrix", "26-admin-staff"],
+    ["/admin/billing", "Subscriptions & payments", "27-admin-billing"],
+    ["/admin/api-usage", "Endpoints", "28-admin-api-usage"],
+    ["/admin/support", "How do I share a lesson?", "29-admin-support"],
+    ["/admin/announcements", "Publish", "30-admin-announcements"],
+    ["/admin/security", "Security events", "31-admin-security"],
+    ["/admin/audit", "user.note_added", "32-admin-audit"],
+    ["/admin/system", "Readiness", "33-admin-system"],
+    ["/admin/settings", "Maintenance mode", "34-admin-settings"],
+    ["/admin/legal", "Terms & Conditions", "35-admin-legal"],
+  ]) {
+    await page.goto(BASE + route);
+    await page.getByText(text).first().waitFor();
+    await page.waitForTimeout(500);
+    await shot(name);
+    ok(route);
+  }
+  await page.getByRole("button", { name: "Search the admin console" }).count();
+  await page.getByLabel("Search the admin console").fill("sara@");
+  await page.getByRole("button", { name: /sara@example.com/ }).click();
+  await page.waitForURL(/admin\/users\//);
+  ok("global admin search finds a teacher");
+  const staffAlerts = await page.request.get(BASE + "/api/v1/me/notifications").then((r) => r.json());
+  assert(staffAlerts.items.some((n) => n.type === "staff"), "staff get alerts (new support ticket)");
 
   const serious = errors.filter((e) => !/hydrat|favicon|401|Unauthorized|Not signed in/i.test(e));
   assert(serious.length === 0, `no browser errors (${serious.join(" | ").slice(0, 300)})`);

@@ -38,7 +38,7 @@ function LoginForm() {
         <Field label="Email">
           <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ae" />
         </Field>
-        <Field label="Password">
+        <Field label={<span className="flex items-center justify-between">Password <Link href="/forgot-password" className="text-xs font-medium text-brand-600 hover:underline">Forgot password?</Link></span>}>
           <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <Button type="submit" className="w-full" size="lg" loading={busy}>Sign in</Button>

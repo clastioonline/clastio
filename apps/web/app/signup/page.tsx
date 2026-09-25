@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AuthLayout, OAuthButtons, TermsNote } from "@/components/auth-card";
+import { useCallback, useEffect, useState } from "react";
+import { AuthLayout, Captcha, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
@@ -11,6 +11,10 @@ import { useApi } from "@/lib/hooks";
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [marketing, setMarketing] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const onCaptcha = useCallback((t: string | null) => setCaptcha(t), []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { data: plans } = useApi<any>("/billing/plans");
@@ -28,10 +32,18 @@ export default function SignupPage() {
     setBusy(true);
     setError(null);
     try {
-      await api("/auth/signup", { body: { ...form, accept_terms: true } });
+      const params = new URLSearchParams(window.location.search);
+      const utm: Record<string, string> = {};
+      for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"]) {
+        const v = params.get(k);
+        if (v) utm[k] = v;
+      }
+      if (document.referrer) utm.referrer = document.referrer.slice(0, 120);
+      await api("/auth/signup", { body: { ...form, accept_terms: acceptTerms, marketing_email: marketing, utm,
+        referral_code: params.get("ref") || undefined, captcha_token: captcha || undefined } });
       router.replace("/onboarding");
     } catch (err: any) {
-      setError(err.status === 422 ? "Check your details: passwords need at least 8 characters." : err.message);
+      setError(err.code === "validation_error" ? "Check your details: passwords need at least 8 characters." : err.message);
       setBusy(false);
     }
   };
@@ -47,8 +59,17 @@ export default function SignupPage() {
         <Field label="Password" hint="At least 8 characters.">
           <Input type="password" required minLength={8} value={form.password} onChange={set("password")} autoComplete="new-password" />
         </Field>
-        <Button type="submit" className="w-full" size="lg" loading={busy}>Create account</Button>
-        <TermsNote />
+        <label className="flex items-start gap-2 text-sm text-ink-2">
+          <input type="checkbox" required className="mt-0.5 h-4 w-4 accent-[var(--color-brand-600)]" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} />
+          <span>I agree to the <Link href="/legal/terms" target="_blank" className="text-brand-600 underline">Terms & Conditions</Link> and <Link href="/legal/acceptable_use" target="_blank" className="text-brand-600 underline">Acceptable Use Policy</Link>, and I have read the <Link href="/legal/privacy" target="_blank" className="text-brand-600 underline">Privacy Policy</Link>.</span>
+        </label>
+        <label className="flex items-start gap-2 text-sm text-muted">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--color-brand-600)]" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} />
+          <span>Send me occasional tips and product news by email (optional — change any time in Settings).</span>
+        </label>
+        <Captcha onToken={onCaptcha} />
+        <Button type="submit" className="w-full" size="lg" loading={busy} disabled={!acceptTerms}>Create account</Button>
+        <p className="text-xs text-muted">We never need your students' personal data.</p>
       </form>
     </AuthLayout>
   );

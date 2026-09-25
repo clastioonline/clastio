@@ -1,65 +1,66 @@
 "use client";
 
 import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { UserDrawer } from "@/components/admin-user-drawer";
-import { DashHeader } from "@/components/dash";
-import { Badge } from "@/components/ui";
-import { formatDate, timeAgo } from "@/lib/api";
-import { useApi, useMe } from "@/lib/hooks";
+import { AdminPage, DataTable, ExportButton, FilterBar, LoadMore, StatusPill, When, useCursorList } from "@/components/admin-kit";
+import { Badge, Field, Select } from "@/components/ui";
+import { formatDate } from "@/lib/api";
 
 export default function AdminUsers() {
-  const { user } = useMe();
+  const router = useRouter();
   const [q, setQ] = useState("");
-  useEffect(() => { setQ(new URLSearchParams(window.location.search).get("q") || ""); }, []);
-  const { data } = useApi<any>(user?.role === "admin" ? `/admin/users?limit=100${q ? `&q=${encodeURIComponent(q)}` : ""}` : null);
-  const [selected, setSelected] = useState<string | null>(null);
-  if (user && user.role !== "admin") return <p className="text-muted">Admins only.</p>;
+  const [term, setTerm] = useState("");
+  const [f, setF] = useState({ status: "", plan: "", kind: "teacher", sort: "newest", verified: "" });
+  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q") || ""; setQ(v); setTerm(v); }, []);
+  useEffect(() => { const t = setTimeout(() => setTerm(q), 300); return () => clearTimeout(t); }, [q]);
+  const params = new URLSearchParams({ limit: "50", sort: f.sort });
+  if (term) params.set("q", term);
+  for (const k of ["status", "plan", "kind", "verified"] as const) if (f[k]) params.set(k, f[k]);
+  const list = useCursorList<any>(`/admin/users?${params}`);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
   return (
-    <div className="space-y-6">
-      <DashHeader title="Teachers" subtitle="Everyone who signed up. Open a teacher to see usage, extend a trial, grant a plan for a school, add credits or suspend the account." />
+    <AdminPage title="Teachers" perm="users.view" subtitle="Everyone who signed up. Open an account for usage, billing, sessions, activity and actions."
+      actions={<ExportButton dataset="users" days={3650} />}>
       <section className="rounded-3xl bg-surface p-5 sm:p-6">
-        <div className="relative mb-4 max-w-sm">
-          <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by email or name" aria-label="Search users"
-            className="h-12 w-full rounded-full bg-surface-2 ps-12 pe-4 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-200" />
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted">
-              <tr><th className="px-3 py-3 text-start font-medium">User</th><th className="px-3 py-3 text-start font-medium">Plan</th><th className="px-3 py-3 text-start font-medium">Joined</th><th className="px-3 py-3 text-start font-medium">Last login</th><th className="px-3 py-3 text-start font-medium">Status</th></tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {(data?.items || []).map((u: any) => (
-                <tr key={u.id} className="cursor-pointer hover:bg-surface-2" onClick={() => setSelected(u.id)}>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 font-semibold text-white">{(u.name || u.email).slice(0, 1).toUpperCase()}</span>
-                      <span className="min-w-0"><span className="block truncate font-medium text-ink">{u.name || "—"}</span><span className="block truncate text-xs text-muted">{u.email}</span></span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    {u.role === "admin" ? <Badge tone="accent">admin</Badge> : (
-                      <span className="flex flex-wrap gap-1">
-                        <Badge tone={u.plan === "free" ? "neutral" : "brand"}>{u.plan}</Badge>
-                        {u.plan_source === "trial" && <Badge tone="accent">trial</Badge>}
-                        {["stripe", "dodo"].includes(u.plan_source) && <Badge tone="success">paying</Badge>}
-                        {u.plan_source === "manual" && <Badge>granted</Badge>}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-muted">{u.created_at ? formatDate(u.created_at) : "—"}</td>
-                  <td className="px-3 py-3 text-muted">{u.last_login_at ? timeAgo(u.last_login_at) : "—"}</td>
-                  <td className="px-3 py-3"><Badge tone={u.status === "active" ? "success" : "danger"}>{u.status}</Badge></td>
-                </tr>
-              ))}
-              {data && !data.items.length && <tr><td colSpan={5} className="px-3 py-8 text-center text-muted">No users match.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <FilterBar>
+          <div className="relative min-w-60 flex-1">
+            <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Email, name or user id" aria-label="Search accounts"
+              className="h-10 w-full rounded-full bg-surface-2 ps-12 pe-4 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-200" />
+          </div>
+          <Field label="Status"><Select value={f.status} onChange={set("status")}>
+            <option value="">Any</option>{["active", "email_unverified", "suspended", "banned", "pending_deletion", "deleted"].map((s) => <option key={s} value={s}>{s.replace("_", " ")}</option>)}
+          </Select></Field>
+          <Field label="Plan"><Select value={f.plan} onChange={set("plan")}>
+            <option value="">Any</option>{["free", "trial", "teacher", "pro", "assistant"].map((s) => <option key={s}>{s}</option>)}
+          </Select></Field>
+          <Field label="Accounts"><Select value={f.kind} onChange={set("kind")}><option value="teacher">Teachers</option><option value="staff">Staff</option><option value="">Everyone</option></Select></Field>
+          <Field label="Sort"><Select value={f.sort} onChange={set("sort")}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="last_active">Last active</option><option value="email">Email</option></Select></Field>
+        </FilterBar>
+        <p className="mb-2 text-xs text-muted">{list.extra?.total ?? "…"} matching accounts</p>
+        <DataTable rows={list.items} onRowClick={(u) => router.push(`/admin/users/${u.id}`)} empty="No accounts match these filters."
+          columns={[
+            { key: "user", label: "Account", render: (u) => (
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-sm font-semibold text-white">{(u.name || u.email).slice(0, 1).toUpperCase()}</span>
+                <span className="min-w-0"><span className="block truncate font-medium text-ink">{u.name || "—"}</span><span className="block truncate text-xs text-muted">{u.email}</span></span>
+              </div>) },
+            { key: "plan", label: "Plan", render: (u) => u.admin_role ? <Badge tone="accent">{u.admin_role.replace("_", " ")}</Badge> : (
+              <span className="flex flex-wrap gap-1">
+                <Badge tone={u.plan === "free" ? "neutral" : "brand"}>{u.plan}</Badge>
+                {u.plan_source === "trial" && <Badge tone="accent">trial</Badge>}
+                {["stripe", "dodo"].includes(u.plan_source) && <Badge tone="success">paying</Badge>}
+                {u.plan_source === "manual" && <Badge>granted</Badge>}
+                {u.plan_status === "past_due" && <Badge tone="warn">past due</Badge>}
+              </span>) },
+            { key: "created_at", label: "Joined", render: (u) => <span className="text-muted">{formatDate(u.created_at)}</span> },
+            { key: "last_active_at", label: "Last active", render: (u) => <When at={u.last_active_at || u.last_login_at} /> },
+            { key: "status", label: "Status", render: (u) => <span className="flex flex-wrap gap-1"><StatusPill value={u.status} />{!u.email_verified && <Badge>unverified</Badge>}</span> },
+          ]} />
+        <LoadMore list={list} />
       </section>
-      <UserDrawer id={selected} onClose={() => setSelected(null)} />
-    </div>
+    </AdminPage>
   );
 }

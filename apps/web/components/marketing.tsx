@@ -37,8 +37,13 @@ export function LandingFooter() {
           <a href="/#schools" className="block hover:text-[var(--l-ink)]">Schools</a>
         </div>
         <div className="space-y-2">
-          <div className="font-semibold text-[var(--l-ink)]">Trust</div>
-          <p>Your files stay yours. No student personal data required. Data export and deletion any time.</p>
+          <div className="font-semibold text-[var(--l-ink)]">Legal & trust</div>
+          <Link href="/legal/terms" className="block hover:text-[var(--l-ink)]">Terms & Conditions</Link>
+          <Link href="/legal/privacy" className="block hover:text-[var(--l-ink)]">Privacy Policy</Link>
+          <Link href="/legal/acceptable_use" className="block hover:text-[var(--l-ink)]">Acceptable Use</Link>
+          <Link href="/legal/cookie" className="block hover:text-[var(--l-ink)]">Cookie Policy</Link>
+          <Link href="/legal/refund" className="block hover:text-[var(--l-ink)]">Refund Policy</Link>
+          <Link href="/status" className="block hover:text-[var(--l-ink)]">System status</Link>
         </div>
         <div className="space-y-2">
           <div className="font-semibold text-[var(--l-ink)]">Curricula</div>

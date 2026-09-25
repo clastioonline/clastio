@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
   icons: { icon: "/icon.svg" },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  openGraph: {
+    type: "website",
+    siteName: "PPT Genie",
+    title: "PPT Genie — lessons and slides in your own design",
+    description: "Lessons, slides in your own design, worksheets, quizzes and daily plans for teachers.",
+  },
+  twitter: { card: "summary", title: "PPT Genie", description: "Lessons and slides in your own design." },
 };
 
 export const viewport: Viewport = {

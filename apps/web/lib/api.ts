@@ -4,11 +4,13 @@ export class ApiError extends Error {
   status: number;
   code: string;
   details: unknown;
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  requestId?: string;
+  constructor(status: number, code: string, message: string, details?: unknown, requestId?: string) {
     super(message);
     this.status = status;
     this.code = code;
     this.details = details;
+    this.requestId = requestId;
   }
 }
 
@@ -17,7 +19,14 @@ type Options = {
   body?: unknown;
   form?: FormData;
   signal?: AbortSignal;
+  /** Send an Idempotency-Key so a retried request (double click, flaky network) is processed only once.
+   *  Pass a string to reuse the same key across your own retries. */
+  idempotent?: boolean | string;
 };
+
+export function newIdempotencyKey() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export async function api<T = any>(path: string, opts: Options = {}): Promise<T> {
   const init: RequestInit = {
@@ -26,6 +35,9 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     signal: opts.signal,
     headers: {},
   };
+  if (opts.idempotent) {
+    (init.headers as Record<string, string>)["idempotency-key"] = typeof opts.idempotent === "string" ? opts.idempotent : newIdempotencyKey();
+  }
   if (opts.form) {
     init.body = opts.form;
   } else if (opts.body !== undefined) {
@@ -46,7 +58,13 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
       // A plan limit was reached: the app shell offers an upgrade instead of a dead-end error.
       window.dispatchEvent(new CustomEvent("pptg:limit", { detail: { message: err?.message, details: err?.details } }));
     }
-    throw new ApiError(res.status, err?.code || "http_error", err?.message || res.statusText || "Request failed", err?.details);
+    if (res.status === 503 && err?.code === "maintenance" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("pptg:maintenance", { detail: { message: err?.message } }));
+    }
+    const requestId = err?.requestId || res.headers.get("x-request-id") || undefined;
+    let message = err?.message || res.statusText || "Request failed";
+    if (res.status >= 500 && requestId) message = `${message} (ref ${requestId})`;
+    throw new ApiError(res.status, err?.code || "http_error", message, err?.details, requestId);
   }
   return data as T;
 }

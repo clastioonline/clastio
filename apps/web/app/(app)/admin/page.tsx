@@ -3,7 +3,8 @@
 import { Activity, CircleCheck, TriangleAlert, Users, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { UserDrawer } from "@/components/admin-user-drawer";
+import { useRouter } from "next/navigation";
+import { AdminPage } from "@/components/admin-kit";
 import { BarList, compact } from "@/components/charts";
 import { DashHeader, HalfDonut, KpiCard, Legend, Panel, PillButton, PillChart } from "@/components/dash";
 import { useToast } from "@/components/toast";
@@ -34,9 +35,10 @@ export default function AdminOverview() {
   const { data } = useApi<any>(isAdmin ? `/admin/metrics?days=${days}` : null);
   const { data: failed, mutate: refreshFailed } = useApi<any>(isAdmin ? "/admin/jobs?status=failed" : null);
   const { data: plans } = useApi<any>("/billing/plans");
-  const [selected, setSelected] = useState<string | null>(null);
+  const router = useRouter();
+  const setSelected = (id: string) => router.push(`/admin/users/${id}`);
 
-  if (user && !isAdmin) return <p className="text-muted">Admins only.</p>;
+  if (user && (!isAdmin || !user.permissions.includes("analytics.view"))) return <AdminPage title="Admin overview" perm="analytics.view"><span /></AdminPage>;
   if (!data) return <div className="space-y-4"><Skeleton className="h-24 rounded-3xl" /><Skeleton className="h-72 rounded-3xl" /></div>;
   const gen = data.generation;
   const lessonJobs = gen.jobs.lesson_generation || {};
@@ -47,7 +49,7 @@ export default function AdminOverview() {
     <div className="space-y-5">
       <DashHeader title="Admin overview" subtitle="Revenue, teachers, generation health and AI spend across PPT Genie."
         actions={<>
-          <PillButton href="/admin/media"><Wallet className="h-5 w-5" /> Payments & media</PillButton>
+          <PillButton href="/admin/billing"><Wallet className="h-5 w-5" /> Payments</PillButton>
           <PillButton href="/admin/plans" variant="outline"><Users className="h-5 w-5" /> Plans & trial</PillButton>
         </>} />
       <Tabs value={days} onChange={setDays} tabs={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} />
@@ -57,6 +59,23 @@ export default function AdminOverview() {
         <KpiCard label="Teachers" value={compact(data.users.total)} hint={`${data.users.paid} paying · ${data.users.trialing} on trial · ${data.users.active_30d} active`} href="/admin/users" />
         <KpiCard label="Lessons generated" value={compact(lessonJobs.succeeded || 0)} hint={`${Math.round(gen.lesson_success_rate * 100)}% success · avg ${Math.round(gen.avg_lesson_seconds)}s`} />
         <KpiCard label="AI spend" value={`$${data.ai.cost_usd.toFixed(2)}`} hint={`$${data.ai.cost_per_project_usd.toFixed(3)} per project`} href="/admin/ai-costs" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {[
+          ["Daily active", compact(data.active.dau), `${Math.round(data.active.stickiness * 100)}% of monthly`],
+          ["Weekly active", compact(data.active.wau), "teachers"],
+          ["Monthly active", compact(data.active.mau), "teachers"],
+          ["Trial → paid", data.conversion.rate == null ? "—" : `${Math.round(data.conversion.rate * 100)}%`, `${data.conversion.converted} of ${data.conversion.trial_starts} trials`],
+          ["Failed payments", compact(data.payments.failed), `AED ${compact(data.payments.failed_amount_aed)} · ${data.payments.past_due_subscriptions} past due`],
+          ["API error rate", `${(data.api.error_rate_24h * 100).toFixed(2)}%`, `${compact(data.api.requests_24h)} requests / 24h`],
+        ].map(([label, value, hint]) => (
+          <div key={label} className="rounded-2xl bg-surface p-4">
+            <div className="text-xs text-muted">{label}</div>
+            <div className="mt-1 text-2xl font-bold tabular-nums text-ink">{value}</div>
+            <div className="mt-0.5 text-xs text-muted">{hint}</div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
@@ -142,7 +161,6 @@ export default function AdminOverview() {
           {!failed?.items?.length && <li className="py-4 text-sm text-muted">No failed jobs.</li>}
         </ul>
       </section>
-      <UserDrawer id={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Check, Download, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ConsentsCard, NotificationPrefsCard, SecurityCard } from "@/components/account-settings";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Button, Card, CardHeader, Chips, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -56,8 +57,11 @@ export default function Settings() {
     // Admins have no teaching profile, plan or classes: only how the app looks for them.
     return (
       <div className="space-y-6">
-        <PageHeader title="Settings" subtitle={`Signed in as ${user.email} (platform admin)`} />
-        <div className="max-w-xl"><Appearance /></div>
+        <PageHeader title="Settings" subtitle={`Signed in as ${user.email} (${user.admin_role_label || "staff"})`} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SecurityCard />
+          <div className="space-y-6"><Appearance /><NotificationPrefsCard /></div>
+        </div>
       </div>
     );
   }
@@ -87,7 +91,7 @@ export default function Settings() {
   const deleteAccount = async () => {
     try {
       await api("/me/delete", { body: { confirm_email: confirmEmail } });
-      window.location.href = "/";
+      window.location.href = "/?account=deleted";
     } catch (e) {
       notify({ tone: "error", title: "Couldn't delete", body: errorMessage(e) });
     }
@@ -118,6 +122,9 @@ export default function Settings() {
           </div>
         </Card>
         <div className="space-y-6">
+          <SecurityCard />
+          <NotificationPrefsCard />
+          <ConsentsCard />
           <Appearance />
           <Card>
             <CardHeader title="Presentation files" subtitle="Control the metadata in files you download" />
@@ -138,8 +145,8 @@ export default function Settings() {
         </div>
       </div>
       <Modal open={deleting} onClose={() => setDeleting(false)} title="Delete your account"
-        footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button variant="danger" onClick={deleteAccount} disabled={confirmEmail.toLowerCase() !== p.email.toLowerCase()}>Delete permanently</Button></>}>
-        <Alert tone="danger">This permanently deletes your lessons, templates, uploads and memory. This can't be undone.</Alert>
+        footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button variant="danger" onClick={deleteAccount} disabled={confirmEmail.toLowerCase() !== p.email.toLowerCase()}>Delete my account</Button></>}>
+        <Alert tone="danger">Your account is locked and you're signed out everywhere straight away. After 30 days your lessons, templates, uploads and memory are permanently deleted. Contact support within 30 days if you change your mind. A paid plan is cancelled at the end of the period you've paid for. We keep payment records as the law requires.</Alert>
         <Field label={`Type ${p.email} to confirm`} className="mt-4"><Input value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} /></Field>
       </Modal>
     </div>

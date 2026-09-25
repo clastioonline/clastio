@@ -9,17 +9,31 @@ export type User = {
   email: string;
   name: string;
   role: "teacher" | "admin";
+  admin_role?: string | null;
+  admin_role_label?: string | null;
+  permissions: string[];
+  status: string;
+  email_verified: boolean;
   locale: string;
   timezone: string;
   onboarding_completed: boolean;
 };
 
+export type LegalDoc = { id: string; type: string; title: string; version: string; summary_of_changes?: string | null; requires_acceptance: boolean };
+
 export function useMe() {
-  const { data, error, isLoading, mutate } = useSWR<{ user: User }>("/auth/me", fetcher, {
+  const { data, error, isLoading, mutate } = useSWR<{ user: User; pending_legal?: LegalDoc[] }>("/auth/me", fetcher, {
     shouldRetryOnError: false,
     revalidateOnFocus: false,
   });
-  return { user: data?.user, error, isLoading, mutate };
+  return { user: data?.user, pendingLegal: data?.pending_legal || [], error, isLoading, mutate };
+}
+
+/** Staff permission check for showing controls. The server enforces every permission independently. */
+export function useCan() {
+  const { user } = useMe();
+  const perms = new Set(user?.permissions || []);
+  return (...needed: string[]) => needed.every((p) => perms.has(p));
 }
 
 export function useApi<T = any>(path: string | null, config?: SWRConfiguration) {

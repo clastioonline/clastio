@@ -265,7 +265,8 @@ async def revoke_session(session_id: uuid.UUID, user: CurrentUser, request: Requ
 @router.get("/me")
 async def me(user: CurrentUser, db: DB):
     user = await _load(db, user.id)
-    pending = await legal.pending_acceptance(db, user)
+    # Staff operate the platform; customer policy re-acceptance applies to teachers.
+    pending = [] if user.role == "admin" else await legal.pending_acceptance(db, user)
     return {"user": user_out(user), "pending_legal": [legal.doc_out(d) for d in pending]}
 
 

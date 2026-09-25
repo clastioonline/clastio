@@ -33,7 +33,11 @@ export function Markdown({ text }: { text: string }) {
     if (/^\s*[-*•]\s+/.test(line)) list.push(line.replace(/^\s*[-*•]\s+/, ""));
     else {
       flush();
-      if (line.trim()) blocks.push(<p key={blocks.length}>{inline(line)}</p>);
+      const h = /^(#{1,3})\s+(.*)$/.exec(line);
+      if (h) blocks.push(h[1].length === 1 ? <h2 key={blocks.length} className="mt-6 text-xl font-semibold text-ink">{inline(h[2])}</h2>
+        : <h3 key={blocks.length} className="mt-5 text-base font-semibold text-ink">{inline(h[2])}</h3>);
+      else if (line.startsWith(">")) blocks.push(<blockquote key={blocks.length} className="my-3 rounded-xl border-s-4 border-accent-400 bg-accent-50 px-4 py-2 text-ink-2">{inline(line.replace(/^>\s?/, ""))}</blockquote>);
+      else if (line.trim()) blocks.push(<p key={blocks.length}>{inline(line)}</p>);
     }
   }
   flush();

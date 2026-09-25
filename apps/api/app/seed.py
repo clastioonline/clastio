@@ -132,7 +132,7 @@ async def seed_demo() -> dict[str, str]:
     async with get_sessionmaker()() as db:
         admin = (await db.execute(select(User).where(User.email == "admin@example.com"))).scalars().first()
         if admin is None:
-            db.add(User(email="admin@example.com", name="Platform Admin", role="admin",
+            db.add(User(email="admin@example.com", name="Platform Admin", role="admin", admin_role="super_admin",
                         password_hash=hash_password("admin-demo-123"), email_verified=True))
         teacher = (await db.execute(select(User).where(User.email == "sara@example.com"))).scalars().first()
         if teacher is None:

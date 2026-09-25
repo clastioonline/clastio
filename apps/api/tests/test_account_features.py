@@ -11,7 +11,6 @@ from app.models import AnalyticsEvent, EmailOutbox, Notification, Payment, Secur
 from tests.conftest import make_staff, make_user
 from tests.test_media_and_dodo import dodo_post
 
-
 # --------------------------------------------------------------------------- legal
 
 

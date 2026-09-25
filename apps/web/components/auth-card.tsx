@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Logo } from "@/components/brand";
 import { useApi } from "@/lib/hooks";
 
@@ -55,8 +55,29 @@ export function OAuthButtons() {
 export function TermsNote() {
   return (
     <p className="mt-4 text-xs text-muted">
-      By continuing you agree to the <Link href="/pricing" className="underline">Terms</Link> and <Link href="/pricing" className="underline">Privacy Policy</Link>.
+      By continuing you agree to the <Link href="/legal/terms" className="underline">Terms</Link> and <Link href="/legal/acceptable_use" className="underline">Acceptable Use Policy</Link> and acknowledge the <Link href="/legal/privacy" className="underline">Privacy Policy</Link>.
       We never need your students' personal data.
     </p>
   );
+}
+
+
+/* Cloudflare Turnstile, shown only when the server has a site key configured. */
+export function Captcha({ onToken }: { onToken: (t: string | null) => void }) {
+  const { data } = useApi<any>("/public/config");
+  const key = data?.turnstile_site_key;
+  useEffect(() => {
+    if (!key) return;
+    (window as any).pptgCaptcha = (t: string) => onToken(t);
+    (window as any).pptgCaptchaExpired = () => onToken(null);
+    if (!document.getElementById("cf-turnstile")) {
+      const sc = document.createElement("script");
+      sc.id = "cf-turnstile";
+      sc.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+      sc.async = true;
+      document.head.appendChild(sc);
+    }
+  }, [key, onToken]);
+  if (!key) return null;
+  return <div className="cf-turnstile" data-sitekey={key} data-callback="pptgCaptcha" data-expired-callback="pptgCaptchaExpired" />;
 }
