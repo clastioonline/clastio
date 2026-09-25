@@ -146,6 +146,42 @@ async def mark_read(data: ReadIn, user: CurrentUser, db: DB):
     return {"updated": res.rowcount or 0}
 
 
+class PrefsIn(BaseModel):
+    categories: dict[str, dict[str, bool]]
+
+
+@router.get("/me/notification-preferences", tags=["notifications"])
+async def notification_prefs(user: CurrentUser, db: DB):
+    from app.services.notifications import CATEGORIES, get_prefs
+
+    prefs = await get_prefs(db, user.id)
+    return {"items": [{"category": c, "label": label, "mandatory": mandatory, **prefs[c]}
+                      for c, (label, mandatory) in CATEGORIES.items()]}
+
+
+@router.put("/me/notification-preferences", tags=["notifications"])
+async def update_notification_prefs(data: PrefsIn, user: CurrentUser, db: DB):
+    """Choose in-app and email delivery per category. Security, failed-payment and legal notices can't be
+    switched off."""
+    from app.services.notifications import set_prefs
+
+    await set_prefs(db, user.id, data.categories)
+    await db.commit()
+    return await notification_prefs(user, db)
+
+
+@router.delete("/me/notifications/{notification_id}", tags=["notifications"])
+async def delete_notification(notification_id: uuid.UUID, user: CurrentUser, db: DB):
+    from sqlalchemy import delete
+
+    res = await db.execute(delete(Notification).where(Notification.id == notification_id,
+                                                      Notification.user_id == user.id))
+    await db.commit()
+    if not res.rowcount:
+        raise NotFound("Notification")
+    return {"ok": True}
+
+
 # --------------------------------------------------------------------------- announcements
 
 
@@ -210,6 +246,10 @@ async def create_ticket(data: TicketIn, user: CurrentUser, db: DB):
     await db.flush()
     db.add(TicketMessage(ticket_id=t.id, author_id=user.id, body=data.body.strip()))
     track(db, "ticket_created", user_id=user.id, kind=data.kind)
+    from app.services.notifications import alert_staff
+
+    await alert_staff(db, "new_ticket", dedupe_key=f"ticket:{t.id}", kind=data.kind.replace("_", " "),
+                      number=t.number, subject=t.subject, id=t.id)
     await db.commit()
     return ticket_out(t)
 

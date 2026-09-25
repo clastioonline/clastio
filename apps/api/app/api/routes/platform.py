@@ -123,8 +123,13 @@ async def public_status(db: DB):
 @router.get("/public/config", tags=["health"])
 async def public_config():
     """Non-secret settings the web app needs before sign-in."""
-    ui = (await get_app_settings(["ui"]))["ui"]
-    return {"default_skin": ui.get("default_skin", "forest")}
+    cfg = await get_app_settings(["ui", "system"])
+    system = cfg["system"]
+    return {"default_skin": cfg["ui"].get("default_skin", "forest"),
+            "turnstile_site_key": get_settings().turnstile_site_key,
+            "registration_enabled": system.get("registration_enabled", True),
+            "maintenance": (system.get("maintenance") or {}).get("enabled", False),
+            "version": get_settings().app_version}
 
 
 # --------------------------------------------------------------------------- billing

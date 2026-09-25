@@ -77,7 +77,8 @@ def user_out(u: User) -> dict[str, Any]:
     perms = sorted(staff_permissions(u))
     return {"id": str(u.id), "email": u.email, "name": u.name, "role": u.role, "locale": u.locale,
             "timezone": u.timezone, "email_verified": u.email_verified, "status": u.status,
-            "admin_role": u.admin_role, "admin_role_label": ROLE_LABELS.get(u.admin_role or ""),
+            "admin_role": (u.admin_role or "admin") if perms else None,
+            "admin_role_label": ROLE_LABELS.get(u.admin_role or "admin") if perms else None,
             "permissions": perms, "avatar_url": u.avatar_url,
             # Staff run the platform; they have no teacher onboarding.
             "onboarding_completed": bool(perms) or bool(u.profile and u.profile.onboarding_completed)}

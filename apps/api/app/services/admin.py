@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import utcnow
 from app.models import (
     AIUsage,
+    ApiRequest,
     Course,
     Document,
     GenerationJob,
+    Payment,
     Plan,
     Project,
     Subscription,
@@ -75,7 +77,29 @@ async def metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
     recent = (await db.execute(select(User).where(teacher).order_by(User.created_at.desc()).limit(6))
               ).scalars().all()
     plan_of = {s.user_id: ("trial" if s.provider == "trial" else s.plan_code) for s, _ in subs}
+    now = utcnow()
+    last_seen = func.coalesce(User.last_active_at, User.last_login_at)
+    dau, wau, mau = [(await db.execute(select(func.count()).select_from(User).where(
+        teacher, last_seen >= now - timedelta(days=d)))).scalar_one() for d in (1, 7, 30)]
+    statuses = dict((await db.execute(select(User.status, func.count()).where(teacher).group_by(User.status))).all())
+    unverified = (await db.execute(select(func.count()).select_from(User).where(
+        teacher, User.email_verified.is_(False), User.status == "active"))).scalar_one()
+    failed_count, failed_amount = (await db.execute(select(func.count(), func.coalesce(func.sum(Payment.amount), 0))
+                                                    .where(Payment.status == "failed", Payment.created_at >= since))).one()
+    revenue_period = (await db.execute(select(func.coalesce(func.sum(Payment.amount), 0)).where(
+        Payment.status == "paid", Payment.created_at >= since))).scalar_one()
+    past_due = sum(1 for s, _ in paying if s.status == "past_due")
+    req_total, req_err = (await db.execute(select(func.count(), func.count().filter(ApiRequest.status >= 500))
+                                           .where(ApiRequest.created_at >= now - timedelta(days=1)))).one()
     return {
+        "active": {"dau": dau, "wau": wau, "mau": mau, "stickiness": round(dau / mau, 3) if mau else 0},
+        "accounts": {"by_status": statuses, "unverified": unverified},
+        "payments": {"failed": failed_count, "failed_amount_aed": round(float(failed_amount), 2),
+                     "collected_aed": round(float(revenue_period), 2), "past_due_subscriptions": past_due},
+        "conversion": {"trial_starts": trial_starts, "converted": converted,
+                       "rate": round(converted / trial_starts, 3) if trial_starts else None},
+        "api": {"requests_24h": req_total, "errors_24h": req_err,
+                "error_rate_24h": round(req_err / req_total, 4) if req_total else 0},
         "recent_signups": [{"id": str(u.id), "name": u.name, "email": u.email, "role": u.role,
                             "plan": plan_of.get(u.id, "free"), "created_at": u.created_at.isoformat()}
                            for u in recent],

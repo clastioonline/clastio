@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.service import get_ai
-from app.core.db import get_sessionmaker
+from app.core.db import get_sessionmaker, utcnow
 from app.core.deps import can_access
 from app.core.errors import AppError, LimitExceeded, NotFound
 from app.core.storage import get_storage
@@ -126,6 +126,11 @@ async def create(db: AsyncSession, user: User, *, kind: str, prompt: str, style:
     await usage.consume(db, user.id, cost, f"media_{kind}", str(item.id), resource=RESOURCE)
     job = await enqueue(db, "media_generation", {"media_id": str(item.id)}, owner_id=user.id, max_attempts=2)
     item.job_id = job.id
+    left = available - cost
+    if user.role != "admin" and left < cost_of(cfg, "image", None) * 3:
+        from app.services.notifications import send
+
+        await send(db, user, "media_credits_low", dedupe_key=f"media_low:{user.id}:{utcnow():%Y-%m}", balance=left)
     await db.commit()
     await run_inline_if_configured([job.id])
     await db.refresh(item)

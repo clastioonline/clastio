@@ -347,6 +347,8 @@ async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
             db.add(Payment(user_id=user_id, provider="stripe", provider_ref=obj["id"],
                            amount=(obj.get("amount_paid") or 0) / 100, currency=(obj.get("currency") or "aed").upper(),
                            tax_amount=tax / 100, status="paid", invoice_url=obj.get("hosted_invoice_url")))
+            await _receipt(db, user_id, obj["id"], (obj.get("amount_paid") or 0) / 100,
+                           (obj.get("currency") or "aed").upper())
         if sub and sub.status == "past_due":
             changes.see(sub)
             sub.status = "active"
@@ -458,6 +460,8 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
                                currency=(data.get("currency") or "AED").upper(),
                                tax_amount=(data.get("tax") or 0) / 100, status="paid",
                                invoice_url=data.get("invoice_url")))
+                await _receipt(db, user_id, payment_id, (data.get("total_amount") or 0) / 100,
+                               (data.get("currency") or "AED").upper())
         if sub and sub.status == "past_due":
             changes.see(sub)
             sub.status = "active"
@@ -529,6 +533,19 @@ async def _record_failed_payment(db: AsyncSession, user_id: uuid.UUID, provider:
         return
     db.add(Payment(user_id=user_id, provider=provider, provider_ref=ref, amount=amount, currency=currency,
                    status="failed", failure_reason=(reason or "")[:500] or None, subscription_ref=subscription_ref))
+    from app.services.notifications import alert_staff
+
+    user = await db.get(User, user_id)
+    await alert_staff(db, "payment_failed", dedupe_key=f"payfail:{ref}", email=user.email if user else "?",
+                      amount=f"{currency} {amount:,.2f}", reason=f"— {reason}" if reason else "")
+
+
+async def _receipt(db: AsyncSession, user_id: uuid.UUID, ref: str, amount: float, currency: str) -> None:
+    from app.services.notifications import send
+
+    user = await db.get(User, user_id)
+    if user:
+        await send(db, user, "payment_receipt", dedupe_key=f"receipt:{ref}", amount=f"{currency} {amount:,.2f}")
 
 
 async def process_webhook(db: AsyncSession, *, provider: str, event_id: str, event_type: str,
@@ -578,6 +595,10 @@ async def process_webhook(db: AsyncSession, *, provider: str, event_id: str, eve
             ev.status, ev.error_message = "failed", f"{type(e).__name__}: {str(e)[:900]}"
             await s.commit()
         log(logger, logging.ERROR, "webhook_failed", provider=provider, type=event_type, error=str(e)[:300])
+        from app.services.notifications import alert_staff_detached
+
+        await alert_staff_detached("webhook_failed", dedupe_key=f"whfail:{provider}:{event_id}", provider=provider,
+                                   error=f"{event_type}: {type(e).__name__}")
         raise
     ev = (await db.execute(select(WebhookEvent).where(WebhookEvent.provider == provider,
                                                       WebhookEvent.event_id == event_id))).scalars().one()

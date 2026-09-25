@@ -155,6 +155,9 @@ async def run_job(job_id: uuid.UUID) -> None:
                 error=None, locked_by=None, credits_reserved=0))
             await s.commit()
         log(logger, logging.INFO, "job_succeeded", type=job_type)
+        from app.services.notifications import job_finished
+
+        await job_finished(job_type, job_id, ctx.owner_id, ctx.payload, ok=True)
     except Exception as e:  # noqa: BLE001 - job boundary
         # Refusals and non-retryable AI errors (bad request, invalid key) fail the same way on every attempt,
         # so retrying would only add cost.
@@ -172,6 +175,9 @@ async def run_job(job_id: uuid.UUID) -> None:
             await s.execute(update(GenerationJob).where(GenerationJob.id == job_id).values(**values))
             await s.commit()
         if not retryable:
+            from app.services.notifications import job_finished
+
+            await job_finished(job_type, job_id, ctx.owner_id, ctx.payload, ok=False)
             failure_hook = FAILURE_HOOKS.get(job_type)
             if failure_hook:
                 try:

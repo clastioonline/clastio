@@ -658,6 +658,28 @@ async def trace(request_id: str, _: Staff("system.logs.view"), db: DB):
     }
 
 
+# --------------------------------------------------------------------------- payments
+
+
+@router.get("/payments")
+async def payments(_: Staff("billing.view"), db: DB, status: str | None = None, provider: str | None = None,
+                   cursor: str | None = None, limit: int = 50):
+    q = select(Payment)
+    if status:
+        q = q.where(Payment.status == status)
+    if provider:
+        q = q.where(Payment.provider == provider)
+    limit = clamp(limit)
+    rows, nxt = page(list((await db.execute(keyset(q, Payment, cursor, limit))).scalars().all()), limit)
+    emails = await _emails(db, [p.user_id for p in rows])
+    since = utcnow() - timedelta(days=30)
+    summary = (await db.execute(select(Payment.status, func.count(), func.coalesce(func.sum(Payment.amount), 0))
+                                .where(Payment.created_at >= since).group_by(Payment.status))).all()
+    return {"items": [{**_payment_out(p), "user_id": str(p.user_id), "email": emails.get(p.user_id)} for p in rows],
+            "next_cursor": nxt,
+            "last_30d": [{"status": s, "count": n, "amount": round(float(a), 2)} for s, n, a in summary]}
+
+
 # --------------------------------------------------------------------------- webhooks & emails
 
 
@@ -930,6 +952,7 @@ class AnnouncementIn(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     active: bool = True
+    notify_users: bool = False  # also drop it into everyone's notification list
 
 
 @router.get("/announcements")
@@ -944,10 +967,15 @@ async def announcements(_: Staff("announcements.manage"), db: DB):
 async def create_announcement(data: AnnouncementIn, admin: Staff("announcements.manage"), request: Request, db: DB):
     from app.api.routes.account import announcement_out
 
-    a = Announcement(**{**data.model_dump(exclude_none=True), "starts_at": data.starts_at or utcnow()},
-                     created_by=admin.id)
+    a = Announcement(**{**data.model_dump(exclude_none=True, exclude={"notify_users"}),
+                        "starts_at": data.starts_at or utcnow()}, created_by=admin.id)
     db.add(a)
     await db.flush()
+    if data.notify_users and a.active:
+        from app.services.notifications import broadcast
+
+        await broadcast(db, title=a.title, body=a.body, link=a.link, audience=a.audience,
+                        dedupe_key=f"announcement:{a.id}")
     audit(db, admin.id, "announcement.created", request=request, target_type="announcement", target_id=str(a.id),
           after=announcement_out(a))
     await db.commit()
@@ -963,7 +991,7 @@ async def update_announcement(announcement_id: uuid.UUID, data: AnnouncementIn,
     if a is None:
         raise NotFound("Announcement")
     before = announcement_out(a)
-    for k, v in data.model_dump().items():
+    for k, v in data.model_dump(exclude={"notify_users"}).items():
         if k == "starts_at" and v is None:
             continue
         setattr(a, k, v)
@@ -1065,6 +1093,13 @@ async def publish_legal(doc_id: uuid.UUID, admin: Staff("legal.manage"), request
     d.effective_from = d.effective_from or now
     if previous and d.effective_from <= now:
         previous.status = "archived"
+    if d.requires_acceptance or d.document_type in ("terms", "privacy"):
+        from app.services.notifications import send
+
+        teachers = (await db.execute(select(User).where(User.status == "active", User.role != "admin"))).scalars().all()
+        for t in teachers:
+            await send(db, t, "legal_updated", dedupe_key=f"legal:{d.id}", title=d.title, type=d.document_type,
+                       summary=d.summary_of_changes or "Please review the new version.")
     audit(db, admin.id, "legal.published", request=request, target_type="legal_document", target_id=str(d.id),
           before={"version": previous.version} if previous else None,
           after={"type": d.document_type, "version": d.version, "requires_acceptance": d.requires_acceptance})

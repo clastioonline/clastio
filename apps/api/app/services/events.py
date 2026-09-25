@@ -27,6 +27,19 @@ def security_event(db: AsyncSession, type_: str, *, user_id: uuid.UUID | None = 
     db.add(ev)
     log(logger, logging.WARNING if sev != "info" else logging.INFO, "security_event", type=type_, severity=sev,
         user_id=str(user_id) if user_id else None)
+    if sev == "critical" or type_ == "provider_circuit_open":
+        import asyncio
+
+        from app.services.notifications import alert_staff_detached
+
+        alert = "provider_down" if type_ == "provider_circuit_open" else "security_critical"
+        summary = ", ".join(f"{k}={v}" for k, v in details.items() if k not in ("error",))[:300]
+        try:  # after the caller's transaction, in its own session
+            asyncio.get_running_loop().create_task(alert_staff_detached(
+                alert, dedupe_key=f"{type_}:{request_id_var.get() or ev.id}", type=type_, summary=summary,
+                provider=details.get("provider", ""), error=str(details.get("error", ""))[:300]))
+        except RuntimeError:
+            pass
     return ev
 
 

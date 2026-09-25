@@ -32,6 +32,7 @@ async def _step(name: str, fn) -> None:
 
 async def scheduler(stop: asyncio.Event) -> None:
     from app.services.lifecycle import purge_due_accounts, retention_cleanup
+    from app.services.notifications import job_failure_watch, run_reminders
     from app.services.notify import send_pending_emails
     from app.services.whatsapp import scheduler_tick
 
@@ -43,6 +44,8 @@ async def scheduler(stop: asyncio.Event) -> None:
         if tick % HOUSEKEEPING_EVERY == 0:
             await _step("retention_cleanup", retention_cleanup)
             await _step("accounts_purged", purge_due_accounts)
+            await _step("reminders_sent", run_reminders)
+            await _step("job_failure_watch", job_failure_watch)
         tick += 1
         try:
             await asyncio.wait_for(stop.wait(), timeout=60)
