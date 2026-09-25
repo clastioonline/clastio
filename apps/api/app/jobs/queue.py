@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.base import AIError, AIRefusal
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker, utcnow
-from app.core.logging import job_id_var, log
+from app.core.logging import job_id_var, log, request_id_var
 from app.models import GenerationJob
 
 logger = logging.getLogger("jobs")
@@ -68,8 +68,11 @@ def payload_hash(job_type: str, payload: dict[str, Any]) -> str:
 
 async def enqueue(db: AsyncSession, job_type: str, payload: dict[str, Any], *, owner_id: uuid.UUID | None,
                   parent_id: uuid.UUID | None = None, max_attempts: int = 3, delay_s: float = 0,
-                  dedupe: bool = False) -> GenerationJob:
-    """Create a job in the caller's transaction. With dedupe, reuse an identical queued/running job."""
+                  dedupe: bool = False, credits_reserved: int = 0) -> GenerationJob:
+    """Create a job in the caller's transaction. With dedupe, reuse an identical queued/running job.
+
+    `credits_reserved` holds the job's expected cost against the teacher's allowance until it finishes, so
+    concurrent requests can't each pass the limit check and overspend together."""
     h = payload_hash(job_type, payload)
     if dedupe:
         existing = (await db.execute(select(GenerationJob).where(
@@ -77,9 +80,19 @@ async def enqueue(db: AsyncSession, job_type: str, payload: dict[str, Any], *, o
             GenerationJob.status.in_(["queued", "running"])))).scalars().first()
         if existing:
             return existing
+    max_concurrent = None
+    if owner_id:
+        from app.models import User
+        from app.services.usage import plan_limits
+
+        owner = await db.get(User, owner_id)
+        if owner is not None and owner.role != "admin":
+            max_concurrent = (await plan_limits(db, owner)).get("max_concurrent_jobs")
     job = GenerationJob(type=job_type, queue=QUEUES.get(job_type, "default"), payload=payload, owner_id=owner_id,
                         parent_id=parent_id, max_attempts=max_attempts, input_hash=h,
-                        run_after=utcnow() + timedelta(seconds=delay_s), stage="Queued")
+                        run_after=utcnow() + timedelta(seconds=delay_s), stage="Queued",
+                        credits_reserved=max(0, int(credits_reserved)), max_concurrent=max_concurrent or None,
+                        request_id=request_id_var.get())
     db.add(job)
     await db.flush()
     return job
@@ -99,13 +112,16 @@ async def claim(queues: list[str] | None = None) -> uuid.UUID | None:
             UPDATE generation_jobs SET status='running', locked_by=:w, locked_at=now(), started_at=now(),
                    attempts=attempts+1, stage=COALESCE(NULLIF(stage,'Queued'),'Starting')
             WHERE id = (
-                SELECT id FROM generation_jobs
-                WHERE status='queued' AND run_after <= now() {queue_filter}
-                ORDER BY created_at
+                SELECT j.id FROM generation_jobs j
+                WHERE j.status='queued' AND j.run_after <= now() {queue_filter}
+                  AND (j.owner_id IS NULL OR j.max_concurrent IS NULL
+                       OR (SELECT count(*) FROM generation_jobs r
+                           WHERE r.owner_id = j.owner_id AND r.status = 'running') < j.max_concurrent)
+                ORDER BY j.created_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1)
             RETURNING id
-        """.format(queue_filter="AND queue = ANY(:queues)" if queues else "")
+        """.format(queue_filter="AND j.queue = ANY(:queues)" if queues else "")
         params: dict[str, Any] = {"w": WORKER_ID}
         if queues:
             params["queues"] = queues
@@ -124,7 +140,10 @@ async def run_job(job_id: uuid.UUID) -> None:
             await s.commit()
         ctx = JobContext(job_id=job.id, owner_id=job.owner_id, payload=dict(job.payload))
         job_type, attempts, max_attempts = job.type, job.attempts, job.max_attempts
+        origin_request = job.request_id
     token = job_id_var.set(str(job_id))
+    # AI calls, credits and events recorded by the job carry the id of the request that started it.
+    rid_token = request_id_var.set(origin_request) if origin_request else None
     fn = HANDLERS.get(job_type)
     try:
         if fn is None:
@@ -133,7 +152,7 @@ async def run_job(job_id: uuid.UUID) -> None:
         async with get_sessionmaker()() as s:
             await s.execute(update(GenerationJob).where(GenerationJob.id == job_id).values(
                 status="succeeded", progress=100, stage="Done", result=result or {}, completed_at=utcnow(),
-                error=None, locked_by=None))
+                error=None, locked_by=None, credits_reserved=0))
             await s.commit()
         log(logger, logging.INFO, "job_succeeded", type=job_type)
     except Exception as e:  # noqa: BLE001 - job boundary
@@ -149,7 +168,7 @@ async def run_job(job_id: uuid.UUID) -> None:
             if retryable:
                 values.update(status="queued", stage="Retrying", run_after=utcnow() + timedelta(seconds=10 * attempts))
             else:
-                values.update(status="failed", stage="Failed", completed_at=utcnow())
+                values.update(status="failed", stage="Failed", completed_at=utcnow(), credits_reserved=0)
             await s.execute(update(GenerationJob).where(GenerationJob.id == job_id).values(**values))
             await s.commit()
         if not retryable:
@@ -161,6 +180,8 @@ async def run_job(job_id: uuid.UUID) -> None:
                     pass
     finally:
         job_id_var.reset(token)
+        if rid_token is not None:
+            request_id_var.reset(rid_token)
 
 
 REFUSAL_MESSAGE = "The AI model declined this request. Please rephrase the topic or instructions and try again."

@@ -52,11 +52,12 @@ async def scheduler(stop: asyncio.Event) -> None:
 
 async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool) -> None:
     settings = get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, environment=settings.environment, version=settings.app_version)
     if settings.sentry_dsn:
         import sentry_sdk
 
-        sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.1)
+        sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.1,
+                        send_default_pii=False, release=settings.app_version)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

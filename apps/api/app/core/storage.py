@@ -41,7 +41,7 @@ class LocalStorage(Storage):
 
     def _path(self, key: str) -> Path:
         p = (self.root / key).resolve()
-        if not str(p).startswith(str(self.root.resolve())):
+        if not p.is_relative_to(self.root.resolve()):
             raise ValueError("invalid storage key")
         return p
 

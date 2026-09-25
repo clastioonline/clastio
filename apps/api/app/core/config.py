@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # --- core ---
     environment: Literal["development", "test", "production"] = "development"
     app_name: str = "PPT Genie"
+    # Build identifier shown in /health, logs and error reports (set by CI, e.g. the git SHA or a release tag).
+    app_version: str = "dev"
     # The one origin browsers use. The web app proxies /api to the API, so OAuth callbacks and cookies live here too.
     public_web_url: str = "http://localhost:3000"
     secret_key: str = "dev-insecure-change-me-please-0123456789abcdef"
@@ -104,6 +106,8 @@ class Settings(BaseSettings):
     # --- observability ---
     sentry_dsn: str | None = None
     log_level: str = "INFO"
+    # Record one metadata row per API request (never bodies) for the admin usage dashboard and request trace.
+    api_request_log: bool = True
 
     # --- rendering / QC ---
     soffice_path: str = "soffice"

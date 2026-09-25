@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.ai.service import get_ai
 from app.api.routes.admin import Staff
@@ -41,15 +41,83 @@ router = APIRouter()
 
 @router.get("/health", tags=["health"])
 async def health():
-    db_ok = True
+    """Liveness: the process is up. Cheap, no dependencies, safe for a load balancer to poll often."""
+    s = get_settings()
+    return {"status": "ok", "version": s.app_version, "environment": s.environment}
+
+
+@router.get("/ready", tags=["health"])
+async def ready():
+    """Readiness: dependencies are reachable and migrations are current. 503 until the instance can serve."""
+    import time as _time
+
+    checks: dict[str, Any] = {}
+    status = 200
+    t0 = _time.monotonic()
     try:
         async with get_sessionmaker()() as s:
             await s.execute(text("select 1"))
-    except Exception:
-        db_ok = False
+            try:
+                checks["migration"] = (await s.execute(text("select version_num from alembic_version"))).scalar()
+            except Exception:  # noqa: BLE001 - schema built without Alembic (tests)
+                checks["migration"] = None
+        checks["database"] = {"ok": True, "ms": int((_time.monotonic() - t0) * 1000)}
+    except Exception:  # noqa: BLE001
+        checks["database"] = {"ok": False}
+        status = 503
+    s = get_settings()
+    if s.redis_url:
+        try:
+            from app.core.ratelimit import limiter
+
+            await limiter._redis.ping()  # noqa: SLF001
+            checks["redis"] = {"ok": True}
+        except Exception:  # noqa: BLE001
+            checks["redis"] = {"ok": False}
+            status = 503
     ai = get_ai()
-    return {"status": "ok" if db_ok else "degraded", "database": db_ok, "ai_mode": ai.mode,
-            "ai_providers": ai.live_providers, "environment": get_settings().environment}
+    checks["ai"] = {"mode": ai.mode, "providers": ai.live_providers,
+                    "circuit_open": [p for p in ai.live_providers if ai.breaker.is_open(p)]}
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse({"status": "ready" if status == 200 else "not_ready", "version": s.app_version,
+                         "checks": checks}, status_code=status)
+
+
+@router.get("/status", tags=["health"])
+async def public_status(db: DB):
+    """Public status page data: component health and active maintenance/incident notices. No internals."""
+    from datetime import timedelta
+
+    from app.core.db import utcnow
+    from app.models import AIUsage, Announcement, GenerationJob
+    from app.services.settings import get_setting_cached
+
+    since = utcnow() - timedelta(minutes=30)
+    ai_total, ai_ok = (await db.execute(select(func.count(), func.count().filter(AIUsage.success.is_(True)))
+                                        .where(AIUsage.created_at >= since))).one()
+    stuck = (await db.execute(select(func.count()).select_from(GenerationJob).where(
+        GenerationJob.status == "queued", GenerationJob.created_at < utcnow() - timedelta(minutes=15)))).scalar_one()
+    system = await get_setting_cached("system")
+    notices = (await db.execute(select(Announcement).where(
+        Announcement.active.is_(True), Announcement.kind.in_(("maintenance", "important")),
+        Announcement.audience.in_(("everyone", "teachers")), Announcement.starts_at <= utcnow())
+        .order_by(Announcement.starts_at.desc()).limit(3))).scalars().all()
+
+    def state(ok: bool, degraded: bool = False) -> str:
+        return "operational" if ok and not degraded else ("degraded" if ok else "outage")
+
+    ai_rate = (ai_ok / ai_total) if ai_total else 1.0
+    maintenance = (system.get("maintenance") or {}).get("enabled", False)
+    return {
+        "status": "maintenance" if maintenance else ("operational" if ai_rate >= 0.9 and not stuck else "degraded"),
+        "components": {"web_app": state(not maintenance), "api": state(True),
+                       "ai_generation": state(ai_rate >= 0.5, ai_rate < 0.9),
+                       "generation_queue": state(stuck < 20, stuck > 0)},
+        "notices": [{"title": a.title, "body": a.body, "kind": a.kind, "starts_at": a.starts_at.isoformat()}
+                    for a in notices],
+        "updated_at": utcnow().isoformat(),
+    }
 
 
 @router.get("/public/config", tags=["health"])

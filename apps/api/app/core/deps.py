@@ -51,6 +51,11 @@ def staff_permissions(user: User) -> set[str]:
     return permissions_for(user.role, user.admin_role)
 
 
+def can_access(user: User, owner_id) -> bool:
+    """Owners reach their own resources; staff only with the users.content permission."""
+    return owner_id == user.id or "users.content" in staff_permissions(user)
+
+
 async def get_admin_user(user: Annotated[User, Depends(get_current_user)]) -> User:
     if not staff_permissions(user):
         raise HTTPException(status_code=403, detail="Admin access required")

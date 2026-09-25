@@ -88,7 +88,26 @@ async def get_setting(key: str) -> Any:
     return (await get_app_settings([key]))[key]
 
 
+_cache: dict[str, tuple[float, Any]] = {}
+CACHE_SECONDS = 10.0
+
+
+async def get_setting_cached(key: str) -> Any:
+    """For per-request checks (maintenance mode, rate limits): at most one query per key every few seconds.
+    A change made in the admin console applies in this process at once, and in other processes within
+    CACHE_SECONDS."""
+    import time
+
+    hit = _cache.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+        return hit[1]
+    value = await get_setting(key)
+    _cache[key] = (time.monotonic(), value)
+    return value
+
+
 async def set_setting(key: str, value: Any) -> None:
+    _cache.pop(key, None)
     async with get_sessionmaker()() as s:
         row = await s.get(AppSetting, key)
         if row is None:

@@ -518,6 +518,8 @@ class GenerationJob(Base):
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     credits_reserved: Mapped[int] = mapped_column(Integer, default=0)  # counted against limits while running
+    # The owner's plan limit on jobs running at once (the worker won't start more than this for one teacher).
+    max_concurrent: Mapped[int | None] = mapped_column(Integer)
     request_id: Mapped[str | None] = mapped_column(String(40), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

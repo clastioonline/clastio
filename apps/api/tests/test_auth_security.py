@@ -68,9 +68,10 @@ async def test_cross_tenant_access_is_blocked(client):
     assert r.status_code == 200, r.text
     project_id = r.json()["course"]["project_id"]
     course_id = r.json()["course"]["id"]
-    assert (await client.get(f"/api/v1/projects/{project_id}", headers=b["headers"])).status_code == 403
+    # Another teacher's project answers exactly like a missing one, so ids can't be probed.
+    assert (await client.get(f"/api/v1/projects/{project_id}", headers=b["headers"])).status_code == 404
     assert (await client.post(f"/api/v1/courses/{course_id}/generate", headers=b["headers"], json={})
-            ).status_code == 403
+            ).status_code == 404
     listing = (await client.get("/api/v1/projects", headers=b["headers"])).json()["items"]
     assert all(p["id"] != project_id for p in listing)
 

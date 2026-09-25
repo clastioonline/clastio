@@ -40,7 +40,8 @@ async def test_signup_requires_terms_and_records_versioned_consent(client):
         rows = (await db.execute(select(Consent).where(Consent.user_id == uid))).scalars().all()
     kinds = {c.kind: c for c in rows}
     assert {"terms", "privacy", "acceptable_use"} <= set(kinds)
-    assert kinds["terms"].version == "1.0" and kinds["terms"].document_id and kinds["terms"].granted
+    current = (await client.get("/api/v1/legal/terms")).json()["version"]
+    assert kinds["terms"].version == current and kinds["terms"].document_id and kinds["terms"].granted
     assert kinds["terms"].method == "signup_checkbox"
     assert kinds["marketing_email"].granted is False  # marketing is a separate, unticked choice
     assert r.json()["user"]["email_verified"] is False

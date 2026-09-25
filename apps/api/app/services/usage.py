@@ -6,10 +6,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import LimitExceeded
+from app.core.errors import AppError, LimitExceeded
 from app.models import (
     AIUsage,
     ClassSection,
@@ -105,19 +105,77 @@ async def credit_cost(kind: str, quantity: int = 1) -> int:
     return int(costs.get(kind, 1)) * quantity
 
 
-async def check(db: AsyncSession, user: User, resource: str, amount: int) -> None:
+GENERATION_JOB_TYPES = ("course_plan", "lesson_generation", "slide_regeneration", "document_generation",
+                        "media_generation")
+
+
+async def plan_limits(db: AsyncSession, user: User) -> dict[str, Any]:
+    """Runtime limits for the user's plan from the admin-editable `plan_limits` setting ("*" is the fallback)."""
+    plan, _ = await get_plan(db, user)
+    cfg = await get_setting("plan_limits")
+    return {**(cfg.get("*") or {}), **(cfg.get(plan.code) or {})}
+
+
+async def lock_user(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Serialise credit checks for one user until the caller's transaction ends (commit or rollback)."""
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"), {"k": f"credits:{user_id}"})
+
+
+async def reserved(db: AsyncSession, user_id: uuid.UUID) -> int:
+    from app.models import GenerationJob
+
+    return int((await db.execute(select(func.coalesce(func.sum(GenerationJob.credits_reserved), 0)).where(
+        GenerationJob.owner_id == user_id, GenerationJob.status.in_(("queued", "running"))))).scalar_one())
+
+
+async def check_generation_allowed(db: AsyncSession, user: User, jobs: int = 1) -> None:
+    """Platform switches and per-plan daily volume. Staff are exempt from plan limits, not from the kill switch."""
+    from app.models import GenerationJob
+
+    system = await get_setting("system")
+    if not system.get("ai_generation_enabled", True):
+        raise AppError("ai_paused", "AI generation is paused for maintenance. Please try again shortly.", 503)
+    if system.get("require_email_verification_for_generation") and not user.email_verified and user.role != "admin":
+        raise AppError("email_unverified", "Please confirm your email address before generating content.", 403)
+    if user.role == "admin" or jobs <= 0:
+        return
+    daily = (await plan_limits(db, user)).get("daily_generations")
+    if daily is None or daily < 0:
+        return
+    since = datetime.now(UTC) - timedelta(hours=24)
+    today = (await db.execute(select(func.count()).select_from(GenerationJob).where(
+        GenerationJob.owner_id == user.id, GenerationJob.type.in_(GENERATION_JOB_TYPES),
+        GenerationJob.created_at >= since))).scalar_one()
+    if today + jobs > int(daily):
+        plan, _ = await get_plan(db, user)
+        raise LimitExceeded(
+            f"Your {plan.name} plan allows {daily} generations a day. You can generate more tomorrow, or upgrade "
+            f"for a higher daily limit.", {"resource": "daily_generations", "limit": daily, "used": today,
+                                           "needed": jobs, "plan": plan.code})
+
+
+async def check(db: AsyncSession, user: User, resource: str, amount: int, *, jobs: int = 0) -> None:
+    """Server-side limit check. Takes a per-user lock held until the caller commits, and counts credits already
+    reserved by queued/running jobs, so two simultaneous requests can't both spend the last credits. Callers
+    enqueue with credits_reserved=<cost> in the same transaction."""
+    if resource == "credits":
+        await check_generation_allowed(db, user, jobs)
     if user.role == "admin":
         return
     plan, sub = await get_plan(db, user)
     limit = plan.limits.get(resource if resource != "credits" else "credits")
     if limit is None or limit == -1:
         return
+    await lock_user(db, user.id)
     spent = await used(db, user.id, resource, period_start(sub))
-    if spent + amount > int(limit):
+    held = await reserved(db, user.id) if resource == "credits" else 0
+    if spent + held + amount > int(limit):
+        left = max(0, int(limit) - spent - held)
         raise LimitExceeded(
-            f"This needs {amount} {resource.replace('_', ' ')} but only {max(0, int(limit) - spent)} are left on "
-            f"your {plan.name} plan this month.",
-            {"resource": resource, "limit": limit, "used": spent, "needed": amount, "plan": plan.code})
+            f"This needs {amount} {resource.replace('_', ' ')} but only {left} are left on "
+            f"your {plan.name} plan this month" + (" (some are held by lessons still generating)." if held else "."),
+            {"resource": resource, "limit": limit, "used": spent, "reserved": held, "needed": amount,
+             "plan": plan.code})
 
 
 def ledger_event_type(reason: str, amount: int) -> str:
@@ -213,6 +271,22 @@ async def adjust(db: AsyncSession, user_id: uuid.UUID, amount: int, *, resource:
                        actor_id=actor_id, meta={"reason": reason})
     db.add(row)
     return row
+
+
+async def check_storage(db: AsyncSession, user: User, adding_bytes: int) -> None:
+    """Per-plan storage quota (limits.storage_mb), counted from the teacher's live uploads."""
+    if user.role == "admin":
+        return
+    plan, _ = await get_plan(db, user)
+    limit = plan.limits.get("storage_mb")
+    if limit is None or limit == -1:
+        return
+    stored = (await db.execute(select(func.coalesce(func.sum(UploadedFile.size_bytes), 0)).where(
+        UploadedFile.owner_id == user.id, UploadedFile.deleted_at.is_(None)))).scalar_one()
+    if stored + adding_bytes > int(limit) * 1_048_576:
+        raise LimitExceeded(f"Your {plan.name} plan includes {limit} MB of storage and this file would go over it. "
+                            "Delete old uploads or upgrade.", {"resource": "storage_mb", "limit": limit,
+                                                               "used": round(stored / 1_048_576, 1)})
 
 
 async def check_count_limit(db: AsyncSession, user: User, key: str) -> None:

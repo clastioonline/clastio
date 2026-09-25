@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import logging
-import time
-import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import account, admin, assistant_memory, auth, content, media, platform, teacher
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
-from app.core.logging import configure_logging, log, request_id_var
+from app.core.http import capture_route, platform_middleware
+from app.core.logging import configure_logging, log
 
 logger = logging.getLogger("api")
 
@@ -21,12 +20,12 @@ logger = logging.getLogger("api")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, environment=settings.environment, version=settings.app_version)
     if settings.sentry_dsn:
         import sentry_sdk
 
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.1,
-                        send_default_pii=False)
+                        send_default_pii=False, release=settings.app_version)
     import app.jobs.handlers  # noqa: F401  register job handlers (inline execution)
     import app.services.assistant  # noqa: F401  register offline intent generator
     from app.ai.service import get_ai
@@ -36,35 +35,22 @@ async def lifespan(app: FastAPI):
     if settings.is_production and (settings.secret_key.startswith("dev-insecure") or len(settings.secret_key) < 32):
         raise RuntimeError("SECRET_KEY must be set to a random value of at least 32 characters in production")
     yield
+    from app.core.http import api_log
+
+    await api_log.flush()
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="PPT Genie API", version="1.0.0", lifespan=lifespan,
+    app = FastAPI(title="PPT Genie API", version=f"1.0.0+{settings.app_version}", lifespan=lifespan,
+                  dependencies=[Depends(capture_route)],
                   docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,
-                       allow_methods=["*"], allow_headers=["*"])
+                       allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+                       allow_headers=["authorization", "content-type", "idempotency-key", "x-request-id"],
+                       expose_headers=["x-request-id", "x-ratelimit-limit", "x-ratelimit-remaining", "retry-after"])
 
-    @app.middleware("http")
-    async def request_context(request: Request, call_next):
-        rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
-        token = request_id_var.set(rid)
-        start = time.monotonic()
-        try:
-            response = await call_next(request)
-        finally:
-            request_id_var.reset(token)
-        ms = int((time.monotonic() - start) * 1000)
-        response.headers["x-request-id"] = rid
-        response.headers["x-content-type-options"] = "nosniff"
-        response.headers["referrer-policy"] = "strict-origin-when-cross-origin"
-        response.headers["x-frame-options"] = "DENY"
-        if settings.is_production:
-            response.headers["strict-transport-security"] = "max-age=31536000; includeSubDomains"
-        if not request.url.path.endswith("/events"):
-            log(logger, logging.INFO, "request", method=request.method, path=request.url.path,
-                status=response.status_code, ms=ms, request_id=rid)
-        return response
+    app.middleware("http")(platform_middleware)
 
     install_error_handlers(app)
     for r in (auth.router, account.router, admin.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router):

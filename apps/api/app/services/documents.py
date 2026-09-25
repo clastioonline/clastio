@@ -89,14 +89,15 @@ async def create_document(db: AsyncSession, user: User, data: dict[str, Any]) ->
     if not (lesson_id or course_id or data.get("scope") == "month" or data.get("topic")):
         raise AppError("bad_request", "Choose a lesson, a course, a scope or a topic.", 400)
     cost = await usage.credit_cost(COST_KEY[kind])
-    await usage.check(db, user, "credits", cost)
+    await usage.check(db, user, "credits", cost, jobs=1)
     title = data.get("title") or kind.replace("_", " ").title()
     doc = Document(owner_id=user.id, lesson_id=lesson_id if kind != "assessment" or not data.get("scope") else None,
                    course_id=course_id, kind=kind, title=title, difficulty=data.get("difficulty", "mixed"),
                    content={"options": {k: v for k, v in data.items() if k not in ("kind",)}}, status="queued")
     db.add(doc)
     await db.flush()
-    job = await enqueue(db, "document_generation", {"document_id": str(doc.id)}, owner_id=user.id)
+    job = await enqueue(db, "document_generation", {"document_id": str(doc.id)}, owner_id=user.id,
+                        credits_reserved=cost)
     await db.commit()
     await run_inline_if_configured([job.id])
     return doc, job.id

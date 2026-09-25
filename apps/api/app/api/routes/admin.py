@@ -1097,3 +1097,132 @@ async def analytics_events(_: Staff("analytics.view"), db: DB, days: int = 30):
         funnel.append({"step": name, "users": users})
     return {"days": [{"day": d.date().isoformat(), "name": name, "count": n} for d, name, n, _u in rows],
             "totals": totals, "funnel": funnel}
+
+
+# --------------------------------------------------------------------------- API usage & AI cost dashboard
+
+
+def _pct(col, p: float):
+    return func.percentile_cont(p).within_group(col)
+
+
+@router.get("/api-usage")
+async def api_usage(_: Staff("api_usage.view"), db: DB, days: int = 7, route: str | None = None,
+                    user_id: uuid.UUID | None = None, status: str | None = None):
+    """Requests per day/route/user with latency percentiles, error and rate-limit counts, plus AI calls, tokens,
+    cost and failures per provider/model. Filters narrow the request statistics."""
+    since = utcnow() - timedelta(days=max(1, min(days, 90)))
+    conds = [ApiRequest.created_at >= since]
+    if route:
+        conds.append(ApiRequest.route == route)
+    if user_id:
+        conds.append(ApiRequest.user_id == user_id)
+    if status == "error":
+        conds.append(ApiRequest.status >= 500)
+    elif status == "client_error":
+        conds.append(and_(ApiRequest.status >= 400, ApiRequest.status < 500))
+    elif status == "rate_limited":
+        conds.append(ApiRequest.status == 429)
+    dur = ApiRequest.duration_ms
+    errors = func.count().filter(ApiRequest.status >= 500)
+    tot = (await db.execute(select(func.count(), errors, func.count().filter(ApiRequest.status.between(400, 499)),
+                                   func.count().filter(ApiRequest.status == 429), func.avg(dur), _pct(dur, 0.5),
+                                   _pct(dur, 0.95), _pct(dur, 0.99)).where(*conds))).one()
+    day = func.date_trunc("day", ApiRequest.created_at)
+    per_day = (await db.execute(select(day, func.count(), errors, _pct(dur, 0.95)).where(*conds).group_by(day)
+                                .order_by(day))).all()
+    by_route = (await db.execute(select(ApiRequest.method, ApiRequest.route, func.count(), errors, func.avg(dur),
+                                        _pct(dur, 0.95), _pct(dur, 0.99)).where(*conds)
+                                 .group_by(ApiRequest.method, ApiRequest.route).order_by(func.count().desc())
+                                 .limit(40))).all()
+    by_user = (await db.execute(select(ApiRequest.user_id, func.count(), errors,
+                                       func.count().filter(ApiRequest.status == 429)).where(
+        *conds, ApiRequest.user_id.is_not(None)).group_by(ApiRequest.user_id).order_by(func.count().desc())
+        .limit(20))).all()
+    emails = await _emails(db, [r[0] for r in by_user])
+
+    ai_since = [AIUsage.created_at >= since] + ([AIUsage.owner_id == user_id] if user_id else [])
+    aday = func.date_trunc("day", AIUsage.created_at)
+    ai_day = (await db.execute(select(aday, func.count(), func.count().filter(AIUsage.success.is_(False)),
+                                      func.coalesce(func.sum(AIUsage.cost_usd), 0),
+                                      func.coalesce(func.sum(AIUsage.input_tokens), 0),
+                                      func.coalesce(func.sum(AIUsage.output_tokens), 0)).where(*ai_since)
+                               .group_by(aday).order_by(aday))).all()
+    ai_models = (await db.execute(select(AIUsage.provider, AIUsage.model, func.count(),
+                                         func.count().filter(AIUsage.success.is_(False)),
+                                         func.coalesce(func.sum(AIUsage.cost_usd), 0), func.avg(AIUsage.latency_ms),
+                                         _pct(AIUsage.latency_ms, 0.95),
+                                         func.coalesce(func.sum(AIUsage.input_tokens + AIUsage.output_tokens), 0))
+                                  .where(*ai_since).group_by(AIUsage.provider, AIUsage.model)
+                                  .order_by(func.sum(AIUsage.cost_usd).desc()))).all()
+    ai_errors = (await db.execute(select(AIUsage.error_code, func.count()).where(
+        *ai_since, AIUsage.success.is_(False)).group_by(AIUsage.error_code))).all()
+    spenders = (await db.execute(select(AIUsage.owner_id, func.count(), func.coalesce(func.sum(AIUsage.cost_usd), 0))
+                                 .where(*ai_since, AIUsage.owner_id.is_not(None)).group_by(AIUsage.owner_id)
+                                 .order_by(func.sum(AIUsage.cost_usd).desc()).limit(15))).all()
+    emails.update(await _emails(db, [r[0] for r in spenders]))
+
+    def ms(v) -> int | None:
+        return int(v) if v is not None else None
+
+    return {
+        "totals": {"requests": tot[0], "server_errors": tot[1], "client_errors": tot[2], "rate_limited": tot[3],
+                   "error_rate": round(tot[1] / tot[0], 4) if tot[0] else 0, "avg_ms": ms(tot[4]),
+                   "p50_ms": ms(tot[5]), "p95_ms": ms(tot[6]), "p99_ms": ms(tot[7])},
+        "per_day": [{"day": d.date().isoformat(), "requests": n, "errors": e, "p95_ms": ms(p)}
+                    for d, n, e, p in per_day],
+        "by_route": [{"method": m, "route": r, "requests": n, "errors": e, "avg_ms": ms(a), "p95_ms": ms(p95),
+                      "p99_ms": ms(p99)} for m, r, n, e, a, p95, p99 in by_route],
+        "by_user": [{"user_id": str(u), "email": emails.get(u), "requests": n, "errors": e, "rate_limited": rl}
+                    for u, n, e, rl in by_user],
+        "ai": {
+            "per_day": [{"day": d.date().isoformat(), "calls": n, "failures": f, "cost_usd": round(float(c), 4),
+                         "input_tokens": int(i), "output_tokens": int(o)} for d, n, f, c, i, o in ai_day],
+            "by_model": [{"provider": p, "model": m, "calls": n, "failures": f, "cost_usd": round(float(c), 4),
+                          "avg_ms": ms(a), "p95_ms": ms(p95), "tokens": int(t)} for p, m, n, f, c, a, p95, t in ai_models],
+            "errors": [{"code": c or "error", "count": n} for c, n in ai_errors],
+            "top_spenders": [{"user_id": str(u), "email": emails.get(u), "calls": n, "cost_usd": round(float(c), 4)}
+                             for u, n, c in spenders],
+        },
+    }
+
+
+# --------------------------------------------------------------------------- system health
+
+
+@router.get("/system/health")
+async def system_health(_: Staff("system.logs.view"), db: DB):
+    from app.api.routes.platform import ready
+    from app.models import ProviderHealth
+
+    now = utcnow()
+    readiness = json.loads((await ready()).body)
+    jobs = dict((await db.execute(select(GenerationJob.status, func.count()).where(
+        GenerationJob.created_at >= now - timedelta(days=1)).group_by(GenerationJob.status))).all())
+    oldest = (await db.execute(select(func.min(GenerationJob.created_at)).where(GenerationJob.status == "queued"))
+              ).scalar()
+    emails = dict((await db.execute(select(EmailOutbox.status, func.count()).where(
+        EmailOutbox.created_at >= now - timedelta(days=7)).group_by(EmailOutbox.status))).all())
+    hooks = dict((await db.execute(select(WebhookEvent.status, func.count()).where(
+        WebhookEvent.created_at >= now - timedelta(days=7)).group_by(WebhookEvent.status))).all())
+    hour = now - timedelta(hours=1)
+    req_total, req_err = (await db.execute(select(func.count(), func.count().filter(ApiRequest.status >= 500))
+                                           .where(ApiRequest.created_at >= hour))).one()
+    providers = (await db.execute(select(ProviderHealth))).scalars().all()
+    critical = (await db.execute(select(func.count()).select_from(SecurityEvent).where(
+        SecurityEvent.severity == "critical", SecurityEvent.created_at >= now - timedelta(days=1)))).scalar_one()
+    return {
+        "ready": readiness,
+        "queue": {"last_24h": jobs, "queued_now": (await db.execute(select(func.count()).select_from(GenerationJob)
+                                                                    .where(GenerationJob.status == "queued"))).scalar_one(),
+                  "oldest_queued_minutes": int((now - oldest).total_seconds() // 60) if oldest else 0},
+        "emails_7d": emails,
+        "webhooks_7d": hooks,
+        "api_last_hour": {"requests": req_total, "server_errors": req_err,
+                          "error_rate": round(req_err / req_total, 4) if req_total else 0},
+        "providers": [{"provider": p.provider, "failures": p.failures, "successes": p.successes,
+                       "circuit_open": bool(p.open_until and p.open_until > now), "open_until": _iso(p.open_until),
+                       "last_error": (p.last_error or "")[:300], "avg_latency_ms": int(p.avg_latency_ms or 0),
+                       "updated_at": _iso(p.updated_at)} for p in providers],
+        "critical_security_events_24h": critical,
+    }

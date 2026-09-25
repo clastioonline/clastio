@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.service import get_ai
 from app.core.db import get_sessionmaker
+from app.core.deps import can_access
 from app.core.errors import AppError, LimitExceeded, NotFound
 from app.core.storage import get_storage
 from app.jobs.queue import JobContext, enqueue, run_inline_if_configured
@@ -111,6 +112,8 @@ async def create(db: AsyncSession, user: User, *, kind: str, prompt: str, style:
     else:
         seconds = None
     cost = cost_of(cfg, kind, seconds)
+    await usage.check_generation_allowed(db, user, jobs=1)
+    await usage.lock_user(db, user.id)  # balance check and charge happen atomically for this user
     available = await balance(db, user)
     if user.role != "admin" and available < cost:
         raise LimitExceeded(f"This {kind} needs {cost} media credits and you have {available}. Buy a pack to "
@@ -131,7 +134,7 @@ async def create(db: AsyncSession, user: User, *, kind: str, prompt: str, style:
 
 async def get_item(db: AsyncSession, user: User, media_id: uuid.UUID) -> MediaItem:
     item = await db.get(MediaItem, media_id)
-    if item is None or (item.owner_id != user.id and user.role != "admin"):
+    if item is None or not can_access(user, item.owner_id):
         raise NotFound("Media")
     return item
 

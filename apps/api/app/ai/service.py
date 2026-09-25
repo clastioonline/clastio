@@ -11,9 +11,10 @@ import uuid
 from collections import OrderedDict
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import update
+from sqlalchemy import func, update
 
 from app.ai.anthropic_provider import AnthropicProvider
 from app.ai.base import (
@@ -81,6 +82,36 @@ class _LRU:
             self.data.popitem(last=False)
 
 
+class CircuitBreaker:
+    """Per-provider breaker: after FAILURE_THRESHOLD consecutive failures a provider is skipped for OPEN_SECONDS,
+    then one trial call is allowed (half-open). State is mirrored to provider_health for the admin console, and
+    breakers opened by another process are respected once that table is re-read."""
+
+    FAILURE_THRESHOLD = 5
+    OPEN_SECONDS = 60
+
+    def __init__(self) -> None:
+        self.failures: dict[str, int] = {}
+        self.open_until: dict[str, float] = {}
+
+    def is_open(self, provider: str) -> bool:
+        return self.open_until.get(provider, 0) > time.time()
+
+    def success(self, provider: str) -> None:
+        self.failures[provider] = 0
+        self.open_until.pop(provider, None)
+
+    def failure(self, provider: str) -> bool:
+        """Count a failure; returns True if this failure opened the breaker."""
+        n = self.failures.get(provider, 0) + 1
+        self.failures[provider] = n
+        if n >= self.FAILURE_THRESHOLD and not self.is_open(provider):
+            self.open_until[provider] = time.time() + self.OPEN_SECONDS
+            self.failures[provider] = self.FAILURE_THRESHOLD - 1  # half-open: one more failure re-opens
+            return True
+        return False
+
+
 class AIService:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -94,6 +125,7 @@ class AIService:
         self._cache = _LRU()
         self._overrides: dict[str, Any] = {}
         self._overrides_at = 0.0
+        self.breaker = CircuitBreaker()
 
     # ------------------------------------------------------------------ routing
 
@@ -114,10 +146,22 @@ class AIService:
             from app.services.settings import get_app_settings
 
             self._overrides = await get_app_settings(["model_routing", "ai_pricing"])
+            await self._load_breakers()
         except Exception:  # DB not ready (e.g. CLI usage) - keep env defaults
             self._overrides = {}
         self._overrides_at = time.monotonic()
         return self._overrides
+
+    async def _load_breakers(self) -> None:
+        from sqlalchemy import select
+
+        from app.core.db import get_sessionmaker
+        from app.models import ProviderHealth
+
+        async with get_sessionmaker()() as s:
+            for row in (await s.execute(select(ProviderHealth))).scalars().all():
+                if row.open_until and row.open_until.timestamp() > self.breaker.open_until.get(row.provider, 0):
+                    self.breaker.open_until[row.provider] = row.open_until.timestamp()
 
     def _configured(self, tier: Tier, overrides: dict[str, Any]) -> str:
         routing = overrides.get("model_routing") or {}
@@ -137,6 +181,8 @@ class AIService:
             model = PROVIDER_DEFAULTS.get(prov, {}).get(tier)
             if model and not any(r.provider == prov for r in chain):
                 chain.append(Route(prov, model))
+        healthy = [r for r in chain if not self.breaker.is_open(r.provider)]
+        chain = healthy or chain  # if every provider is tripped, still try them rather than fail outright
         chain.append(Route("offline", "offline"))
         return chain
 
@@ -150,16 +196,43 @@ class AIService:
         log(logger, logging.INFO if success else logging.WARNING, "ai_call", task=task, provider=route.provider,
             model=route.model, in_tok=usage.input_tokens, out_tok=usage.output_tokens,
             cached=usage.cached_tokens, cost_usd=cost, latency_ms=latency_ms, success=success, error=error)
+        opened = False
+        if route.provider != "offline":
+            if success:
+                self.breaker.success(route.provider)
+            else:
+                opened = self.breaker.failure(route.provider)
         try:
-            from app.core.db import get_sessionmaker
-            from app.models import AIUsage, GenerationJob
+            from sqlalchemy.dialects.postgresql import insert
+
+            from app.core.db import get_sessionmaker, utcnow
+            from app.core.logging import request_id_var
+            from app.models import AIUsage, GenerationJob, ProviderHealth
 
             async with get_sessionmaker()() as s:
                 s.add(AIUsage(owner_id=owner_id, job_id=job_id, task=task, provider=route.provider,
                               model=route.model, prompt_version=prompt_version,
                               input_tokens=usage.input_tokens, output_tokens=usage.output_tokens,
                               cached_tokens=usage.cached_tokens, images=usage.images, cost_usd=cost,
-                              latency_ms=latency_ms, success=success, error=(error or "")[:2000] or None))
+                              latency_ms=latency_ms, success=success, error=(error or "")[:2000] or None,
+                              request_id=request_id_var.get(), error_code=_error_code(error) if error else None))
+                if route.provider != "offline":
+                    open_until = self.breaker.open_until.get(route.provider)
+                    values = {"failures": self.breaker.failures.get(route.provider, 0), "updated_at": utcnow(),
+                              "open_until": datetime.fromtimestamp(open_until, UTC) if open_until else None}
+                    if not success:
+                        values["last_error"] = (error or "")[:1000]
+                    stmt = insert(ProviderHealth).values(provider=route.provider, successes=int(success),
+                                                         avg_latency_ms=float(latency_ms), **values)
+                    await s.execute(stmt.on_conflict_do_update(index_elements=["provider"], set_={
+                        **values, "successes": ProviderHealth.successes + int(success),
+                        "avg_latency_ms": (func.coalesce(ProviderHealth.avg_latency_ms, latency_ms) * 0.9
+                                           + latency_ms * 0.1)}))
+                if opened:
+                    from app.services.events import security_event
+
+                    security_event(s, "provider_circuit_open", severity="warning", provider=route.provider,
+                                   error=(error or "")[:300])
                 if job_id and cost:
                     await s.execute(update(GenerationJob).where(GenerationJob.id == job_id)
                                     .values(cost_usd=GenerationJob.cost_usd + cost))
@@ -344,6 +417,16 @@ class AIService:
                                    latency_ms=int((time.monotonic() - start) * 1000), owner_id=owner_id,
                                    job_id=job_id)
         raise last or AIError(f"{tier} generation failed", retryable=True)
+
+
+def _error_code(error: str) -> str:
+    e = error.lower()
+    for code, needles in (("timeout", ("timeout", "timed out")), ("rate_limited", ("429", "rate limit", "overloaded")),
+                          ("auth", ("401", "invalid api key", "authentication")), ("refused", ("refus", "declin")),
+                          ("invalid_output", ("validation", "truncated", "json")), ("server", ("500", "502", "503"))):
+        if any(n in e for n in needles):
+            return code
+    return "error"
 
 
 _service: AIService | None = None

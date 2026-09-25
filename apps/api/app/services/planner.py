@@ -161,7 +161,7 @@ async def prepare(db: AsyncSession, user: User, days: list[date], *, with_docume
             lesson = await db.get(Lesson, lid)
             course = await db.get(Course, lesson.course_id)
             slides_total += course.slides_per_lecture
-        await usage.check(db, user, "credits", await usage.credit_cost("slide", slides_total))
+        await usage.check(db, user, "credits", await usage.credit_cost("slide", slides_total), jobs=len(lesson_ids))
         for lid, minutes, day_s in lesson_ids:
             lesson = await db.get(Lesson, lid)
             course = await db.get(Course, lesson.course_id)
@@ -171,7 +171,8 @@ async def prepare(db: AsyncSession, user: User, days: list[date], *, with_docume
                          f"tight: fewer, focused slides and a shorter activity.")
             lesson.status = "generating"
             job = await enqueue(db, "lesson_generation", {"lesson_id": str(lid), "instructions": instr},
-                                owner_id=user.id, dedupe=True)
+                                owner_id=user.id, dedupe=True,
+                                credits_reserved=await usage.credit_cost("slide", course.slides_per_lecture))
             job_ids.append(job.id)
     await db.commit()
     await run_inline_if_configured(job_ids)

@@ -32,6 +32,10 @@ class RateLimiter:
             self._redis = redis.from_url(url)
 
     async def hit(self, key: str, capacity: int, refill_per_s: float, cost: float = 1.0) -> bool:
+        return (await self.take(key, capacity, refill_per_s, cost))[0]
+
+    async def take(self, key: str, capacity: int, refill_per_s: float, cost: float = 1.0) -> tuple[bool, int]:
+        """Spend `cost` tokens. Returns (allowed, tokens left) for the X-RateLimit-Remaining header."""
         if self._redis is not None:
             return await self._hit_redis(key, capacity, refill_per_s, cost)
         now = time.monotonic()
@@ -42,8 +46,8 @@ class RateLimiter:
         b.updated = now
         if b.tokens >= cost:
             b.tokens -= cost
-            return True
-        return False
+            return True, int(b.tokens)
+        return False, 0
 
     _LUA = """
     local key = KEYS[1]
@@ -55,12 +59,12 @@ class RateLimiter:
     if t >= cost then t = t - cost; ok = 1 end
     redis.call('HMSET', key, 't', t, 'u', now)
     redis.call('EXPIRE', key, math.ceil(cap / rate) + 10)
-    return ok
+    return {ok, math.floor(t)}
     """
 
-    async def _hit_redis(self, key: str, capacity: int, refill_per_s: float, cost: float) -> bool:
-        ok = await self._redis.eval(self._LUA, 1, f"rl:{key}", capacity, refill_per_s, time.time(), cost)
-        return bool(ok)
+    async def _hit_redis(self, key: str, capacity: int, refill_per_s: float, cost: float) -> tuple[bool, int]:
+        ok, left = await self._redis.eval(self._LUA, 1, f"rl:{key}", capacity, refill_per_s, time.time(), cost)
+        return bool(ok), int(left)
 
     def reset(self) -> None:
         self._local.clear()

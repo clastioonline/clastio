@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.service import get_ai
 from app.core.db import get_sessionmaker, utcnow
-from app.core.errors import AppError, Forbidden, NotFound
+from app.core.errors import AppError, NotFound
 from app.core.logging import log
 from app.core.storage import get_storage
 from app.engine.qc.visual import RenderError, inspect
@@ -59,8 +59,13 @@ async def get_owned(db: AsyncSession, model, obj_id: uuid.UUID, user: User):
     if obj is None:
         raise NotFound(model.__name__)
     owner = getattr(obj, "owner_id", None) or getattr(obj, "user_id", None)
-    if owner != user.id and user.role != "admin":
-        raise Forbidden()
+    if owner != user.id:
+        from app.core.deps import staff_permissions
+
+        # Another teacher's resource looks exactly like a missing one (no id enumeration). Staff need the
+        # users.content permission to open teachers' content.
+        if "users.content" not in staff_permissions(user):
+            raise NotFound(model.__name__)
     return obj
 
 
@@ -104,7 +109,8 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
     if data["num_lectures"] > max_lectures and user.role != "admin":
         raise AppError("limit_exceeded", f"Your {plan.name} plan allows up to {max_lectures} lectures per course.",
                        402)
-    await usage.check(db, user, "credits", await usage.credit_cost("course_plan"))
+    plan_cost = await usage.credit_cost("course_plan")
+    await usage.check(db, user, "credits", plan_cost, jobs=1)
     tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
     template = await resolve_template(db, user.id, data.get("template_id"))
     project = Project(owner_id=user.id, title=f"{data['topic']} — Grade {data['grade']}", kind="course",
@@ -124,7 +130,8 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
                     status="planning")
     db.add(course)
     await db.flush()
-    job = await enqueue(db, "course_plan", {"course_id": str(course.id)}, owner_id=user.id)
+    job = await enqueue(db, "course_plan", {"course_id": str(course.id)}, owner_id=user.id,
+                        credits_reserved=plan_cost)
     from app.services.events import track
 
     track(db, "project_created", user_id=user.id, lectures=data["num_lectures"], subject=data["subject"])
@@ -196,14 +203,14 @@ async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
     lessons = (await db.execute(select(Lesson).where(Lesson.course_id == course_id).order_by(Lesson.number))
                ).scalars().all()
     targets = [lesson for lesson in lessons if not lesson_numbers or lesson.number in lesson_numbers]
-    cost = await usage.credit_cost("slide", course.slides_per_lecture * len(targets))
-    await usage.check(db, user, "credits", cost)
+    per_lesson = await usage.credit_cost("slide", course.slides_per_lecture)
+    await usage.check(db, user, "credits", per_lesson * len(targets), jobs=len(targets))
     job_ids = []
     for lesson in targets:
         lesson.status = "generating"
         lesson.error = None
         job = await enqueue(db, "lesson_generation", {"lesson_id": str(lesson.id), "instructions": instructions},
-                            owner_id=user.id, dedupe=True)
+                            owner_id=user.id, dedupe=True, credits_reserved=per_lesson)
         job_ids.append(job.id)
     course.status = "generating"
     project = await db.get(Project, course.project_id)
@@ -527,9 +534,11 @@ async def regenerate_slide(db: AsyncSession, user: User, lesson_id: uuid.UUID, n
     text = QUICK_ACTIONS.get(action or "", "") + (" " + instruction if instruction else "")
     if not text.strip():
         raise AppError("bad_request", "Choose an action or describe the change.", 400)
-    await usage.check(db, user, "credits", await usage.credit_cost("slide"))
+    cost = await usage.credit_cost("slide")
+    await usage.check(db, user, "credits", cost, jobs=1)
     job = await enqueue(db, "slide_regeneration", {"lesson_id": str(lesson_id), "slide_number": number,
-                                                   "instruction": text.strip()}, owner_id=user.id)
+                                                   "instruction": text.strip()}, owner_id=user.id,
+                        credits_reserved=cost)
     await db.commit()
     await run_inline_if_configured([job.id])
     return job.id

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.db import get_sessionmaker
-from app.core.deps import DB, CurrentUser
+from app.core.deps import DB, CurrentUser, can_access
 from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.core.security import verify_signed_value
@@ -57,6 +57,33 @@ def upload_out(f: UploadedFile) -> dict[str, Any]:
             "stage": f.stage, "error": f.error, "page_count": f.page_count, "created_at": f.created_at.isoformat()}
 
 
+async def upload_limit_mb(db, user) -> int:
+    """The smallest of: the server cap, the admin's platform cap and the teacher's plan cap."""
+    from app.core.config import get_settings
+    from app.services.settings import get_setting_cached
+
+    caps = [get_settings().max_upload_mb, int((await get_setting_cached("system")).get("max_upload_mb", 100))]
+    if user.role != "admin":
+        plan_cap = (await usage.plan_limits(db, user)).get("max_upload_mb")
+        if plan_cap:
+            caps.append(int(plan_cap))
+    return max(1, min(caps))
+
+
+async def read_limited(file: UploadFile, limit_mb: int) -> bytes:
+    """Read the upload in chunks and stop as soon as it passes the limit, so a huge file can't exhaust memory."""
+    limit = limit_mb * 1024 * 1024
+    if file.size is not None and file.size > limit:
+        raise AppError("file_too_large", f"Files must be smaller than {limit_mb} MB on your plan.", 413)
+    chunks, total = [], 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > limit:
+            raise AppError("file_too_large", f"Files must be smaller than {limit_mb} MB on your plan.", 413)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @router.post("/uploads", dependencies=[Depends(rate_limit("upload", 20, 3600))])
 async def upload(user: CurrentUser, db: DB, file: UploadFile = File(...), kind: str = Form("style"),
                  name: str | None = Form(None), rights_confirmed: bool = Form(False)):
@@ -64,7 +91,8 @@ async def upload(user: CurrentUser, db: DB, file: UploadFile = File(...), kind: 
         raise AppError("bad_request", "kind must be style or source", 400)
     if kind == "style":
         await usage.check_count_limit(db, user, "style_profiles")
-    data = await file.read()
+    data = await read_limited(file, await upload_limit_mb(db, user))
+    await usage.check_storage(db, user, len(data))
     row, is_new = await store_upload(db, owner_id=user.id, filename=file.filename or "upload", data=data, kind=kind,
                                      rights_confirmed=rights_confirmed)
     job_id = None
@@ -567,7 +595,7 @@ async def list_jobs(user: CurrentUser, db: DB, active: bool = False):
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: uuid.UUID, user: CurrentUser, db: DB):
     j = await db.get(GenerationJob, job_id)
-    if j is None or (j.owner_id != user.id and user.role != "admin"):
+    if j is None or not can_access(user, j.owner_id):
         raise NotFound("Job")
     return job_out(j)
 
@@ -581,7 +609,7 @@ async def job_events(job_id: uuid.UUID, request: Request, user: CurrentUser):
                 return
             async with get_sessionmaker()() as s:
                 j = await s.get(GenerationJob, job_id)
-                if j is None or (j.owner_id != user.id and user.role != "admin"):
+                if j is None or not can_access(user, j.owner_id):
                     yield {"event": "error", "data": json.dumps({"message": "not found"})}
                     return
                 data = job_out(j)
@@ -607,7 +635,10 @@ async def download(key: str, exp: int, sig: str, fn: str | None = None):
     storage = get_storage()
     if not isinstance(storage, LocalStorage):
         raise HTTPException(status_code=404, detail="Not found")
-    path = storage.local_path(key)
+    try:
+        path = storage.local_path(key)
+    except ValueError:  # a key that escapes the storage root
+        raise HTTPException(status_code=404, detail="Not found") from None
     if not path.exists():
         raise HTTPException(status_code=404, detail="Not found")
     import mimetypes
