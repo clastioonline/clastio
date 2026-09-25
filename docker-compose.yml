@@ -1,0 +1,104 @@
+# Full stack on one machine: Postgres (pgvector), Redis, API, worker and web.
+#
+#   cp .env.example .env        # add at least one AI provider key for real content
+#   docker compose up -d --build
+#   open http://localhost:3000   (demo: sara@example.com / teacher-demo-123)
+#
+# Without an AI key everything still runs in demo mode with built-in sample content.
+
+name: ai-teacher-assistant
+
+x-backend: &backend
+  build:
+    context: apps/api
+    args:
+      BASE_IMAGE: ${API_BASE_IMAGE:-ubuntu:24.04}
+  image: ai-teacher-assistant-api:local
+  env_file:
+    - path: .env
+      required: false
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/teacher_assistant
+    REDIS_URL: redis://redis:6379/0
+    STORAGE_LOCAL_DIR: /app/var/storage
+    PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+  volumes:
+    - storage:/app/var/storage
+  restart: unless-stopped
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: teacher_assistant
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d teacher_assistant"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+
+  # One-off: apply migrations and seed plans, templates, curricula (and demo accounts unless SEED_DEMO=false).
+  migrate:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed"]
+    environment:
+      <<: *backend-env
+      SEED_DEMO: ${SEED_DEMO:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *backend
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker", "--concurrency", "${WORKER_CONCURRENCY:-4}"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: apps/web
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-bookworm-slim}
+        API_URL: http://api:8000
+    image: ai-teacher-assistant-web:local
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:

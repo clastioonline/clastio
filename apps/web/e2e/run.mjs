@@ -1,4 +1,5 @@
-// End-to-end browser test of the core teacher journey against a running web + API + worker.
+// End-to-end browser test of the core teacher journey against a running web + API + worker
+// (demo accounts seeded, so run `python -m app.seed --demo` or use docker compose).
 //   BASE_URL=http://localhost:3000 node e2e/run.mjs
 import { chromium } from "playwright-core";
 import fs from "node:fs";
@@ -7,7 +8,9 @@ import path from "node:path";
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const OUT = process.env.OUT || path.resolve("e2e/screenshots");
 const SAMPLE = process.env.SAMPLE || path.resolve("../../samples/science_ms_sara.pptx");
-const CHROME = process.env.CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+// Use CHROME if given, else a preinstalled Chromium if present, else Playwright's own (`npx playwright-core install chromium`).
+const PREINSTALLED = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const CHROME = process.env.CHROME || (fs.existsSync(PREINSTALLED) ? PREINSTALLED : undefined);
 fs.mkdirSync(OUT, { recursive: true });
 
 const step = (name) => console.log(`\n▶ ${name}`);
