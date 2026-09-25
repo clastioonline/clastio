@@ -588,6 +588,29 @@ class WebhookEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
 
 
+class MediaItem(TimestampMixin, Base):
+    """An AI-generated image or video from the media studio. Always labelled as AI-generated."""
+
+    __tablename__ = "media_items"
+    __table_args__ = (Index("ix_media_owner_created", "owner_id", "created_at"),)
+    id: Mapped[uuid.UUID] = pk()
+    owner_id: Mapped[uuid.UUID] = fk("users.id")
+    kind: Mapped[str] = mapped_column(String(10))  # image | video
+    prompt: Mapped[str] = mapped_column(Text)
+    style: Mapped[str | None] = mapped_column(String(60))
+    aspect: Mapped[str] = mapped_column(String(10), default="16:9")
+    seconds: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="queued")  # queued | running | ready | failed
+    credits: Mapped[int] = mapped_column(Integer, default=0)
+    provider: Mapped[str | None] = mapped_column(String(20))
+    model: Mapped[str | None] = mapped_column(String(80))
+    mime_type: Mapped[str | None] = mapped_column(String(60))
+    storage_key: Mapped[str | None] = mapped_column(String(500))
+    size_bytes: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    job_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
 # --------------------------------------------------------------------------- WhatsApp
 
 

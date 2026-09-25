@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     model_qc: str = "anthropic:claude-haiku-4-5"
     model_embedding: str = "openai:text-embedding-3-small"
     model_image: str = "openai:gpt-image-1-mini"
+    model_video: str = "openai:sora-2"
     embedding_dim: int = 1536
     ai_request_timeout_s: float = 180.0
     ai_max_concurrency: int = 6
@@ -72,6 +73,12 @@ class Settings(BaseSettings):
     stripe_secret_key: str | None = None
     stripe_webhook_secret: str | None = None
     stripe_prices: dict[str, str] = Field(default_factory=dict)  # {"teacher_monthly": "price_..."}
+
+    # Dodo Payments (merchant of record: handles VAT/GST, cards, UPI and local methods in the UAE and India)
+    dodo_payments_api_key: str | None = None
+    dodo_payments_webhook_key: str | None = None
+    dodo_payments_environment: Literal["test_mode", "live_mode"] = "test_mode"
+    dodo_products: dict[str, str] = Field(default_factory=dict)  # {"teacher_month": "pdt_...", ...}
 
     # --- WhatsApp Cloud API ---
     whatsapp_token: str | None = None

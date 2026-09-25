@@ -15,6 +15,8 @@ os.environ["OPENVERSE_ENABLED"] = "false"
 os.environ["STORAGE_LOCAL_DIR"] = tempfile.mkdtemp(prefix="ata-test-storage-")
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_dummy"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_secret"
+os.environ["DODO_PAYMENTS_WEBHOOK_KEY"] = "whsec_dGVzdC1kb2RvLXdlYmhvb2stc2VjcmV0LTEyMzQ="
+os.environ["DODO_PAYMENTS_API_KEY"] = ""
 os.environ["WHATSAPP_APP_SECRET"] = "wa_test_secret"
 os.environ["WHATSAPP_VERIFY_TOKEN"] = "verify-me"
 os.environ["ANTHROPIC_API_KEY"] = ""

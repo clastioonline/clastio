@@ -136,6 +136,7 @@ try {
     ["/whatsapp", "WhatsApp assistant", "16-whatsapp"],
     ["/billing", "Plan & billing", "17-billing"],
     ["/settings", "Settings", "18-settings"],
+    ["/media", "Media studio", "18b-media"],
   ]) {
     await page.goto(BASE + route);
     await page.getByText(text).first().waitFor();
@@ -186,6 +187,9 @@ try {
   await page.goto(BASE + "/admin/ai-costs");
   await page.getByRole("heading", { name: "Model routing", exact: true }).waitFor();
   await shot("23-admin-ai-costs");
+  await page.goto(BASE + "/admin/media");
+  await page.getByRole("heading", { name: "Payment gateway" }).waitFor();
+  await shot("24-admin-media");
 
   const serious = errors.filter((e) => !/hydrat|favicon|401|Unauthorized|Not signed in/i.test(e));
   assert(serious.length === 0, `no browser errors (${serious.join(" | ").slice(0, 300)})`);

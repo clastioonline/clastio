@@ -23,6 +23,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.base import AIError
 from app.ai.service import get_ai
 from app.core.config import get_settings
 from app.core.logging import log
@@ -165,7 +166,10 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 prompt = (f"Clean educational illustration for a school slide: {s.visual.description or s.title}. "
                           "Simple, accurate, friendly flat style, plain light background, no text, no labels, "
                           "no watermarks.")
-                res = await ai.image(prompt, "1536x1024", owner_id=owner_id, job_id=job_id)
+                try:
+                    res = await ai.image(prompt, "1536x1024", owner_id=owner_id, job_id=job_id)
+                except AIError:  # a missing picture must not fail the lesson; a placeholder is used instead
+                    res = None
                 if res:
                     source, lic, data = "ai", "AI-generated (owned by the teacher)", res.data
                     counters["ai"] += 1

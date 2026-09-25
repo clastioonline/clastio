@@ -12,7 +12,7 @@ from typing import Any, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
 
-Tier = Literal["planning", "content", "fast", "vision", "qc", "embedding", "image"]
+Tier = Literal["planning", "content", "fast", "vision", "qc", "embedding", "image", "video"]
 Effort = Literal["low", "medium", "high"]
 
 T = TypeVar("T", bound=BaseModel)
@@ -49,6 +49,7 @@ class Usage:
     output_tokens: int = 0
     cached_tokens: int = 0
     images: int = 0
+    video_seconds: int = 0
 
 
 @dataclass
@@ -101,3 +102,5 @@ class AIProvider(Protocol):
     async def generate_embedding(self, model: str, texts: list[str], dim: int) -> tuple[list[list[float]], Usage]: ...
 
     async def generate_image(self, model: str, prompt: str, size: str) -> ImageResult: ...
+
+    async def generate_video(self, model: str, prompt: str, seconds: int, aspect: str) -> ImageResult: ...

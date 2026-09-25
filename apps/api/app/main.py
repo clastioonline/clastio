@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import assistant_memory, auth, content, platform, teacher
+from app.api.routes import assistant_memory, auth, content, media, platform, teacher
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging, log, request_id_var
@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
         return response
 
     install_error_handlers(app)
-    for r in (auth.router, teacher.router, content.router, assistant_memory.router, platform.router):
+    for r in (auth.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router):
         app.include_router(r, prefix="/api/v1")
     return app
 

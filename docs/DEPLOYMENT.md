@@ -56,12 +56,31 @@ Everything below is optional. Each integration switches on as soon as its creden
 ### AI providers
 Add keys for the providers you want. The defaults route planning to `claude-opus-5`, writing and QC to `claude-sonnet-5` and `claude-haiku-4-5`, and embeddings and images to OpenAI. Change routing in **Admin → AI costs** without a redeploy; the same page shows spend per model and per task. Keep `EMBEDDING_DIM` at 1536 unless you also migrate the vector columns.
 
-### Stripe
+### Dodo Payments (recommended for the UAE and India)
+Dodo Payments is a merchant of record: it charges customers, handles VAT/GST and supports cards, UPI and local methods. When both gateways are configured, **Admin → Payments & media** decides which one checkout uses ("Automatic" prefers Dodo).
+
+1. In the Dodo dashboard, create an API key (Developer → API keys) and set `DODO_PAYMENTS_API_KEY`. Use `DODO_PAYMENTS_ENVIRONMENT=test_mode` with test keys and `live_mode` with live keys.
+2. Add a webhook endpoint `https://teach.example.com/api/v1/webhooks/dodo` and set its signing secret as `DODO_PAYMENTS_WEBHOOK_KEY`. Subscribe to `subscription.active`, `subscription.renewed`, `subscription.updated`, `subscription.plan_changed`, `subscription.on_hold`, `subscription.cancelled`, `subscription.expired`, `subscription.failed`, `payment.succeeded` and `payment.failed`. Signatures are verified with Standard Webhooks, and repeat deliveries are ignored.
+3. Create products:
+   - one **subscription** product per paid plan and interval (Teacher, Teacher Pro, AI Teaching Assistant × monthly/yearly), priced in the dashboard;
+   - one **one-time** product per media credit pack (Starter, Creator, Studio by default).
+4. Paste the product ids (`pdt_…`) into **Admin → Payments & media**: plan products under "Dodo product ids for plans", pack products in each pack row. A plan or pack without a product id is not offered for online payment.
+
+The customer portal (the "Manage payment" button) and cancellation at the end of the period work through the Dodo API.
+
+### Stripe (alternative)
 1. Create products and monthly/annual prices for the paid plans. Put their ids in `STRIPE_PRICES`, e.g. `{"teacher_monthly":"price_…","pro_monthly":"price_…","assistant_monthly":"price_…"}`.
 2. Add a webhook endpoint `https://teach.example.com/api/v1/webhooks/stripe` for `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
 3. Enable the Customer Portal in the Stripe dashboard (used by "Manage payment" on the billing page).
 
-Plan limits and prices shown in the app are rows in the `plans` table, so change them there, not in code.
+Media packs sold through Stripe use each pack's AED price from the admin page. Plan limits and prices shown in the app are rows in the `plans` table, so change them there, not in code.
+
+### Media studio (paid add-on)
+Teachers generate images and short videos on the **Media studio** page, paid with *media credits*, a wallet separate from lesson credits. Everything is set in **Admin → Payments & media**: on/off, credits per image and per video second, allowed video lengths, styles, the image and video models, credit packs and their prices, and manual credit grants (audit-logged). A plan can also include a monthly allowance through its `media_credits_monthly` limit.
+
+- Images use the image tier (OpenAI `gpt-image-1-mini` by default, Gemini as fallback); videos use `MODEL_VIDEO` (OpenAI `sora-2` by default, or Gemini Veo). Both need the matching provider key; without one, the studio produces labelled demo placeholders.
+- Credits are charged when a request starts and refunded automatically if generation fails or the provider declines it.
+- Files are stored exactly as the provider returns them, so embedded provenance data (such as C2PA content credentials) is kept. Items are labelled "AI-generated" in the app and in their download names.
 
 ### WhatsApp (official Cloud API only)
 1. In Meta for Developers, create an app with the WhatsApp product, add and verify the business phone number, and create a permanent system-user token. Set `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` and `WHATSAPP_APP_SECRET`.

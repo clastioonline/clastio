@@ -46,11 +46,12 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "openai": {
         "planning": "gpt-5.5", "content": "gpt-5.4-mini", "fast": "gpt-5.4-nano", "vision": "gpt-5.4-mini",
         "qc": "gpt-5.4-nano", "embedding": "text-embedding-3-small", "image": "gpt-image-1-mini",
+        "video": "sora-2",
     },
     "gemini": {
         "planning": "gemini-2.5-pro", "content": "gemini-3.5-flash", "fast": "gemini-3.1-flash-lite",
         "vision": "gemini-3.5-flash", "qc": "gemini-3.1-flash-lite", "embedding": "gemini-embedding-001",
-        "image": "gemini-2.5-flash-image",
+        "image": "gemini-2.5-flash-image", "video": "veo-3.0-fast-generate-001",
     },
 }
 PROVIDER_ORDER = ["anthropic", "openai", "gemini"]
@@ -299,23 +300,50 @@ class AIService:
                 continue
         raise AIError("Embedding failed", retryable=False)
 
+    async def _media_routes(self, tier: Tier, model: str | None) -> list[Route]:
+        """Routes for image/video, with an optional admin-chosen "provider:model" tried first."""
+        chain = [r for r in await self.routes(tier) if r.provider != "offline"]
+        if model and ":" in model:
+            prov, name = model.split(":", 1)
+            if prov in self.live_providers:
+                chain = [Route(prov, name)] + [r for r in chain if (r.provider, r.model) != (prov, name)]
+        return chain
+
     async def image(self, prompt: str, size: str = "1536x1024", owner_id: uuid.UUID | None = None,
-                    job_id: uuid.UUID | None = None) -> ImageResult | None:
-        for route in await self.routes("image"):
-            if route.provider == "offline":
-                return None
+                    job_id: uuid.UUID | None = None, model: str | None = None,
+                    task: str = "image") -> ImageResult | None:
+        """Generate an image. Returns None in offline mode (callers fall back to a placeholder)."""
+        return await self._media(task, "image", model, owner_id, job_id,
+                                 lambda p, m: p.generate_image(m, prompt, size))
+
+    async def video(self, prompt: str, seconds: int = 4, aspect: str = "16:9", owner_id: uuid.UUID | None = None,
+                    job_id: uuid.UUID | None = None, model: str | None = None) -> ImageResult | None:
+        """Generate a short video clip. Returns None in offline mode."""
+        return await self._media("video", "video", model, owner_id, job_id,
+                                 lambda p, m: p.generate_video(m, prompt, seconds, aspect))
+
+    async def _media(self, task: str, tier: Tier, model: str | None, owner_id: uuid.UUID | None,
+                     job_id: uuid.UUID | None, call) -> ImageResult | None:
+        routes = await self._media_routes(tier, model)
+        if not routes:
+            return None
+        last: AIError | None = None
+        for route in routes:
             start = time.monotonic()
             try:
-                result = await self.providers[route.provider].generate_image(route.model, prompt, size)
-                await self._record(task="image", route=route, usage=result.usage, success=True,
+                result = await call(self.providers[route.provider], route.model)
+                await self._record(task=task, route=route, usage=result.usage, success=True,
                                    latency_ms=int((time.monotonic() - start) * 1000), owner_id=owner_id,
                                    job_id=job_id)
                 return result
+            except AIRefusal:
+                raise
             except AIError as e:
-                await self._record(task="image", route=route, usage=Usage(), success=False, error=str(e),
+                last = e
+                await self._record(task=task, route=route, usage=Usage(), success=False, error=str(e),
                                    latency_ms=int((time.monotonic() - start) * 1000), owner_id=owner_id,
                                    job_id=job_id)
-        return None
+        raise last or AIError(f"{tier} generation failed", retryable=True)
 
 
 _service: AIService | None = None

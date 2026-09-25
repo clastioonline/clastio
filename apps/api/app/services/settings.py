@@ -19,6 +19,30 @@ DEFAULTS: dict[str, Any] = {
     "ai_pricing": {},
     "feature_flags": {"whatsapp": True, "ai_images": True, "openverse": True, "vision_qc": False},
     "qc": {"min_body_pt": 16, "min_title_pt": 24, "max_repair_attempts": 2, "max_words_per_slide": 70},
+    # Which payment gateway checkout uses: "auto" picks Dodo Payments when its key is set, else Stripe.
+    # Product ids are created in the gateway dashboard; they are not secrets, so admins manage them here.
+    "billing": {"provider": "auto", "dodo_products": {}},
+    # Media studio: AI image and video generation, paid with media credits (separate from lesson credits).
+    "media": {
+        "enabled": True,
+        "image_credits": 2,
+        "video_credits_per_second": 3,
+        "video_seconds": [4, 8],
+        "image_model": "",  # "provider:model"; empty uses the image tier routing
+        "video_model": "",  # empty uses the video tier routing
+        "styles": ["photorealistic", "natural classroom photo", "illustration", "diagram", "3d render",
+                   "watercolour", "cartoon"],
+        "packs": [
+            {"code": "starter", "name": "Starter", "credits": 50, "price_aed": 19, "dodo_product_id": "",
+             "active": True},
+            {"code": "creator", "name": "Creator", "credits": 200, "price_aed": 59, "dodo_product_id": "",
+             "active": True},
+            {"code": "studio", "name": "Studio", "credits": 600, "price_aed": 149, "dodo_product_id": "",
+             "active": True},
+        ],
+    },
+    # Look of the web app. Teachers can still pick their own in Settings.
+    "ui": {"default_skin": "classic"},
 }
 
 

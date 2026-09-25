@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 from typing import Any
 
 from pydantic import ValidationError
 
-from app.ai.base import AIError, AIRequest, ImageResult, StructuredResult, T, TextResult, Usage
+from app.ai.base import AIError, AIRefusal, AIRequest, ImageResult, StructuredResult, T, TextResult, Usage
 from app.ai.schema_utils import extract_json, strict_schema
 from app.core.config import get_settings
 
@@ -130,3 +132,38 @@ class GeminiProvider:
                     return ImageResult(part.inline_data.data, part.inline_data.mime_type or "image/png",
                                        Usage(images=1), model, self.name)
         raise AIError("Gemini returned no image", retryable=False, provider=self.name)
+
+    async def generate_video(self, model: str, prompt: str, seconds: int, aspect: str) -> ImageResult:
+        """Veo via a long-running operation: start, poll, then download the MP4."""
+        from google.genai import types
+
+        assert self._client is not None
+        seconds = max(4, min(8, seconds))
+        try:
+            op = await self._client.aio.models.generate_videos(
+                model=model, prompt=prompt,
+                config=types.GenerateVideosConfig(number_of_videos=1, duration_seconds=seconds,
+                                                  aspect_ratio="9:16" if aspect == "9:16" else "16:9"))
+            deadline = time.monotonic() + 600
+            while not op.done:
+                if time.monotonic() > deadline:
+                    raise AIError("Gemini video timed out", retryable=True, provider=self.name)
+                await asyncio.sleep(8)
+                op = await self._client.aio.operations.get(op)
+        except AIError:
+            raise
+        except Exception as e:
+            raise AIError(f"Gemini video error: {e}", retryable=True, provider=self.name) from e
+        if op.error:
+            raise AIError(f"Gemini video error: {op.error}", retryable=False, provider=self.name)
+        resp = op.response or op.result
+        videos = (resp.generated_videos if resp else None) or []
+        if not videos:
+            reasons = "; ".join((resp.rai_media_filtered_reasons or []) if resp else []) or "no video returned"
+            raise AIRefusal(reasons, provider=self.name)
+        video = videos[0].video
+        data = video.video_bytes if video and video.video_bytes else await self._client.aio.files.download(file=video)
+        if not data:
+            raise AIError("Gemini returned an empty video", retryable=True, provider=self.name)
+        return ImageResult(data, (video.mime_type if video else None) or "video/mp4", Usage(video_seconds=seconds),
+                           model, self.name)

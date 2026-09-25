@@ -79,3 +79,17 @@ async def document_generation(ctx: JobContext) -> dict[str, Any]:
 
 
 on_failure("document_generation")(documents.on_document_failed)
+
+
+@handler("media_generation", queue="ai")
+async def media_generation(ctx: JobContext) -> dict[str, Any]:
+    from app.services import media
+
+    return await media.handle_media_generation(ctx)
+
+
+@on_failure("media_generation")
+async def media_generation_failed(ctx: JobContext, error: str) -> None:
+    from app.services import media
+
+    await media.handle_media_failed(ctx, error)

@@ -14,10 +14,12 @@ import {
   Menu,
   MessageCircle,
   Brain,
+  ImagePlay,
   NotebookPen,
   Palette,
   Settings,
   Sparkles,
+  Wallet,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -38,6 +40,7 @@ const NAV = [
   { href: "/calendar", key: "nav.calendar", label: "Calendar & timetable", icon: CalendarDays },
   { href: "/curriculum", key: "nav.curriculum", label: "Classes & curriculum", icon: GraduationCap },
   { href: "/templates", key: "nav.templates", label: "Design templates", icon: Palette },
+  { href: "/media", key: "nav.media", label: "Media studio", icon: ImagePlay },
   { href: "/teacher-memory", key: "nav.memory", label: "Teacher memory", icon: Brain },
   { href: "/whatsapp", key: "nav.whatsapp", label: "WhatsApp", icon: MessageCircle },
 ];
@@ -48,8 +51,8 @@ const NAV_BOTTOM = [
 
 function NavLink({ href, label, icon: Icon, active, onClick }: { href: string; label: string; icon: any; active: boolean; onClick?: () => void }) {
   return (
-    <Link href={href} onClick={onClick}
-      className={cn("focus-ring group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+    <Link href={href} onClick={onClick} data-active={active}
+      className={cn("ui-nav focus-ring group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
         active ? "bg-brand-600 text-white shadow-sm" : "text-ink-2 hover:bg-surface-2 hover:text-ink")}>
       <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-white" : "text-muted group-hover:text-brand-600")} />
       <span className="truncate">{label}</span>
@@ -116,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <X className="h-5 w-5" />
         </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto" aria-label="Main">
+      <nav className="-mx-4 flex flex-1 flex-col gap-1 overflow-y-auto px-4" aria-label="Main">
         {NAV.map((n) => <NavLink key={n.href} href={n.href} label={t(n.key, n.label)} icon={n.icon} active={isActive(n.href)} />)}
         <div className="my-2 border-t border-line" />
         {NAV_BOTTOM.map((n) => <NavLink key={n.href} href={n.href} label={t(n.key, n.label)} icon={n.icon} active={isActive(n.href)} />)}
@@ -124,6 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <>
             <NavLink href="/admin" label={t("nav.admin", "Admin")} icon={LayoutGrid} active={pathname === "/admin"} />
             <NavLink href="/admin/ai-costs" label="AI costs" icon={ChartColumn} active={pathname === "/admin/ai-costs"} />
+            <NavLink href="/admin/media" label="Payments & media" icon={Wallet} active={pathname === "/admin/media"} />
           </>
         )}
       </nav>

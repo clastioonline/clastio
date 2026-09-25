@@ -33,6 +33,14 @@ IMAGE_PRICES: dict[str, float] = {
     "imagen-4.0-generate-001": 0.04,
 }
 
+# USD per generated second of video (estimates at 720p; verify on provider pricing pages).
+VIDEO_PRICES: dict[str, float] = {
+    "sora-2": 0.10,
+    "sora-2-pro": 0.30,
+    "veo-3.0-fast-generate-001": 0.15,
+    "veo-3.0-generate-001": 0.40,
+}
+
 DEFAULT_PRICE = (1.0, 5.0, 0.1)
 
 
@@ -47,4 +55,7 @@ def cost_usd(model: str, usage: Usage, overrides: dict | None = None) -> float:
     inp, out, cached = prices.get(model, DEFAULT_PRICE)
     total = (usage.input_tokens * inp + usage.output_tokens * out + usage.cached_tokens * cached) / 1_000_000
     total += usage.images * img_prices.get(model, 0.04)
+    if usage.video_seconds:
+        vid_prices = {**VIDEO_PRICES, **((overrides or {}).get("video", {}))}
+        total += usage.video_seconds * vid_prices.get(model, 0.30)
     return round(total, 6)

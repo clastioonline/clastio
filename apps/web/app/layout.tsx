@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
@@ -18,6 +19,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
       </body>

@@ -17,14 +17,14 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
           <div className="mt-6 text-sm text-muted">{footer}</div>
         </div>
       </div>
-      <div className="relative hidden overflow-hidden bg-brand-700 lg:block">
+      <div className="ui-hero relative hidden overflow-hidden bg-brand-600 lg:block">
         <div className="absolute -end-20 -top-20 h-96 w-96 rounded-full bg-brand-500/40 blur-3xl" />
         <div className="absolute -bottom-24 -start-10 h-80 w-80 rounded-full bg-accent-500/30 blur-3xl" />
         <div className="relative flex h-full flex-col justify-end p-12 text-white">
           <p className="max-w-md text-2xl font-medium leading-snug">
             Upload last year's slides once. Every lesson after that comes out in your own template, with your fonts, colours and logo.
           </p>
-          <ul className="mt-6 space-y-2 text-sm text-brand-100">
+          <ul className="mt-6 space-y-2 text-sm text-white/80">
             <li>• Connected lesson sequences, not repeated slides</li>
             <li>• Worksheets, quizzes and homework with answer keys</li>
             <li>• Your daily plan on WhatsApp</li>

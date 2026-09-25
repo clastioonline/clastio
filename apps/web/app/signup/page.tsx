@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthLayout, OAuthButtons, TermsNote } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -12,6 +12,11 @@ export default function SignupPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    // The landing page's email box passes the address along.
+    const email = new URLSearchParams(window.location.search).get("email");
+    if (email) setForm((f) => ({ ...f, email }));
+  }, []);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e: React.FormEvent) => {

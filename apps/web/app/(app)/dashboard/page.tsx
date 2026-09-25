@@ -194,11 +194,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-5 rounded-3xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 p-6 text-white shadow-[var(--shadow-pop)] sm:p-8 lg:flex-row lg:items-end lg:justify-between">
+      <div className="ui-hero flex flex-col gap-5 rounded-3xl bg-gradient-to-br from-brand-800 via-brand-600 to-brand-500 p-6 text-white shadow-[var(--shadow-pop)] sm:p-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 lg:flex-1">
-          <div className="text-sm text-brand-100">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div>
+          <div className="text-sm text-white/80">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{greeting(user?.name)}{"\u00a0"}👋</h1>
-          <p className="mt-2 max-w-xl text-brand-100">
+          <p className="mt-2 max-w-xl text-white/80">
             {total ? `${total} class${total > 1 ? "es" : ""} today · ${ready} ready to teach` : "Your teaching assistant is ready when you are."}
           </p>
           {total > 0 && <Progress value={(ready / total) * 100} className="mt-3 h-1.5 max-w-xs bg-white/20" tone="accent" />}

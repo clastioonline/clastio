@@ -52,6 +52,13 @@ async def health():
             "ai_providers": ai.live_providers, "environment": get_settings().environment}
 
 
+@router.get("/public/config", tags=["health"])
+async def public_config():
+    """Non-secret settings the web app needs before sign-in."""
+    ui = (await get_app_settings(["ui"]))["ui"]
+    return {"default_skin": ui.get("default_skin", "classic")}
+
+
 # --------------------------------------------------------------------------- billing
 
 
@@ -63,8 +70,9 @@ def plan_out(p: Plan) -> dict[str, Any]:
 @router.get("/billing/plans", tags=["billing"])
 async def plans(db: DB):
     rows = (await db.execute(select(Plan).where(Plan.active.is_(True)).order_by(Plan.sort))).scalars().all()
+    provider = await billing.active_provider_name()
     return {"items": [plan_out(p) for p in rows], "currency": "AED", "vat_rate": 0.05,
-            "online_payments": bool(get_settings().stripe_secret_key)}
+            "online_payments": provider is not None, "payment_provider": provider}
 
 
 @router.get("/billing/subscription", tags=["billing"])
@@ -102,8 +110,18 @@ async def cancel(user: CurrentUser, db: DB):
 @router.post("/webhooks/stripe", tags=["webhooks"])
 async def stripe_webhook(request: Request, db: DB):
     payload = await request.body()
-    event = billing.get_provider("stripe").verify(payload, request.headers.get("stripe-signature"))
+    event = (await billing.get_provider("stripe")).verify(payload, request.headers.get("stripe-signature"))
     result = await billing.handle_stripe_event(db, event)
+    return {"received": True, "result": result}
+
+
+@router.post("/webhooks/dodo", tags=["webhooks"])
+async def dodo_webhook(request: Request, db: DB):
+    """Dodo Payments events, signed with Standard Webhooks (webhook-id / webhook-timestamp / webhook-signature)."""
+    payload = await request.body()
+    headers = {k: request.headers.get(k, "") for k in ("webhook-id", "webhook-timestamp", "webhook-signature")}
+    event = billing.verify_dodo_webhook(payload, headers)
+    result = await billing.handle_dodo_event(db, event, headers["webhook-id"])
     return {"received": True, "result": result}
 
 
@@ -331,10 +349,45 @@ async def admin_settings(_: AdminUser):
     return await get_app_settings()
 
 
+def _validate_setting(key: str, value: dict[str, Any]) -> None:
+    """Reject admin edits that would break checkout or the media studio."""
+
+    def bad(msg: str) -> AppError:
+        return AppError("invalid_setting", msg, 422)
+
+    if key == "billing":
+        if value.get("provider", "auto") not in ("auto", "dodo", "stripe"):
+            raise bad("Payment provider must be auto, dodo or stripe.")
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in (value.get("dodo_products") or {}).items()):
+            raise bad("Dodo product ids must be text.")
+    elif key == "media":
+        for field in ("image_credits", "video_credits_per_second"):
+            if field in value and (not isinstance(value[field], int) or value[field] < 0):
+                raise bad(f"{field} must be a whole number of credits (0 or more).")
+        secs = value.get("video_seconds", [4, 8])
+        if not secs or not all(isinstance(x, int) and 1 <= x <= 20 for x in secs):
+            raise bad("Video lengths must be whole seconds between 1 and 20.")
+        codes = set()
+        for p in value.get("packs", []):
+            if not p.get("code") or not p.get("name") or p["code"] in codes:
+                raise bad("Every pack needs a unique code and a name.")
+            if not isinstance(p.get("credits"), int) or p["credits"] <= 0:
+                raise bad(f"Pack {p['code']}: credits must be a positive whole number.")
+            if not isinstance(p.get("price_aed", 0), int | float) or p.get("price_aed", 0) < 0:
+                raise bad(f"Pack {p['code']}: price must be a number.")
+            codes.add(p["code"])
+        for field in ("image_model", "video_model"):
+            if value.get(field) and ":" not in value[field]:
+                raise bad(f"{field} must look like provider:model, e.g. openai:sora-2.")
+    elif key == "ui" and value.get("default_skin", "classic") not in ("classic", "forest"):
+        raise bad("Theme must be classic or forest.")
+
+
 @router.put("/admin/settings/{key}", tags=["admin"])
 async def admin_set_setting(key: str, value: dict[str, Any], admin: AdminUser, db: DB):
     if key not in DEFAULTS:
         raise AppError("bad_request", "Unknown setting", 400)
+    _validate_setting(key, value)
     await set_setting(key, value)
     db.add(AuditLog(actor_id=admin.id, action="admin_update_setting", target=key, details=value))
     await db.commit()

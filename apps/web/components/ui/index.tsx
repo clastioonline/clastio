@@ -19,7 +19,7 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "accent" | "outlin
 type Size = "sm" | "md" | "lg" | "icon";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm",
+  primary: "bg-brand-600 text-white hover:brightness-110 shadow-sm",
   accent: "bg-accent-500 text-ink hover:bg-accent-400 shadow-sm",
   secondary: "bg-surface-2 text-ink hover:bg-line",
   outline: "border border-line-strong bg-surface text-ink hover:bg-surface-2",
@@ -45,7 +45,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const cls = cn(
-    "focus-ring inline-flex items-center justify-center font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none select-none whitespace-nowrap",
+    "ui-btn focus-ring inline-flex items-center justify-center font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none select-none whitespace-nowrap",
     variants[variant],
     sizes[size],
     className,

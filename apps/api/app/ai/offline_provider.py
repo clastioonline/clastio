@@ -114,6 +114,9 @@ class OfflineProvider:
     async def generate_embedding(self, model: str, texts: list[str], dim: int):
         return [hash_embedding(t, dim) for t in texts], Usage(input_tokens=sum(_estimate_tokens(t) for t in texts))
 
+    async def generate_video(self, model: str, prompt: str, seconds: int, aspect: str) -> ImageResult:
+        raise AIError("Offline mode does not generate videos", retryable=False, provider=self.name)
+
     async def generate_image(self, model: str, prompt: str, size: str) -> ImageResult:
         raise AIError("Offline mode does not generate images", retryable=False, provider=self.name)
 

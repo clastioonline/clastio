@@ -19,7 +19,9 @@ A teacher uploads a deck they have taught with. The assistant learns its design:
 | **Planning** | Classes, timetable (CSV import), school calendar (holidays, Ramadan timings, short days), "prepare today / tomorrow / my week", reflections that carry unfinished content into the next lesson, curriculum coverage. |
 | **Assistant** | Chat over SSE that plans, creates lessons and documents, answers "what did I teach 8B last week?" and adapts content. The same assistant is reachable over WhatsApp. |
 | **Teacher memory** | Preferences stated by the teacher or learned from their slides (always shown and editable), lesson summaries and misconceptions, retrieved with pgvector. |
-| **Business** | Plans and credits as data (no hard-coded limits), Stripe subscriptions with verified idempotent webhooks, usage metering, and an admin dashboard with AI cost per model and task. |
+| **Media studio** | Paid add-on for AI images (OpenAI / Gemini) and short videos (Sora 2 / Veo) with style presets, priced in media credits. Admins set prices, packs, models and lengths, and grant credits. Output is labelled AI-generated and keeps the provider's provenance data. |
+| **Business** | Plans and credits as data (no hard-coded limits). Dodo Payments (merchant of record, UAE/India) or Stripe for subscriptions and credit packs, chosen by the admin, with verified idempotent webhooks. Usage metering, and an admin dashboard with AI cost per model and task. |
+| **Two looks** | "Classic" (indigo) and "Forest" (green, rounded) themes, each in light and dark. Teachers pick in Settings; admins set the default. |
 | **Security & privacy** | Argon2 passwords, HttpOnly cookies, RBAC, signed download URLs, upload validation (optional ClamAV), rate limits, audit log, data export and account deletion (UAE PDPL / India DPDP). |
 
 ## Quick start (Docker)
@@ -51,7 +53,8 @@ All AI calls go through one provider-neutral service with task tiers. Routing is
 | content | slide decks, documents, rewrites | `anthropic:claude-sonnet-5` | OpenAI, Gemini |
 | fast / qc | intent routing, content QC | `anthropic:claude-haiku-4-5` | OpenAI, Gemini |
 | embedding | memory, curriculum and source retrieval | `openai:text-embedding-3-small` | Gemini |
-| image | illustrations when no CC-licensed image fits | `openai:gpt-image-1-mini` | Gemini |
+| image | illustrations when no CC-licensed image fits; media studio images | `openai:gpt-image-1-mini` | Gemini |
+| video | media studio clips | `openai:sora-2` | Gemini Veo |
 
 Style analysis uses no AI at all. It parses the PPTX XML and PDF drawing operations directly, which is exact, fast and free. Structured output uses JSON schemas end to end, so the renderer never parses free text. Images are searched on Openverse (CC-licensed, credited in the speaker notes) before one is generated, and generated images are labelled as AI-generated. Teachers can add an AI-assistance note to file metadata in Settings. The product never claims content was written by a human.
 
@@ -78,7 +81,7 @@ npm run dev                                         # http://localhost:3000 (pro
 ## Tests
 
 ```bash
-cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 50 tests
+cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 61 tests
 cd apps/web && npm run typecheck && npm run build
 cd apps/web && BASE_URL=http://localhost:3000 node e2e/run.mjs          # needs a running, demo-seeded stack
 ```
@@ -109,9 +112,10 @@ docs         product spec, research, architecture, deployment
 
 ## Current status and known limits
 
+- **Dodo Payments, Sora 2 and Veo are implemented against their official SDKs but not yet exercised against the live services.** Webhooks, checkout parameters and the video adapters are tested with signed payloads and fake SDK clients; do a test-mode purchase and one short video before launch.
 - **Live AI providers are implemented but not yet exercised against real APIs.** The Anthropic, OpenAI and Gemini adapters are unit-tested with mocked SDK clients, and every end-to-end run so far used the offline provider. The first thing to do with real keys is generate the north-star course and review content quality and cost in Admin → AI costs.
 - **Curriculum data is illustrative.** The seeded outcomes are topic-level starter sets under our own codes. Import the official framework documents (UAE MoE, CBSE, NGSS, Cambridge and others) before selling to schools.
-- **Integrations need credentials:** Stripe, WhatsApp Cloud API (message templates must be approved by Meta), Google/Microsoft sign-in, SMTP, S3. Without them the app uses manual plans, a WhatsApp simulator, email/password sign-in, logged magic links and local storage.
+- **Integrations need credentials:** Dodo Payments or Stripe, WhatsApp Cloud API (message templates must be approved by Meta), Google/Microsoft sign-in, SMTP, S3. Without them the app uses manual plans, a WhatsApp simulator, email/password sign-in, logged magic links and local storage.
 - **Arabic UI is partial.** Navigation and the dashboard are translated and the layout switches to RTL. Generated Arabic slides are fully RTL.
 - **Scanned PDFs are not supported yet.** There is no OCR, so upload the original PPTX or a text-based PDF. The same applies to scanned reference material.
 - **A vision model tier is configured but unused.** It is reserved for future scanned-page understanding.

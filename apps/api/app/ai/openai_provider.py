@@ -147,3 +147,26 @@ class OpenAIProvider:
             async with httpx.AsyncClient() as client:
                 data = (await client.get(item.url)).content
         return ImageResult(data, "image/png", Usage(images=1), model, self.name)
+
+    async def generate_video(self, model: str, prompt: str, seconds: int, aspect: str) -> ImageResult:
+        """Sora 2 via the Videos API: create, poll until done, download the MP4."""
+        assert self._client is not None
+        size = "720x1280" if aspect == "9:16" else "1280x720"
+        seconds = min((4, 8, 12), key=lambda s: abs(s - seconds))
+        try:
+            video = await self._client.videos.create_and_poll(model=model, prompt=prompt, seconds=str(seconds),
+                                                              size=size)
+        except openai.APIError as e:
+            raise AIError(f"OpenAI video error: {e}", retryable=True, provider=self.name) from e
+        if video.status != "completed":
+            err = video.error
+            code = getattr(err, "code", "") or ""
+            msg = getattr(err, "message", "") or str(err or video.status)
+            if "moderation" in code or "policy" in code:
+                raise AIRefusal(msg, provider=self.name)
+            raise AIError(f"OpenAI video {video.status}: {msg}", retryable=False, provider=self.name)
+        try:
+            content = await self._client.videos.download_content(video.id, variant="video")
+        except openai.APIError as e:
+            raise AIError(f"OpenAI video download error: {e}", retryable=True, provider=self.name) from e
+        return ImageResult(content.content, "video/mp4", Usage(video_seconds=seconds), model, self.name)

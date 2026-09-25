@@ -1,13 +1,46 @@
 "use client";
 
-import { Download, Trash } from "lucide-react";
+import { Check, Download, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Button, Card, CardHeader, Chips, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n";
+import { useTheme, type Skin } from "@/lib/theme";
 import { CURRICULA, DAYS, GRADES, SUBJECTS } from "@/lib/utils";
+
+const SKINS: { value: Skin; label: string; desc: string; swatch: string[] }[] = [
+  { value: "classic", label: "Classic", desc: "Indigo and amber, crisp cards", swatch: ["#4f46e5", "#f59e0b", "#f6f7fb"] },
+  { value: "forest", label: "Forest", desc: "Calm greens, rounded and soft", swatch: ["#1b7446", "#74c495", "#f2f3f0"] },
+];
+
+function Appearance() {
+  const { skin, mode, setSkin, setMode } = useTheme();
+  return (
+    <Card>
+      <CardHeader title="Appearance" subtitle="Saved on this device" />
+      <div className="space-y-4 p-5">
+        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Theme">
+          {SKINS.map((s) => (
+            <button key={s.value} role="radio" aria-checked={skin === s.value} onClick={() => setSkin(s.value)}
+              className={`focus-ring relative rounded-2xl border p-3 text-start transition ${skin === s.value ? "border-brand-500 ring-2 ring-brand-200" : "border-line hover:border-line-strong"}`}>
+              <div className="flex h-14 overflow-hidden rounded-xl">
+                {s.swatch.map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}
+              </div>
+              <div className="mt-2 text-sm font-medium text-ink">{s.label}</div>
+              <div className="text-xs text-muted">{s.desc}</div>
+              {skin === s.value && <Check className="absolute end-3 top-3 h-4 w-4 rounded-full bg-brand-600 p-0.5 text-white" />}
+            </button>
+          ))}
+        </div>
+        <Field label="Light or dark">
+          <Chips options={[{ value: "system", label: "Match device" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }]} value={mode} onChange={setMode} />
+        </Field>
+      </div>
+    </Card>
+  );
+}
 
 export default function Settings() {
   const { notify } = useToast();
@@ -76,6 +109,7 @@ export default function Settings() {
           </div>
         </Card>
         <div className="space-y-6">
+          <Appearance />
           <Card>
             <CardHeader title="Presentation files" subtitle="Control the metadata in files you download" />
             <div className="divide-y divide-line px-5">

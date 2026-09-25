@@ -154,5 +154,8 @@ class AnthropicProvider:
     async def generate_embedding(self, model: str, texts: list[str], dim: int):
         raise AIError("Anthropic does not provide an embeddings endpoint", retryable=False, provider=self.name)
 
+    async def generate_video(self, model: str, prompt: str, seconds: int, aspect: str) -> ImageResult:
+        raise AIError("Anthropic does not provide video generation", retryable=False, provider=self.name)
+
     async def generate_image(self, model: str, prompt: str, size: str) -> ImageResult:
         raise AIError("Anthropic does not provide image generation", retryable=False, provider=self.name)

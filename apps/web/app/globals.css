@@ -62,6 +62,10 @@
     --color-muted: #9097b3;
     --color-brand-50: #1d1f45;
     --color-brand-100: #25285a;
+    --color-brand-700: #b4b8fd; /* used as text on tinted badges; must read on dark */
+    --color-success-700: #34d399;
+    --color-danger-700: #f87171;
+    --color-warn-600: #fbbf24;
     --color-accent-50: #2a2112;
     --color-success-50: #0f2a22;
     --color-warn-50: #2a2212;
@@ -82,12 +86,146 @@
   --color-muted: #9097b3;
   --color-brand-50: #1d1f45;
   --color-brand-100: #25285a;
+  --color-brand-700: #b4b8fd;
+  --color-success-700: #34d399;
+  --color-danger-700: #f87171;
+  --color-warn-600: #fbbf24;
   --color-accent-50: #2a2112;
   --color-success-50: #0f2a22;
   --color-warn-50: #2a2212;
   --color-danger-50: #2d1517;
   --color-chart-1: #7c80f4;
   --color-chart-grid: #232a42;
+}
+
+/* ---------------------------------------------------------------------------------------------------------
+   "Forest" skin: calm greens, softer canvas, larger radii and pill buttons. Selected with <html data-skin="forest">;
+   it only swaps tokens and a few component hooks (.ui-btn, .ui-nav, .ui-hero), so every page works in both skins.
+   Chart colours validated with the dataviz palette checker (light #1b7446 on #fcfcfb, dark #38a36b on #111c16). */
+:root[data-skin="forest"] {
+  --color-canvas: #f2f3f0;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3f5f2;
+  --color-line: #e4e8e3;
+  --color-line-strong: #cfd6cd;
+  --color-ink: #121a15;
+  --color-ink-2: #36443b;
+  --color-muted: #6a766e;
+
+  --color-brand-50: #ecf7f0;
+  --color-brand-100: #d3eedd;
+  --color-brand-200: #a8dcbc;
+  --color-brand-300: #74c495;
+  --color-brand-400: #45a872;
+  --color-brand-500: #268a57;
+  --color-brand-600: #1b7446;
+  --color-brand-700: #155c38;
+  --color-brand-800: #11492d;
+  --color-brand-900: #0d3622;
+
+  --color-chart-1: #1b7446;
+  --color-chart-grid: #e6ebe5;
+  --radius-card: 1.5rem;
+  --shadow-card: 0 1px 2px rgb(16 32 22 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-skin="forest"]:not([data-theme="light"]) {
+    --color-canvas: #0b120e;
+    --color-surface: #111c16;
+    --color-surface-2: #16241c;
+    --color-line: #21332a;
+    --color-line-strong: #2d4538;
+    --color-ink: #eaf2ec;
+    --color-ink-2: #c3d2c8;
+    --color-muted: #8ea196;
+    --color-brand-50: #12261a;
+    --color-brand-100: #173222;
+    --color-brand-600: #2e8f5a;
+    --color-brand-700: #8fd3ab;
+    --color-chart-1: #38a36b;
+    --color-chart-grid: #1f3027;
+  }
+}
+
+:root[data-skin="forest"][data-theme="dark"] {
+  --color-canvas: #0b120e;
+  --color-surface: #111c16;
+  --color-surface-2: #16241c;
+  --color-line: #21332a;
+  --color-line-strong: #2d4538;
+  --color-ink: #eaf2ec;
+  --color-ink-2: #c3d2c8;
+  --color-muted: #8ea196;
+  --color-brand-50: #12261a;
+  --color-brand-100: #173222;
+  --color-brand-600: #2e8f5a;
+  --color-brand-700: #8fd3ab;
+  --color-chart-1: #38a36b;
+  --color-chart-grid: #1f3027;
+}
+
+:root[data-skin="forest"] .ui-btn {
+  border-radius: 9999px;
+}
+
+/* Sidebar: an accent bar and bold text for the current page instead of a filled pill. */
+:root[data-skin="forest"] .ui-nav[data-active="true"] {
+  background: transparent;
+  color: var(--color-ink);
+  font-weight: 600;
+  box-shadow: none;
+  position: relative;
+}
+:root[data-skin="forest"] .ui-nav[data-active="true"] svg {
+  color: var(--color-brand-600);
+}
+:root[data-skin="forest"] .ui-nav[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -1rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-brand-600);
+}
+
+/* Hero panels get a deep green with soft contour rings. */
+:root[data-skin="forest"] .ui-hero {
+  background:
+    radial-gradient(120% 140% at 100% 100%, transparent 38%, rgb(255 255 255 / 0.05) 39%, transparent 41%,
+      transparent 52%, rgb(255 255 255 / 0.05) 53%, transparent 55%, transparent 66%, rgb(255 255 255 / 0.05) 67%,
+      transparent 69%),
+    linear-gradient(135deg, #0f3d26 0%, #155c38 55%, #1f7a4a 100%);
+}
+
+/* Landing page palette (warm neutrals); the colour tiles keep their own colours in both modes. */
+.landing {
+  --l-bg: #f7f6f2;
+  --l-hero: #ece8dc;
+  --l-card: #ffffff;
+  --l-ink: #141414;
+  --l-muted: #5b584f;
+  --l-line: #e3dfd3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .landing {
+    --l-bg: #121210;
+    --l-hero: #1c1b17;
+    --l-card: #24231e;
+    --l-ink: #f3f1ea;
+    --l-muted: #aaa699;
+    --l-line: #2f2d27;
+  }
+}
+:root[data-theme="dark"] .landing {
+  --l-bg: #121210;
+  --l-hero: #1c1b17;
+  --l-card: #24231e;
+  --l-ink: #f3f1ea;
+  --l-muted: #aaa699;
+  --l-line: #2f2d27;
 }
 
 html,
