@@ -105,7 +105,7 @@ export default function WhatsAppPage() {
         <Card className="flex flex-col overflow-hidden">
           <div className="flex items-center gap-3 bg-[#075e54] px-4 py-3 text-white">
             <MessageCircle className="h-5 w-5" />
-            <div><div className="text-sm font-semibold">AI Teacher Assistant</div><div className="text-xs opacity-80">{data.live ? "Live WhatsApp" : "Simulation (no WhatsApp credentials configured)"}</div></div>
+            <div><div className="text-sm font-semibold">PPT Genie</div><div className="text-xs opacity-80">{data.live ? "Live WhatsApp" : "Simulation (no WhatsApp credentials configured)"}</div></div>
           </div>
           <div className="flex-1 space-y-2 overflow-y-auto bg-[#efeae2] p-4 dark:bg-surface-2" style={{ minHeight: 420, maxHeight: 560 }}>
             {!data.messages.length && <EmptyState title="No messages yet" description="Link your number, then messages will appear here." />}

@@ -42,7 +42,7 @@ DEFAULTS: dict[str, Any] = {
         ],
     },
     # Look of the web app. Teachers can still pick their own in Settings.
-    "ui": {"default_skin": "classic"},
+    "ui": {"default_skin": "forest"},
 }
 
 

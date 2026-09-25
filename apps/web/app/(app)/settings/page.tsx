@@ -72,7 +72,7 @@ export default function Settings() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "ai-teacher-assistant-export.json";
+    a.download = "ppt-genie-export.json";
     a.click();
   };
   const deleteAccount = async () => {

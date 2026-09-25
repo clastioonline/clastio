@@ -1,4 +1,4 @@
-# AI Teacher Assistant
+# PPT Genie
 
 An AI teaching assistant for teachers, starting in the UAE with India and international markets to follow.
 
@@ -21,7 +21,8 @@ A teacher uploads a deck they have taught with. The assistant learns its design:
 | **Teacher memory** | Preferences stated by the teacher or learned from their slides (always shown and editable), lesson summaries and misconceptions, retrieved with pgvector. |
 | **Media studio** | Paid add-on for AI images (OpenAI / Gemini) and short videos (Sora 2 / Veo) with style presets, priced in media credits. Admins set prices, packs, models and lengths, and grant credits. Output is labelled AI-generated and keeps the provider's provenance data. |
 | **Business** | Plans and credits as data (no hard-coded limits). Dodo Payments (merchant of record, UAE/India) or Stripe for subscriptions and credit packs, chosen by the admin, with verified idempotent webhooks. Usage metering, and an admin dashboard with AI cost per model and task. |
-| **Two looks** | "Classic" (indigo) and "Forest" (green, rounded) themes, each in light and dark. Teachers pick in Settings; admins set the default. |
+| **Dashboards** | Teacher dashboard (lessons prepared, weekly activity, next class, upcoming lessons, classes, curriculum coverage, lesson timer, getting-started checklist) with a Tutorials & help section. Separate admin overview (revenue, teachers, generation health, sign-ups, paying teachers, failed jobs) plus Users, AI costs and Payments & media pages. |
+| **Two looks** | "Forest" (green, rounded, default) and "Classic" (indigo), each in light and dark. Teachers pick in Settings; admins set the default. |
 | **Security & privacy** | Argon2 passwords, HttpOnly cookies, RBAC, signed download URLs, upload validation (optional ClamAV), rate limits, audit log, data export and account deletion (UAE PDPL / India DPDP). |
 
 ## Quick start (Docker)
@@ -81,7 +82,7 @@ npm run dev                                         # http://localhost:3000 (pro
 ## Tests
 
 ```bash
-cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 61 tests
+cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 62 tests
 cd apps/web && npm run typecheck && npm run build
 cd apps/web && BASE_URL=http://localhost:3000 node e2e/run.mjs          # needs a running, demo-seeded stack
 ```

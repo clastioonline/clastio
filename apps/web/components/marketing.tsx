@@ -44,7 +44,7 @@ export function MarketingFooter() {
           <p>British · CBSE · ICSE · American · IB · UAE MoE · UAE AI curriculum</p>
         </div>
       </div>
-      <div className="border-t border-line py-4 text-center text-xs text-muted">© {new Date().getFullYear()} AI Teacher Assistant</div>
+      <div className="border-t border-line py-4 text-center text-xs text-muted">© {new Date().getFullYear()} PPT Genie</div>
     </footer>
   );
 }
@@ -93,7 +93,7 @@ export function LandingFooter() {
           <p>British · CBSE · ICSE · American · IB · UAE MoE · UAE AI curriculum</p>
         </div>
       </div>
-      <div className="border-t border-[var(--l-line)] py-4 text-center text-xs text-[var(--l-muted)]">© {new Date().getFullYear()} AI Teacher Assistant</div>
+      <div className="border-t border-[var(--l-line)] py-4 text-center text-xs text-[var(--l-muted)]">© {new Date().getFullYear()} PPT Genie</div>
     </footer>
   );
 }

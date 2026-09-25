@@ -60,7 +60,12 @@ async def metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
     doc_kinds = (await db.execute(select(Document.kind, func.count()).group_by(Document.kind)
                                   .order_by(func.count().desc()))).all()
     projects = (await db.execute(select(func.count()).select_from(Project))).scalar_one()
+    recent = (await db.execute(select(User).order_by(User.created_at.desc()).limit(6))).scalars().all()
+    plan_of = {s.user_id: s.plan_code for s, _ in subs}
     return {
+        "recent_signups": [{"id": str(u.id), "name": u.name, "email": u.email, "role": u.role,
+                            "plan": plan_of.get(u.id, "free"), "created_at": u.created_at.isoformat()}
+                           for u in recent],
         "users": {"total": total_users, "active_30d": active_users, "paid": len(subs), "by_plan": by_plan},
         "revenue": {"mrr_aed": round(mrr, 2), "arr_aed": round(mrr * 12, 2)},
         "generation": {"jobs": jobs, "lesson_success_rate": round(success_rate, 3),

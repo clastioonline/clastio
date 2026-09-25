@@ -2,29 +2,32 @@
 
 import {
   ArrowRight,
-  Brain,
   CalendarCheck,
   CalendarDays,
-  ClipboardList,
+  Check,
   Clock,
-  Download,
   FileText,
+  GraduationCap,
   ListChecks,
-  Palette,
+  Pause,
+  Play,
   Plus,
   Presentation,
-  Sparkles,
+  Square,
   WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ClassChip, ProjectCard, StatusBadge } from "@/components/common";
+import { ClassChip, StatusBadge } from "@/components/common";
+import { DashHeader, HalfDonut, KpiCard, Legend, Panel, PillButton, PillChart } from "@/components/dash";
 import { DocumentDialog } from "@/components/document-dialog";
 import { errorMessage, useToast } from "@/components/toast";
-import { Badge, Button, Card, CardHeader, EmptyState, Progress, Skeleton } from "@/components/ui";
+import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
 import { greeting, useApi, useMe } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n";
+import { SETUP_STEPS } from "@/lib/tutorials";
+import { cn } from "@/lib/utils";
 
 function TodayClasses({ day, onRefresh }: { day: any; onRefresh: () => void }) {
   const { t } = useI18n();
@@ -119,6 +122,12 @@ function ReflectionPrompts() {
   );
 }
 
+function prefValue(v: any, sep = ", ") {
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (Array.isArray(v)) return v.join(sep);
+  return String(v);
+}
+
 function MemoryInsights() {
   const { data, mutate } = useApi<any>("/memory?limit=5");
   if (!data) return <Skeleton className="h-40" />;
@@ -129,50 +138,219 @@ function MemoryInsights() {
     mutate();
   };
   return (
-    <Card>
-      <CardHeader icon={<Brain className="h-5 w-5" />} title="Teacher memory" subtitle="Applied to every lesson"
-        action={<Link href="/teacher-memory" className="text-sm font-medium text-brand-600 hover:underline">Manage</Link>} />
-      <div className="space-y-3 p-5">
+    <Panel title="Teacher memory" action={<Link href="/teacher-memory" className="text-sm font-semibold text-brand-600 hover:underline">Manage</Link>}>
+      <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {confirmed.map((p: any) => <Badge key={p.key} tone="brand">{p.label}: {prefValue(p.value)}</Badge>)}
-          {!confirmed.length && <span className="text-sm text-muted">Tell the assistant how you like to teach in Teacher memory.</span>}
+          {!confirmed.length && <span className="text-sm text-muted">Tell PPT Genie how you like to teach in Teacher memory.</span>}
         </div>
         {unconfirmed.map((p: any) => (
-          <div key={p.key} className="flex items-center justify-between gap-3 rounded-xl bg-accent-50 px-3 py-2 text-sm">
+          <div key={p.key} className="flex items-center justify-between gap-3 rounded-2xl bg-accent-50 px-3 py-2 text-sm">
             <span className="text-ink-2">From your slides: <b>{p.label}</b>: {prefValue(p.value, "–")}. Keep this?</span>
             <Button size="sm" variant="outline" onClick={() => confirm(p.key)}>Keep</Button>
           </div>
         ))}
       </div>
-    </Card>
+    </Panel>
   );
 }
 
-function prefValue(v: any, sep = ", ") {
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  if (Array.isArray(v)) return v.join(sep);
-  return String(v);
+/* Getting-started checklist with links into the tutorials. Hidden once complete or dismissed. */
+function GettingStarted({ checklist }: { checklist: Record<string, boolean> }) {
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    try { setHidden(localStorage.getItem("pptg-hide-getting-started") === "1"); } catch { setHidden(false); }
+  }, []);
+  const done = SETUP_STEPS.filter((s) => checklist[s.check!]).length;
+  if (hidden || done === SETUP_STEPS.length) return null;
+  const next = SETUP_STEPS.find((s) => !checklist[s.check!]);
+  return (
+    <section className="rounded-3xl bg-surface p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold text-brand-600"><GraduationCap className="h-4 w-4" /> Getting started · {done} of {SETUP_STEPS.length} done</div>
+          <h2 className="mt-1 text-xl font-semibold text-ink">Set up PPT Genie in about 10 minutes</h2>
+          <div className="mt-3 h-2 w-64 max-w-full overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-brand-600" style={{ width: `${(done / SETUP_STEPS.length) * 100}%` }} /></div>
+        </div>
+        <div className="flex items-center gap-2">
+          {next && <PillButton href={next.href}>{next.cta} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></PillButton>}
+          <Button variant="ghost" size="sm" onClick={() => { try { localStorage.setItem("pptg-hide-getting-started", "1"); } catch {} setHidden(true); }}>Hide</Button>
+        </div>
+      </div>
+      <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        {SETUP_STEPS.map((s, i) => {
+          const ok = checklist[s.check!];
+          return (
+            <li key={s.id}>
+              <Link href={ok ? s.href : `/tutorials#${s.id}`} className={cn("flex h-full items-start gap-3 rounded-2xl border p-3 transition hover:border-brand-300",
+                ok ? "border-transparent bg-brand-50" : "border-line")}>
+                <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold",
+                  ok ? "bg-brand-600 text-white" : "bg-surface-2 text-ink-2")}>{ok ? <Check className="h-4 w-4" /> : i + 1}</span>
+                <span className="min-w-0">
+                  <span className={cn("block text-sm font-medium", ok ? "text-ink-2 line-through decoration-brand-300" : "text-ink")}>{s.title}</span>
+                  <span className="text-xs text-muted">{ok ? "Done" : `${s.minutes} min guide`}</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function NextClass({ n }: { n: any }) {
+  if (!n) {
+    return (
+      <Panel title="Next class" className="flex flex-col">
+        <p className="text-muted">Add your timetable and your next class will show here, with its lesson ready to open.</p>
+        <div className="mt-auto pt-5"><PillButton href="/calendar?tab=timetable" variant="outline">Add timetable</PillButton></div>
+      </Panel>
+    );
+  }
+  return (
+    <Panel title="Next class" className="flex flex-col">
+      <div className="text-2xl font-bold leading-snug tracking-tight text-brand-700">
+        {n.class.name} {n.class.subject}
+        {n.lesson && <span className="block text-lg font-semibold text-ink">{n.course?.topic} · L{n.lesson.number}: {n.lesson.title}</span>}
+      </div>
+      <p className="mt-2 text-muted">{n.is_today ? "Today" : new Date(n.date).toLocaleDateString(undefined, { weekday: "long" })} · {n.start} – {n.end}</p>
+      {!n.lesson && n.suggestion?.topic && <p className="mt-2 text-sm text-ink-2">Nothing planned yet. Suggested: <b>{n.suggestion.topic}</b></p>}
+      <div className="mt-auto pt-5">
+        {n.lesson ? (
+          <PillButton href={`/lessons/${n.lesson.id}`}><Presentation className="h-5 w-5" /> Open lesson</PillButton>
+        ) : (
+          <PillButton href={`/projects/new?class=${n.class.id}&topic=${encodeURIComponent(n.suggestion?.topic || "")}&grade=${n.class.grade}&subject=${encodeURIComponent(n.class.subject)}`}><Plus className="h-5 w-5" /> Plan lessons</PillButton>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+const LESSON_ICON_COLORS = ["#1b7446", "#3b5bdb", "#e0440e", "#7c3aed", "#0f766e"];
+
+function Upcoming({ items }: { items: any[] }) {
+  return (
+    <Panel title="Upcoming lessons" action={<Link href="/projects/new" className="inline-flex h-9 items-center gap-1 rounded-full border-2 border-brand-700 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"><Plus className="h-4 w-4" />New</Link>}>
+      {items.length ? (
+        <ul className="space-y-4">
+          {items.map((l, i) => (
+            <li key={l.id}>
+              <Link href={l.status === "generated" ? `/lessons/${l.id}` : `/projects/${l.project_id}`} className="group flex items-start gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: LESSON_ICON_COLORS[i % LESSON_ICON_COLORS.length] }}>
+                  <Presentation className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-ink group-hover:text-brand-700">{l.topic} · L{l.number}</span>
+                  <span className="block truncate text-xs text-muted">
+                    {l.scheduled_date ? `Teach on ${formatDate(l.scheduled_date, { day: "numeric", month: "short" })}` : `Grade ${l.grade} ${l.subject}`} · {l.status === "generated" ? "ready" : l.status === "generating" ? "building" : "to build"}
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted">No lessons waiting. Create a unit and it will show here.</p>
+      )}
+    </Panel>
+  );
+}
+
+const STATUS_BADGE: Record<string, { label: string; tone: any }> = {
+  ready: { label: "Ready", tone: "success" }, in_progress: { label: "Building", tone: "accent" }, pending: { label: "To plan", tone: "danger" },
+};
+
+function Classes({ items }: { items: any[] }) {
+  return (
+    <Panel title="Your classes" action={<Link href="/curriculum" className="inline-flex h-9 items-center gap-1 rounded-full border-2 border-brand-700 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"><Plus className="h-4 w-4" />Add class</Link>}>
+      {items.length ? (
+        <ul className="space-y-4">
+          {items.map((c) => (
+            <li key={c.id} className="flex items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ background: c.color || "#1b7446" }}>{c.name}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-ink">Grade {c.grade} {c.subject}</div>
+                <div className="truncate text-xs text-muted">{c.next_lesson ? <>Next: <span className="font-medium text-ink-2">{c.topic} · L{c.next_lesson.number} {c.next_lesson.title}</span></> : c.topic ? `${c.topic} finished` : "No unit yet"}</div>
+              </div>
+              <Badge tone={STATUS_BADGE[c.status].tone} className="shrink-0">{STATUS_BADGE[c.status].label}</Badge>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted">Add your classes so each one keeps its own pace and progress.</p>
+      )}
+    </Panel>
+  );
+}
+
+function Coverage({ c }: { c: any }) {
+  const pct = c.total ? Math.round((c.taught / c.total) * 100) : 0;
+  return (
+    <Panel title="Curriculum coverage">
+      {c.total ? (
+        <>
+          <HalfDonut total={c.total} center={`${pct}%`} caption="outcomes taught"
+            segments={[{ label: "Taught", value: c.taught, className: "text-brand-600" }, { label: "In progress", value: c.in_progress, className: "text-brand-800" }, { label: "Planned", value: c.planned, className: "text-brand-300" }]} />
+          <Legend items={[{ label: "Taught", className: "bg-brand-600", value: c.taught }, { label: "In progress", className: "bg-brand-800", value: c.in_progress }, { label: "Planned", className: "bg-brand-300", value: c.planned }, { label: "Not yet", striped: true, value: c.total - c.taught - c.in_progress - c.planned }]} />
+        </>
+      ) : (
+        <p className="text-sm text-muted">Coverage appears once your classes have curriculum outcomes. Add classes with a grade and subject to start.</p>
+      )}
+    </Panel>
+  );
+}
+
+/* A class timer: counts up, survives page changes, pause and stop. */
+function LessonTimer() {
+  const KEY = "pptg-timer";
+  const [state, setState] = useState<{ start: number | null; acc: number }>({ start: null, acc: 0 });
+  const [, tick] = useState(0);
+  useEffect(() => {
+    try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) setState(s); } catch {}
+  }, []);
+  useEffect(() => {
+    if (!state.start) return;
+    const t = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [state.start]);
+  const save = (s: typeof state) => { setState(s); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+  const elapsed = Math.floor((state.acc + (state.start ? Date.now() - state.start : 0)) / 1000);
+  const hh = String(Math.floor(elapsed / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
+  const ss = String(elapsed % 60).padStart(2, "0");
+  return (
+    <section className="ui-hero relative flex flex-col overflow-hidden rounded-3xl bg-brand-800 p-6 text-white">
+      <h2 className="text-lg font-semibold sm:text-xl">Lesson timer</h2>
+      <div className="my-6 text-center text-5xl font-bold tabular-nums tracking-tight" aria-live="off">{hh}:{mm}:{ss}</div>
+      <div className="mt-auto flex justify-center gap-3">
+        {state.start ? (
+          <button onClick={() => save({ start: null, acc: state.acc + (Date.now() - state.start!) })} aria-label="Pause timer" className="grid h-14 w-14 place-items-center rounded-full bg-white text-brand-800 hover:bg-white/90"><Pause className="h-6 w-6 fill-current" /></button>
+        ) : (
+          <button onClick={() => save({ start: Date.now(), acc: state.acc })} aria-label="Start timer" className="grid h-14 w-14 place-items-center rounded-full bg-white text-brand-800 hover:bg-white/90"><Play className="h-6 w-6 fill-current" /></button>
+        )}
+        <button onClick={() => save({ start: null, acc: 0 })} aria-label="Stop and reset timer" className="grid h-14 w-14 place-items-center rounded-full bg-danger-500 text-white hover:brightness-110"><Square className="h-5 w-5 fill-current" /></button>
+      </div>
+    </section>
+  );
 }
 
 export default function Dashboard() {
   const { user } = useMe();
-  const { t } = useI18n();
   const { notify } = useToast();
+  const { data, mutate } = useApi<any>("/me/dashboard");
   const { data: day, mutate: refreshDay } = useApi<any>("/planner/day");
-  const { data: projects } = useApi<any>("/projects?limit=6");
-  const { data: templates } = useApi<any>("/templates");
-  const { data: classes } = useApi<any>("/classes");
   const [busy, setBusy] = useState<string | null>(null);
   const [docKind, setDocKind] = useState<string | null>(null);
 
-  const preparing = day?.classes?.some((c: any) => c.lesson?.status === "generating");
+  const building = (data?.kpis?.building || 0) > 0 || day?.classes?.some((c: any) => c.lesson?.status === "generating");
   useEffect(() => {
-    if (!preparing) return;
-    const t = setInterval(() => refreshDay(), 2500);
+    if (!building) return;
+    const t = setInterval(() => { mutate(); refreshDay(); }, 3000);
     return () => clearInterval(t);
-  }, [preparing, refreshDay]);
+  }, [building, mutate, refreshDay]);
 
-  const prepare = async (scope: "today" | "tomorrow" | "week") => {
+  const prepare = async (scope: "today" | "week") => {
     setBusy(scope);
     try {
       const r = await api<any>("/planner/prepare", { body: { scope, with_documents: scope === "today" } });
@@ -181,6 +359,7 @@ export default function Dashboard() {
         title: r.lessons_queued ? `Preparing ${r.lessons_queued} lesson${r.lessons_queued > 1 ? "s" : ""}` : "Everything is already prepared",
         body: r.lessons_queued ? "They'll appear here as each one is ready." : undefined,
       });
+      mutate();
       refreshDay();
     } catch (e) {
       notify({ tone: "error", title: "Couldn't prepare", body: errorMessage(e) });
@@ -189,106 +368,64 @@ export default function Dashboard() {
     }
   };
 
-  const ready = day?.classes?.filter((c: any) => c.lesson?.materials?.pptx).length || 0;
-  const total = day?.classes?.length || 0;
-
+  const k = data?.kpis;
   return (
-    <div className="space-y-6">
-      <div className="ui-hero flex flex-col gap-5 rounded-3xl bg-gradient-to-br from-brand-800 via-brand-600 to-brand-500 p-6 text-white shadow-[var(--shadow-pop)] sm:p-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 lg:flex-1">
-          <div className="text-sm text-white/80">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{greeting(user?.name)}{"\u00a0"}👋</h1>
-          <p className="mt-2 max-w-xl text-white/80">
-            {total ? `${total} class${total > 1 ? "es" : ""} today · ${ready} ready to teach` : "Your teaching assistant is ready when you are."}
-          </p>
-          {total > 0 && <Progress value={(ready / total) * 100} className="mt-3 h-1.5 max-w-xs bg-white/20" tone="accent" />}
-        </div>
-        <div className="flex flex-wrap gap-2 lg:max-w-lg lg:justify-end">
-          <Button variant="accent" size="lg" loading={busy === "today"} onClick={() => prepare("today")}>
-            <WandSparkles className="h-5 w-5" /> {t("dash.prepareToday", "Create today's teaching plan")}
-          </Button>
-          <Button className="bg-white/15 text-white hover:bg-white/25" size="lg" loading={busy === "tomorrow"} onClick={() => prepare("tomorrow")}>
-            {t("dash.prepareTomorrow", "Prepare tomorrow")}
-          </Button>
-          <Button className="bg-white/15 text-white hover:bg-white/25" size="lg" loading={busy === "week"} onClick={() => prepare("week")}>
-            <CalendarCheck className="h-5 w-5" /> {t("dash.prepareWeek", "Prepare my week")}
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <DashHeader title="Dashboard" subtitle={`${greeting(user?.name)}. Plan, prepare and teach with ease.`}
+        actions={<>
+          <PillButton href="/projects/new"><Plus className="h-5 w-5" /> New lessons</PillButton>
+          <PillButton variant="outline" onClick={() => prepare("week")} disabled={busy === "week"}>
+            <CalendarCheck className="h-5 w-5" /> {busy === "week" ? "Preparing…" : "Prepare my week"}
+          </PillButton>
+        </>} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { href: "/projects/new", icon: Presentation, label: t("dash.createPpt", "Create lessons & PPT") },
-          { kind: "worksheet", icon: FileText, label: t("dash.worksheet", "Create worksheet") },
-          { kind: "quiz", icon: ClipboardList, label: t("dash.quiz", "Create quiz") },
-          { href: "/assistant", icon: Sparkles, label: "Ask the assistant" },
-        ].map((a) => {
-          const inner = (
-            <>
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-50 text-brand-600"><a.icon className="h-5 w-5" /></div>
-              <span className="text-sm font-medium text-ink">{a.label}</span>
-            </>
-          );
-          const cls = "focus-ring flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-start shadow-[var(--shadow-card)] transition hover:border-brand-200 hover:bg-surface-2/50";
-          return a.href ? <Link key={a.label} href={a.href} className={cls}>{inner}</Link> :
-            <button key={a.label} className={cls} onClick={() => setDocKind(a.kind!)}>{inner}</button>;
-        })}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader icon={<CalendarDays className="h-5 w-5" />} title={t("dash.todayClasses", "Today's classes")}
-              subtitle={day?.events?.length ? day.events.map((e: any) => e.title).join(" · ") : undefined}
-              action={<Link href="/calendar" className="text-sm font-medium text-brand-600 hover:underline">Week view</Link>} />
-            <div className="mt-2"><TodayClasses day={day} onRefresh={refreshDay} /></div>
-          </Card>
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold text-ink">{t("dash.recent", "Recent projects")}</h2>
-              <Link href="/projects" className="flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline">All projects <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Link>
-            </div>
-            {!projects ? <div className="grid gap-4 sm:grid-cols-3"><Skeleton className="h-52" /><Skeleton className="h-52" /><Skeleton className="h-52" /></div> :
-              projects.items.length ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{projects.items.slice(0, 3).map((p: any) => <ProjectCard key={p.id} p={p} />)}</div>
-              ) : (
-                <EmptyState icon={<Presentation className="h-6 w-6" />} title="No lessons yet" description="Create your first course: pick a topic, number of lessons and slides."
-                  action={<Button href="/projects/new"><Plus className="h-4 w-4" /> New course</Button>} />
-              )}
+      {!data ? <Skeleton className="h-40 rounded-3xl" /> : (
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard hero label="Lessons prepared" value={k.total} trend={k.new_this_month || null} hint={k.new_this_month ? "new this month" : "Create your first unit"} href="/projects" />
+            <KpiCard label="Ready to teach" value={k.ready} hint="PowerPoints ready to open" href="/lessons" />
+            <KpiCard label="Taught" value={k.taught} hint="with reflections recorded" href="/calendar" />
+            <KpiCard label="On the way" value={k.building + k.pending} hint={k.building ? `${k.building} building now` : "waiting to be built"} href="/projects" />
           </div>
-        </div>
-        <div className="space-y-6">
+
+          <GettingStarted checklist={data.checklist} />
+
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+            <Panel title="Lessons prepared this week" className="xl:col-span-6">
+              <PillChart unit="lessons" points={data.week.map((d: any) => ({ label: d.label.slice(0, 1), value: d.value, future: d.future, highlight: d.today, title: `${d.label}: ${d.value} lesson${d.value === 1 ? "" : "s"}` }))} />
+            </Panel>
+            <div className="xl:col-span-3"><NextClass n={data.next_class} /></div>
+            <div className="xl:col-span-3"><Upcoming items={data.upcoming} /></div>
+            <div className="xl:col-span-5"><Classes items={data.classes} /></div>
+            <div className="xl:col-span-4"><Coverage c={data.coverage} /></div>
+            <div className="xl:col-span-3"><LessonTimer /></div>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <section className="rounded-3xl bg-surface xl:col-span-7">
+          <div className="flex items-center justify-between px-6 pt-6">
+            <h2 className="text-lg font-semibold text-ink sm:text-xl">Today's classes</h2>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" loading={busy === "today"} onClick={() => prepare("today")}><WandSparkles className="h-4 w-4" /> Prepare today</Button>
+              <Link href="/calendar" className="inline-flex h-8 items-center text-sm font-semibold text-brand-600 hover:underline">Week view</Link>
+            </div>
+          </div>
+          <TodayClasses day={day?.days?.[0] ?? day} onRefresh={refreshDay} />
+        </section>
+        <div className="space-y-5 xl:col-span-5">
           <ReflectionPrompts />
           <MemoryInsights />
-          <Card>
-            <CardHeader icon={<Palette className="h-5 w-5" />} title={t("dash.templates", "Your templates")}
-              action={<Link href="/templates" className="text-sm font-medium text-brand-600 hover:underline">Manage</Link>} />
-            <div className="grid grid-cols-2 gap-3 p-5">
-              {(templates?.items || []).slice(0, 4).map((tp: any) => (
-                <Link key={tp.id} href={`/templates/${tp.id}`} className="group">
-                  <div className="aspect-[16/9] overflow-hidden rounded-lg border border-line bg-surface-2">
-                    {tp.previews?.[0] && <img src={tp.previews[0]} alt={tp.name} className="h-full w-full object-cover" />}
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                    <span className="truncate font-medium text-ink group-hover:text-brand-700">{tp.name}</span>
-                    {tp.is_default && <Badge tone="success">Default</Badge>}
-                  </div>
-                </Link>
+          <Panel title="Quick create">
+            <div className="grid grid-cols-2 gap-3">
+              {[["worksheet", "Worksheet"], ["quiz", "Quiz"], ["homework", "Homework"], ["assessment", "Test"]].map(([kind, label]) => (
+                <button key={kind} onClick={() => setDocKind(kind)} className="focus-ring flex items-center gap-2 rounded-2xl border border-line px-4 py-3 text-sm font-medium text-ink hover:border-brand-300 hover:bg-brand-50">
+                  <FileText className="h-4 w-4 text-brand-600" /> {label}
+                </button>
               ))}
             </div>
-          </Card>
-          <Card>
-            <CardHeader icon={<Download className="h-5 w-5" />} title="Classes" subtitle="Curriculum progress" action={<Link href="/curriculum" className="text-sm font-medium text-brand-600 hover:underline">Open</Link>} />
-            <ul className="space-y-2 p-5">
-              {(classes?.items || []).map((c: any) => (
-                <li key={c.id} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2"><ClassChip name={c.name} color={c.color} /> <span className="text-muted">Grade {c.grade} {c.subject}</span></span>
-                  <Badge tone={c.pace === "slower" ? "accent" : "neutral"}>{c.pace} pace</Badge>
-                </li>
-              ))}
-              {!classes?.items?.length && <li className="text-sm text-muted">No classes yet.</li>}
-            </ul>
-          </Card>
+          </Panel>
         </div>
       </div>
       <DocumentDialog open={!!docKind} kind={docKind || "worksheet"} onClose={() => setDocKind(null)} />

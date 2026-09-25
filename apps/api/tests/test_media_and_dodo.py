@@ -161,10 +161,11 @@ async def test_admin_settings_are_validated(client):
     assert (await client.put("/api/v1/admin/settings/media", headers=h, json=bad)).status_code == 422
     assert (await client.put("/api/v1/admin/settings/media", headers=h, json={**media, "video_model": "sora"})
             ).status_code == 422
-    assert (await client.put("/api/v1/admin/settings/ui", headers=h, json={"default_skin": "forest"})
-            ).status_code == 200
     assert (await client.get("/api/v1/public/config")).json()["default_skin"] == "forest"
-    await client.put("/api/v1/admin/settings/ui", headers=h, json={"default_skin": "classic"})
+    assert (await client.put("/api/v1/admin/settings/ui", headers=h, json={"default_skin": "classic"})
+            ).status_code == 200
+    assert (await client.get("/api/v1/public/config")).json()["default_skin"] == "classic"
+    await client.put("/api/v1/admin/settings/ui", headers=h, json={"default_skin": "forest"})
 
 
 async def test_media_studio_charges_credits_and_labels_output(client):

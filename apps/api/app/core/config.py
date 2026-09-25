@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # --- core ---
     environment: Literal["development", "test", "production"] = "development"
-    app_name: str = "AI Teacher Assistant"
+    app_name: str = "PPT Genie"
     # The one origin browsers use. The web app proxies /api to the API, so OAuth callbacks and cookies live here too.
     public_web_url: str = "http://localhost:3000"
     secret_key: str = "dev-insecure-change-me-please-0123456789abcdef"
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
 
     # --- email ---
     smtp_url: str | None = None
-    email_from: str = "AI Teacher Assistant <no-reply@example.com>"
+    email_from: str = "PPT Genie <no-reply@example.com>"
 
     # --- OAuth (Google / Microsoft) ---
     google_client_id: str | None = None

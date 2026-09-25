@@ -136,6 +136,7 @@ try {
     ["/whatsapp", "WhatsApp assistant", "16-whatsapp"],
     ["/billing", "Plan & billing", "17-billing"],
     ["/settings", "Settings", "18-settings"],
+    ["/tutorials", "Tutorials & help", "18a-tutorials"],
     ["/media", "Media studio", "18b-media"],
   ]) {
     await page.goto(BASE + route);
@@ -176,14 +177,18 @@ try {
   await page.getByLabel("Email").fill("admin@example.com");
   await page.getByLabel("Password").fill("admin-demo-123");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(/dashboard|onboarding/);
+  await page.waitForURL(/admin|dashboard|onboarding/);
   if (page.url().includes("onboarding")) {
     await page.request.post(BASE + "/api/v1/me/onboarding/complete");
   }
   await page.goto(BASE + "/admin");
-  await page.getByText("Lessons generated per day").waitFor();
+  await page.getByRole("heading", { name: "Admin overview" }).waitFor();
+  await page.getByText("Lessons generated, last 7 days").waitFor();
   await page.waitForTimeout(800);
   await shot("22-admin");
+  await page.goto(BASE + "/admin/users");
+  await page.getByRole("heading", { name: "Users" }).waitFor();
+  await shot("22b-admin-users");
   await page.goto(BASE + "/admin/ai-costs");
   await page.getByRole("heading", { name: "Model routing", exact: true }).waitFor();
   await shot("23-admin-ai-costs");

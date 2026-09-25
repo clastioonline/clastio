@@ -4,14 +4,14 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: { default: "AI Teacher Assistant", template: "%s · AI Teacher Assistant" },
+  title: { default: "PPT Genie — lessons and slides in your own design", template: "%s · PPT Genie" },
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
   icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4f46e5",
+  themeColor: "#1b7446",
   width: "device-width",
   initialScale: 1,
 };

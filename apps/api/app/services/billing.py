@@ -64,7 +64,7 @@ class StripeProvider:
         amount = plan.price_annual_aed if interval == "year" else plan.price_monthly_aed
         return {"price_data": {"currency": "aed", "unit_amount": int(float(amount) * 100),
                                "recurring": {"interval": interval},
-                               "product_data": {"name": f"AI Teacher Assistant — {plan.name}"}}, "quantity": 1}
+                               "product_data": {"name": f"PPT Genie — {plan.name}"}}, "quantity": 1}
 
     async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None) -> str:
         web = self.settings.public_web_url

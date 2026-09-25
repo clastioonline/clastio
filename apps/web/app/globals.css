@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/plus-jakarta-sans";
 @import "@fontsource/noto-sans-arabic/400.css";
 @import "@fontsource/noto-sans-arabic/600.css";
 
@@ -10,6 +11,7 @@
   --color-canvas: #f6f7fb;
   --color-surface: #ffffff;
   --color-surface-2: #f1f3f9;
+  --color-panel: #eef0f7; /* sidebar, top bar and page panels */
   --color-line: #e3e6ef;
   --color-line-strong: #cfd4e2;
   --color-ink: #151a2d;
@@ -55,6 +57,7 @@
     --color-canvas: #0d1020;
     --color-surface: #151a2e;
     --color-surface-2: #1c2238;
+    --color-panel: #10142a;
     --color-line: #262d47;
     --color-line-strong: #353e5f;
     --color-ink: #eef0f8;
@@ -79,6 +82,7 @@
   --color-canvas: #0d1020;
   --color-surface: #151a2e;
   --color-surface-2: #1c2238;
+  --color-panel: #10142a;
   --color-line: #262d47;
   --color-line-strong: #353e5f;
   --color-ink: #eef0f8;
@@ -103,9 +107,11 @@
    it only swaps tokens and a few component hooks (.ui-btn, .ui-nav, .ui-hero), so every page works in both skins.
    Chart colours validated with the dataviz palette checker (light #1b7446 on #fcfcfb, dark #38a36b on #111c16). */
 :root[data-skin="forest"] {
-  --color-canvas: #f2f3f0;
+  --font-sans: "Plus Jakarta Sans Variable", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --color-canvas: #e7e9e5;
   --color-surface: #ffffff;
   --color-surface-2: #f3f5f2;
+  --color-panel: #f6f7f5;
   --color-line: #e4e8e3;
   --color-line-strong: #cfd6cd;
   --color-ink: #121a15;
@@ -131,7 +137,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root[data-skin="forest"]:not([data-theme="light"]) {
-    --color-canvas: #0b120e;
+    --color-canvas: #050806;
+    --color-panel: #0b120e;
     --color-surface: #111c16;
     --color-surface-2: #16241c;
     --color-line: #21332a;
@@ -149,7 +156,8 @@
 }
 
 :root[data-skin="forest"][data-theme="dark"] {
-  --color-canvas: #0b120e;
+  --color-canvas: #050806;
+    --color-panel: #0b120e;
   --color-surface: #111c16;
   --color-surface-2: #16241c;
   --color-line: #21332a;
@@ -167,28 +175,6 @@
 
 :root[data-skin="forest"] .ui-btn {
   border-radius: 9999px;
-}
-
-/* Sidebar: an accent bar and bold text for the current page instead of a filled pill. */
-:root[data-skin="forest"] .ui-nav[data-active="true"] {
-  background: transparent;
-  color: var(--color-ink);
-  font-weight: 600;
-  box-shadow: none;
-  position: relative;
-}
-:root[data-skin="forest"] .ui-nav[data-active="true"] svg {
-  color: var(--color-brand-600);
-}
-:root[data-skin="forest"] .ui-nav[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: -1rem;
-  top: 0.35rem;
-  bottom: 0.35rem;
-  width: 4px;
-  border-radius: 0 4px 4px 0;
-  background: var(--color-brand-600);
 }
 
 /* Hero panels get a deep green with soft contour rings. */

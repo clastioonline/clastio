@@ -1,6 +1,6 @@
 # Architecture
 
-How AI Teacher Assistant is put together, and why. For the product itself see [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
+How PPT Genie is put together, and why. For the product itself see [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
 
 ## Overview
 

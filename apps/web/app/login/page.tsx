@@ -20,9 +20,9 @@ function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ user: { onboarding_completed: boolean } }>("/auth/login", { body: { email, password } });
+      const res = await api<{ user: { onboarding_completed: boolean; role: string } }>("/auth/login", { body: { email, password } });
       const next = params.get("next");
-      router.replace(!res.user.onboarding_completed ? "/onboarding" : next && next.startsWith("/") ? next : "/dashboard");
+      router.replace(!res.user.onboarding_completed ? "/onboarding" : next && next.startsWith("/") ? next : res.user.role === "admin" ? "/admin" : "/dashboard");
     } catch (err: any) {
       setError(err.message);
       setBusy(false);

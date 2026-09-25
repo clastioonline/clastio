@@ -56,7 +56,7 @@ async def health():
 async def public_config():
     """Non-secret settings the web app needs before sign-in."""
     ui = (await get_app_settings(["ui"]))["ui"]
-    return {"default_skin": ui.get("default_skin", "classic")}
+    return {"default_skin": ui.get("default_skin", "forest")}
 
 
 # --------------------------------------------------------------------------- billing
@@ -379,7 +379,7 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
         for field in ("image_model", "video_model"):
             if value.get(field) and ":" not in value[field]:
                 raise bad(f"{field} must look like provider:model, e.g. openai:sora-2.")
-    elif key == "ui" and value.get("default_skin", "classic") not in ("classic", "forest"):
+    elif key == "ui" and value.get("default_skin", "forest") not in ("classic", "forest"):
         raise bad("Theme must be classic or forest.")
 
 

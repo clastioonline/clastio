@@ -450,6 +450,13 @@ async def add_outcome(data: OutcomeIn, user: CurrentUser, db: DB):
     return {"id": str(o.id)}
 
 
+@router.get("/me/dashboard")
+async def my_dashboard(user: CurrentUser, db: DB):
+    from app.services.dashboard import teacher_dashboard
+
+    return await teacher_dashboard(db, user)
+
+
 @router.get("/curriculum/coverage")
 async def coverage(user: CurrentUser, db: DB, class_id: uuid.UUID):
     c = await _owned_class(db, user, class_id)
