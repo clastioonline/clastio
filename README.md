@@ -108,6 +108,7 @@ docs         product spec, research, architecture, deployment
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the pieces fit, the generation pipeline and the design decisions
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): production setup, configuration, scaling, backups, costs
+- [`docs/PLATFORM.md`](docs/PLATFORM.md): accounts, roles, audit, limits, notifications, legal, admin console, production checklist and what is not implemented
 - [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md): full product and build specification (v2)
 - [`docs/RESEARCH_NOTES.md`](docs/RESEARCH_NOTES.md): market, regulatory and technical research behind the spec
 - API reference: `http://localhost:8000/api/docs` (OpenAPI, 107 operations)
