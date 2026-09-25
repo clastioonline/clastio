@@ -76,7 +76,8 @@ async def test_admin_extends_trial_but_never_overrides_a_paid_plan(client):
     admin = await make_admin(client)
     data, h = await _signup(client)
     uid = data["user"]["id"]
-    r = await client.patch(f"/api/v1/admin/users/{uid}", headers=admin["headers"], json={"extend_trial_days": 7})
+    r = await client.post(f"/api/v1/admin/users/{uid}/plan", headers=admin["headers"],
+                          json={"extend_trial_days": 7, "reason": "Asked for more time"})
     assert r.status_code == 200
     assert (await client.get("/api/v1/me/usage", headers=h)).json()["trial"]["days_left"] == 21
 
@@ -87,5 +88,6 @@ async def test_admin_extends_trial_but_never_overrides_a_paid_plan(client):
         db.add(Subscription(user_id=uuid.UUID(uid), plan_code="teacher", status="active", provider="dodo",
                             provider_subscription_id=f"sub_{uuid.uuid4().hex[:8]}"))
         await db.commit()
-    r = await client.patch(f"/api/v1/admin/users/{uid}", headers=admin["headers"], json={"plan": "assistant"})
+    r = await client.post(f"/api/v1/admin/users/{uid}/plan", headers=admin["headers"],
+                          json={"plan": "assistant", "reason": "Upgrade request"})
     assert r.status_code == 409 and r.json()["error"]["code"] == "paid_subscription"

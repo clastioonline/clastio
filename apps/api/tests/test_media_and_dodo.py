@@ -211,7 +211,7 @@ async def test_failed_generation_refunds_credits(client, monkeypatch):
 
     admin = await make_admin(client)
     u = await make_user(client, plan="free")
-    await client.post("/api/v1/admin/media/grant", headers=admin["headers"], json={"email": u["email"], "amount": 5})
+    await client.post("/api/v1/admin/media/grant", headers=admin["headers"], json={"email": u["email"], "amount": 5, "note": "test grant"})
 
     async def refuse(self, *a, **k):
         raise AIRefusal("declined", provider="openai")

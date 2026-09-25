@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from app.core.deps import DB, AdminUser, CurrentUser
+from app.api.routes.admin import Staff
+from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.core.storage import get_storage
-from app.models import AuditLog, CreditLedger, MediaItem, User
-from app.services import billing
+from app.models import CreditLedger, MediaItem, User
+from app.services import billing, usage
 from app.services import media as media_svc
+from app.services.events import audit
 
 router = APIRouter(tags=["media"])
 
@@ -94,7 +96,7 @@ async def buy_pack(code: str, user: CurrentUser, db: DB):
 
 
 @router.get("/admin/media", tags=["admin"])
-async def admin_media(_: AdminUser, db: DB, days: int = 30):
+async def admin_media(_: Staff("billing.view"), db: DB, days: int = 30):
     from datetime import timedelta
 
     from app.core.db import utcnow
@@ -135,12 +137,16 @@ class GrantIn(BaseModel):
 
 
 @router.post("/admin/media/grant", tags=["admin"])
-async def admin_grant(data: GrantIn, admin: AdminUser, db: DB):
+async def admin_grant(data: GrantIn, admin: Staff("billing.modify"), request: Request, db: DB):
     user = (await db.execute(select(User).where(User.email == data.email.lower().strip()))).scalars().first()
     if user is None:
         raise NotFound("User")
-    await media_svc.grant(db, user.id, data.amount, f"admin_grant:{data.note[:60]}" if data.note else "admin_grant")
-    db.add(AuditLog(actor_id=admin.id, action="media_credits_grant", target=str(user.id),
-                    details={"amount": data.amount, "note": data.note}))
+    if len(data.note.strip()) < 3:
+        raise AppError("reason_required", "Give a reason for the adjustment (shown in the audit log).", 422)
+    row = await usage.adjust(db, user.id, data.amount, resource=media_svc.RESOURCE, reason=data.note.strip(),
+                             actor_id=admin.id)
+    await db.flush()
+    audit(db, admin.id, "credits.adjusted", request=request, target_user=user.id, target_type="credit_ledger",
+          target_id=str(row.id), after={"resource": media_svc.RESOURCE, "amount": data.amount}, reason=data.note)
     await db.commit()
     return {"email": user.email, "balance": await media_svc.balance(db, user)}

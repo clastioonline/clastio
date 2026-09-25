@@ -120,16 +120,54 @@ async def check(db: AsyncSession, user: User, resource: str, amount: int) -> Non
             {"resource": resource, "limit": limit, "used": spent, "needed": amount, "plan": plan.code})
 
 
+def ledger_event_type(reason: str, amount: int) -> str:
+    """Classify a ledger row: CREDIT_USAGE | CREDIT_REFUND | CREDIT_PURCHASE | CREDIT_ADMIN_GRANT |
+    CREDIT_ADJUSTMENT | CREDIT_EXPIRATION."""
+    if reason.startswith("admin_"):
+        return "CREDIT_ADMIN_GRANT" if amount > 0 else "CREDIT_ADJUSTMENT"
+    if reason.startswith("media_pack:") or reason.startswith("purchase"):
+        return "CREDIT_PURCHASE"
+    if "refund" in reason:
+        return "CREDIT_REFUND"
+    if reason.startswith("expire"):
+        return "CREDIT_EXPIRATION"
+    if reason == "monthly_allowance":
+        return "CREDIT_ADJUSTMENT"
+    return "CREDIT_USAGE" if amount < 0 else "CREDIT_ADJUSTMENT"
+
+
+def ledger_entry(user_id: uuid.UUID, amount: int, reason: str, *, ref: str | None = None, resource: str = "credits",
+                 event_type: str | None = None, actor_id: uuid.UUID | None = None, resource_type: str | None = None,
+                 resource_id: str | None = None, provider_cost_usd: float | None = None,
+                 meta: dict[str, Any] | None = None) -> CreditLedger:
+    """Build a ledger row. Every credit movement goes through here so rows are typed and traceable."""
+    from app.core.logging import request_id_var
+
+    return CreditLedger(owner_id=user_id, amount=amount, resource=resource, reason=reason[:80], ref=ref,
+                        event_type=event_type or ledger_event_type(reason, amount), actor_id=actor_id,
+                        resource_type=resource_type, resource_id=resource_id, provider_cost_usd=provider_cost_usd,
+                        request_id=request_id_var.get(), meta=meta or {})
+
+
 async def consume(db: AsyncSession, user_id: uuid.UUID, amount: int, reason: str, ref: str | None = None,
-                  resource: str = "credits") -> None:
+                  resource: str = "credits", **extra: Any) -> None:
     if amount:
-        db.add(CreditLedger(owner_id=user_id, amount=-abs(amount), resource=resource, reason=reason, ref=ref))
+        db.add(ledger_entry(user_id, -abs(amount), reason, ref=ref, resource=resource, **extra))
 
 
 async def refund(db: AsyncSession, user_id: uuid.UUID, amount: int, reason: str, ref: str | None = None,
-                 resource: str = "credits") -> None:
+                 resource: str = "credits", **extra: Any) -> None:
     if amount:
-        db.add(CreditLedger(owner_id=user_id, amount=abs(amount), resource=resource, reason=reason, ref=ref))
+        db.add(ledger_entry(user_id, abs(amount), reason, ref=ref, resource=resource, **extra))
+
+
+async def adjust(db: AsyncSession, user_id: uuid.UUID, amount: int, *, resource: str, reason: str,
+                 actor_id: uuid.UUID) -> CreditLedger:
+    """Staff credit adjustment. Positive grants credits, negative removes them. A reason is mandatory."""
+    row = ledger_entry(user_id, amount, "admin_grant" if amount > 0 else "admin_adjustment", resource=resource,
+                       actor_id=actor_id, meta={"reason": reason})
+    db.add(row)
+    return row
 
 
 async def check_count_limit(db: AsyncSession, user: User, key: str) -> None:

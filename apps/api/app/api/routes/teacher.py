@@ -6,7 +6,7 @@ import uuid
 from datetime import date, time
 from typing import Any
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
@@ -20,7 +20,6 @@ from app.models import (
     Document,
     LearningOutcome,
     Lesson,
-    Project,
     TeacherPreference,
     TeacherProfile,
     TimetableSlot,
@@ -139,18 +138,20 @@ class DeleteIn(BaseModel):
 
 
 @router.post("/me/delete")
-async def delete_account(data: DeleteIn, user: CurrentUser, db: DB):
+async def delete_account(data: DeleteIn, user: CurrentUser, request: Request, response: Response, db: DB):
+    """Close the account. It is locked and signed out now; content is removed after a 30-day grace period
+    (contact support to cancel). A paid plan is cancelled at the end of the period already paid for."""
     if data.confirm_email.lower() != user.email.lower():
         raise AppError("confirm_mismatch", "Type your email address to confirm.", 400)
-    from app.core.storage import get_storage
+    if user.role == "admin":
+        raise AppError("staff_account", "Staff accounts are removed by a super admin.", 409)
+    from app.core.security import COOKIE_NAME
+    from app.services.lifecycle import request_deletion
 
-    storage = get_storage()
-    for f in (await db.execute(select(UploadedFile).where(UploadedFile.owner_id == user.id))).scalars().all():
-        await storage.delete(f.storage_key)
-    await db.execute(delete(Project).where(Project.owner_id == user.id))
-    await db.delete(user)
+    out = await request_deletion(db, user, by=None, request=request)
     await db.commit()
-    return {"deleted": True}
+    response.delete_cookie(COOKIE_NAME, path="/")
+    return {"deleted": True, **out}
 
 
 # --------------------------------------------------------------------------- classes

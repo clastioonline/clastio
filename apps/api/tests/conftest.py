@@ -42,6 +42,11 @@ def database():
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         Base.metadata.drop_all(conn)
         Base.metadata.create_all(conn)
+        from app.core.evidence import EVIDENCE_TABLES, TRIGGER_FUNCTION_SQL, trigger_sql
+
+        conn.execute(text(TRIGGER_FUNCTION_SQL))
+        for table in EVIDENCE_TABLES:
+            conn.execute(text(trigger_sql(table)))
     engine.dispose()
     yield
 
@@ -102,7 +107,20 @@ async def make_user(client: httpx.AsyncClient, *, plan: str | None = "assistant"
 
         async with get_sessionmaker()() as db:
             await set_manual_plan(db, uuid.UUID(data["user"]["id"]), plan, months=1)
-    return {"email": email, "headers": headers, "id": data["user"]["id"]}
+    return {"email": email, "headers": headers, "id": data["user"]["id"], "token": data["token"]}
+
+
+async def make_staff(client: httpx.AsyncClient, admin_role: str = "super_admin") -> dict:
+    """A staff account with the given role. Signs in again so the token carries the new permissions."""
+    u = await make_user(client, plan=None, name=f"Staff {admin_role}")
+    from app.core.db import get_sessionmaker
+    from app.models import User
+
+    async with get_sessionmaker()() as db:
+        row = await db.get(User, uuid.UUID(u["id"]))
+        row.role, row.admin_role = "admin", admin_role
+        await db.commit()
+    return u
 
 
 @pytest.fixture

@@ -377,8 +377,10 @@ async def grant_media_pack(db: AsyncSession, user_id: uuid.UUID, pack_code: str,
     if pack is None:
         log(logger, logging.ERROR, "media_pack_unknown", pack=pack_code, ref=ref)
         return 0
-    db.add(CreditLedger(owner_id=user_id, amount=int(pack["credits"]), resource="media_credits",
-                        reason=f"media_pack:{pack_code}", ref=ref))
+    from app.services.usage import ledger_entry
+
+    db.add(ledger_entry(user_id, int(pack["credits"]), f"media_pack:{pack_code}", ref=ref, resource="media_credits",
+                        event_type="CREDIT_PURCHASE"))
     return int(pack["credits"])
 
 

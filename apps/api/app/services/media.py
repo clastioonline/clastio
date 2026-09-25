@@ -62,7 +62,7 @@ async def _grant_monthly_allowance(db: AsyncSession, user: User) -> None:
         return
     ref = f"monthly:{user.id}:{usage.period_start(sub).date().isoformat()}"
     if (await db.execute(select(CreditLedger.id).where(CreditLedger.ref == ref))).first() is None:
-        db.add(CreditLedger(owner_id=user.id, amount=monthly, resource=RESOURCE, reason="monthly_allowance", ref=ref))
+        db.add(usage.ledger_entry(user.id, monthly, "monthly_allowance", ref=ref, resource=RESOURCE))
         await db.flush()
 
 
@@ -76,7 +76,7 @@ async def balance(db: AsyncSession, user: User) -> int:
 async def grant(db: AsyncSession, user_id: uuid.UUID, amount: int, reason: str, ref: str | None = None) -> None:
     """Admin adjustment (positive or negative)."""
     if amount:
-        db.add(CreditLedger(owner_id=user_id, amount=amount, resource=RESOURCE, reason=reason, ref=ref))
+        db.add(usage.ledger_entry(user_id, amount, reason, ref=ref, resource=RESOURCE))
 
 
 def item_out(m: MediaItem) -> dict[str, Any]:

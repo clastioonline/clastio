@@ -59,6 +59,11 @@ TEMPLATES: dict[str, tuple[str, str]] = {
     "deletion_scheduled": ("Your PPT Genie account will be deleted",
                            "Hi {name},\n\nYour account is scheduled for deletion on {date}. Until then you can cancel "
                            "by contacting support. After that date your content is permanently removed.\n"),
+    "account_suspended": ("Your PPT Genie account is suspended",
+                          "Hi {name},\n\nYour account has been suspended: {reason}\n\nIf you think this is a "
+                          "mistake, reply to this email or contact support.\n"),
+    "account_restored": ("Your PPT Genie account is active again",
+                         "Hi {name},\n\nYour account has been restored. You can sign in again: {link}\n"),
     "ticket_reply": ("Update on your request #{number}",
                      "Hi {name},\n\nThere's a new reply on your request \"{subject}\":\n\n{reply}\n\nView it: {link}\n"),
 }

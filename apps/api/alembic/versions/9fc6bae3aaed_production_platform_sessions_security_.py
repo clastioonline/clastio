@@ -314,25 +314,12 @@ def upgrade() -> None:
 
     # --- append-only evidence: audit logs and consent records cannot be edited or deleted.
     # A legally required purge must set `SET LOCAL app.allow_evidence_purge = 'on'` in its transaction.
-    op.execute("""
-    CREATE OR REPLACE FUNCTION forbid_evidence_change() RETURNS trigger AS $$
-    BEGIN
-      IF current_setting('app.allow_evidence_purge', true) = 'on' THEN
-        RETURN COALESCE(NEW, OLD);
-      END IF;
-      -- ON DELETE SET NULL of the acting user is the only update allowed.
-      IF TG_OP = 'UPDATE' AND TG_TABLE_NAME = 'audit_logs'
-         AND ROW(NEW.action, NEW.target, NEW.details, NEW.before, NEW.after, NEW.reason, NEW.created_at)
-             IS NOT DISTINCT FROM ROW(OLD.action, OLD.target, OLD.details, OLD.before, OLD.after, OLD.reason, OLD.created_at)
-      THEN
-        RETURN NEW;
-      END IF;
-      RAISE EXCEPTION '% is append-only', TG_TABLE_NAME;
-    END $$ LANGUAGE plpgsql;
-    """)
-    for table in ("audit_logs", "consents"):
-        op.execute(f"CREATE TRIGGER {table}_append_only BEFORE UPDATE OR DELETE ON {table} "
-                   f"FOR EACH ROW EXECUTE FUNCTION forbid_evidence_change()")
+    # The function body lives in app/core/evidence.py so tests install exactly the same rule.
+    from app.core.evidence import EVIDENCE_TABLES, TRIGGER_FUNCTION_SQL, trigger_sql
+
+    op.execute(TRIGGER_FUNCTION_SQL)
+    for table in EVIDENCE_TABLES:
+        op.execute(trigger_sql(table))
 
 
 def downgrade() -> None:

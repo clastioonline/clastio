@@ -160,7 +160,7 @@ async def signup(data: SignupIn, request: Request, response: Response, db: DB):
     if not (await get_setting("system")).get("registration_enabled", True):
         raise AppError("registration_closed", "New sign-ups are paused right now. Please try again later.", 403)
     if not data.accept_terms:
-        raise AppError("terms_required", "Please accept the Terms and Acceptable Use Policy to continue.", 400)
+        raise AppError("terms_required", "Please accept the Terms and Acceptable Use Policy to continue.", 422)
     await verify_captcha(data.captcha_token, request)
     check_password(data.password, data.email)
     exists = (await db.execute(select(User).where(User.email == data.email.lower()))).scalars().first()
@@ -173,8 +173,9 @@ async def signup(data: SignupIn, request: Request, response: Response, db: DB):
         ref = (await db.execute(select(User).where(User.referral_code == data.referral_code))).scalars().first()
         if ref and ref.id != user.id:
             user.referred_by_id = ref.id
-    if data.marketing_email:
-        legal.record(db, user.id, "marketing_email", True, request=request, method="signup_checkbox", version="1")
+    # The marketing choice is recorded either way (unticked by default), separately from the Terms.
+    legal.record(db, user.id, "marketing_email", data.marketing_email, request=request, method="signup_checkbox",
+                 version="1")
     user.last_login_at = utcnow()
     queue_email(db, user, "verify_email", link=verification_link(user))
     queue_email(db, user, "welcome", link=f"{get_settings().public_web_url}/dashboard")
@@ -307,6 +308,11 @@ def _reset_fingerprint(user: User) -> str:
     return hashlib.sha256((user.password_hash or "none").encode()).hexdigest()[:16]
 
 
+def reset_link(user: User) -> str:
+    token = create_access_token(user.id, minutes=30, extra={"typ": "reset", "pw": _reset_fingerprint(user)})
+    return f"{get_settings().public_web_url}/reset-password?token={token}"
+
+
 @router.post("/forgot-password", dependencies=[Depends(rate_limit("forgot", 5, 900, by_user=False))])
 async def forgot_password(data: ForgotIn, request: Request, db: DB):
     """Always answers the same way, so it can't be used to discover which emails have accounts."""
@@ -314,8 +320,7 @@ async def forgot_password(data: ForgotIn, request: Request, db: DB):
     await enforce(f"forgot-account:{data.email.lower()}", 3, 3600)
     user = (await db.execute(select(User).where(User.email == data.email.lower()))).scalars().first()
     if user and user.status == "active":
-        token = create_access_token(user.id, minutes=30, extra={"typ": "reset", "pw": _reset_fingerprint(user)})
-        queue_email(db, user, "password_reset", link=f"{get_settings().public_web_url}/reset-password?token={token}")
+        queue_email(db, user, "password_reset", link=reset_link(user))
         security_event(db, "password_reset_requested", user_id=user.id, request=request)
         await db.commit()
     return {"ok": True, "message": "If an account exists for that email, we've sent a reset link."}

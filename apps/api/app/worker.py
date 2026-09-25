@@ -17,17 +17,33 @@ from app.jobs.queue import recover_stale, worker_loop
 logger = logging.getLogger("worker")
 
 
+HOUSEKEEPING_EVERY = 60  # scheduler ticks (minutes)
+
+
+async def _step(name: str, fn) -> None:
+    """Run one scheduler step; a failure is logged and never stops the others."""
+    try:
+        result = await fn()
+        if result and (not isinstance(result, dict) or any(result.values())):
+            log(logger, logging.INFO, name, result=result)
+    except Exception as e:  # noqa: BLE001
+        log(logger, logging.ERROR, "scheduler_error", step=name, error=str(e)[:500])
+
+
 async def scheduler(stop: asyncio.Event) -> None:
+    from app.services.lifecycle import purge_due_accounts, retention_cleanup
+    from app.services.notify import send_pending_emails
     from app.services.whatsapp import scheduler_tick
 
+    tick = 0
     while not stop.is_set():
-        try:
-            sent = await scheduler_tick()
-            if any(sent.values()):
-                log(logger, logging.INFO, "scheduler_tick", **sent)
-            await recover_stale()
-        except Exception as e:  # noqa: BLE001
-            log(logger, logging.ERROR, "scheduler_error", error=str(e))
+        await _step("whatsapp_tick", scheduler_tick)
+        await _step("recover_stale", recover_stale)
+        await _step("emails_sent", send_pending_emails)
+        if tick % HOUSEKEEPING_EVERY == 0:
+            await _step("retention_cleanup", retention_cleanup)
+            await _step("accounts_purged", purge_due_accounts)
+        tick += 1
         try:
             await asyncio.wait_for(stop.wait(), timeout=60)
         except TimeoutError:

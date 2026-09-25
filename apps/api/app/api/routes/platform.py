@@ -9,17 +9,16 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 
 from app.ai.service import get_ai
+from app.api.routes.admin import Staff
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
-from app.core.deps import DB, AdminUser, CurrentUser
+from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError, NotFound
 from app.jobs.queue import run_inline_if_configured
 from app.models import (
-    AuditLog,
-    Course,
     GenerationJob,
     Payment,
     Plan,
@@ -31,6 +30,7 @@ from app.models import (
 from app.services import admin as admin_svc
 from app.services import billing, usage
 from app.services import whatsapp as wa
+from app.services.events import audit
 from app.services.settings import DEFAULTS, get_app_settings, set_setting
 
 router = APIRouter()
@@ -243,102 +243,17 @@ async def whatsapp_webhook(request: Request, db: DB):
 
 
 @router.get("/admin/metrics", tags=["admin"])
-async def admin_metrics(_: AdminUser, db: DB, days: int = 30):
+async def admin_metrics(_: Staff("analytics.view"), db: DB, days: int = 30):
     return await admin_svc.metrics(db, min(days, 365))
 
 
 @router.get("/admin/ai-costs", tags=["admin"])
-async def admin_ai_costs(_: AdminUser, db: DB, days: int = 30):
+async def admin_ai_costs(_: Staff("api_usage.view"), db: DB, days: int = 30):
     return await admin_svc.ai_costs(db, min(days, 365))
 
 
-@router.get("/admin/users", tags=["admin"])
-async def admin_users(_: AdminUser, db: DB, q: str | None = None, limit: int = 50, offset: int = 0):
-    query = select(User)
-    if q:
-        query = query.where(User.email.ilike(f"%{q}%") | User.name.ilike(f"%{q}%"))
-    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar_one()
-    rows = (await db.execute(query.order_by(User.created_at.desc()).limit(min(limit, 200)).offset(offset))
-            ).scalars().all()
-    items = []
-    for u in rows:
-        plan, sub = await usage.get_plan(db, u)
-        items.append({"id": str(u.id), "email": u.email, "name": u.name, "role": u.role, "status": u.status,
-                      "plan": plan.code, "plan_source": sub.provider if sub else None,
-                      "created_at": u.created_at.isoformat(),
-                      "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None})
-    return {"items": items, "total": total}
-
-
-@router.get("/admin/users/{user_id}", tags=["admin"])
-async def admin_user(user_id: uuid.UUID, _: AdminUser, db: DB):
-    u = await db.get(User, user_id)
-    if u is None:
-        raise NotFound("User")
-    projects = (await db.execute(select(Course).where(Course.owner_id == u.id).order_by(Course.created_at.desc())
-                                 .limit(50))).scalars().all()
-    jobs = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == u.id)
-                             .order_by(GenerationJob.created_at.desc()).limit(20))).scalars().all()
-    return {"user": {"id": str(u.id), "email": u.email, "name": u.name, "role": u.role, "status": u.status,
-                     "created_at": u.created_at.isoformat()},
-            "usage": await usage.summary(db, u),
-            "projects": [{"id": str(c.project_id), "topic": c.topic, "grade": c.grade, "status": c.status,
-                          "created_at": c.created_at.isoformat()} for c in projects],
-            "jobs": [{"id": str(j.id), "type": j.type, "status": j.status, "error": j.error,
-                      "cost_usd": j.cost_usd, "created_at": j.created_at.isoformat()} for j in jobs]}
-
-
-class AdminUserPatch(BaseModel):
-    status: str | None = Field(None, pattern="^(active|suspended)$")
-    role: str | None = Field(None, pattern="^(teacher|admin)$")
-    plan: str | None = None
-    months: int = Field(1, ge=1, le=36)
-    credits_grant: int | None = Field(None, ge=1, le=100000)
-    extend_trial_days: int | None = Field(None, ge=1, le=90)
-
-
-@router.patch("/admin/users/{user_id}", tags=["admin"])
-async def admin_patch_user(user_id: uuid.UUID, data: AdminUserPatch, admin: AdminUser, db: DB):
-    u = await db.get(User, user_id)
-    if u is None:
-        raise NotFound("User")
-    changes: dict[str, Any] = {}
-    if data.status:
-        u.status = changes["status"] = data.status
-    if data.role:
-        u.role = changes["role"] = data.role
-    if data.credits_grant:
-        await usage.refund(db, u.id, data.credits_grant, "admin_grant", str(admin.id))
-        changes["credits_grant"] = data.credits_grant
-    current = await usage.active_subscription(db, u.id)
-    if (data.plan or data.extend_trial_days) and current and current.provider in ("stripe", "dodo"):
-        # Replacing a paid subscription here would leave the gateway still charging the teacher.
-        raise AppError("paid_subscription", "This teacher pays through the payment gateway. Change or cancel their "
-                       "plan there first.", 409)
-    if data.extend_trial_days:
-        from datetime import timedelta
-
-        from app.core.db import utcnow
-
-        trial = current if current and current.provider == "trial" else None
-        if trial is None:
-            trial = await usage.start_trial(db, u)
-            if trial is None:
-                raise AppError("trial_disabled", "Trials are switched off in Plans & trial.", 409)
-            trial.current_period_end = utcnow()
-        trial.current_period_end = max(trial.current_period_end, utcnow()) + timedelta(days=data.extend_trial_days)
-        changes["extend_trial_days"] = data.extend_trial_days
-    db.add(AuditLog(actor_id=admin.id, action="admin_update_user", target=str(u.id), details=changes))
-    await db.commit()
-    if data.plan:
-        if await db.get(Plan, data.plan) is None:
-            raise AppError("bad_request", "Unknown plan", 400)
-        await billing.set_manual_plan(db, u.id, data.plan, months=data.months)
-    return {"ok": True}
-
-
 @router.get("/admin/plans", tags=["admin"])
-async def admin_plans(_: AdminUser, db: DB):
+async def admin_plans(_: Staff("billing.view"), db: DB):
     rows = (await db.execute(select(Plan).order_by(Plan.sort))).scalars().all()
     return {"items": [{**plan_out(p), "active": p.active} for p in rows]}
 
@@ -353,22 +268,23 @@ class PlanPatch(BaseModel):
 
 
 @router.put("/admin/plans/{code}", tags=["admin"])
-async def admin_update_plan(code: str, data: PlanPatch, admin: AdminUser, db: DB):
+async def admin_update_plan(code: str, data: PlanPatch, admin: Staff("billing.modify"), request: Request, db: DB):
     p = await db.get(Plan, code)
     if p is None:
         raise NotFound("Plan")
+    before = plan_out(p)
     for k, v in data.model_dump(exclude_none=True).items():
         if k == "limits":
             v = {**p.limits, **v}
         setattr(p, k, v)
-    db.add(AuditLog(actor_id=admin.id, action="admin_update_plan", target=code, details=data.model_dump(
-        exclude_none=True)))
+    audit(db, admin.id, "plan.updated", request=request, target_type="plan", target_id=code, before=before,
+          after=plan_out(p))
     await db.commit()
     return plan_out(p)
 
 
 @router.get("/admin/settings", tags=["admin"])
-async def admin_settings(_: AdminUser):
+async def admin_settings(_: Staff("settings.modify")):
     return await get_app_settings()
 
 
@@ -439,19 +355,22 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
 
 
 @router.put("/admin/settings/{key}", tags=["admin"])
-async def admin_set_setting(key: str, value: dict[str, Any], admin: AdminUser, db: DB):
+async def admin_set_setting(key: str, value: dict[str, Any], admin: Staff("settings.modify"), request: Request,
+                            db: DB):
     if key not in DEFAULTS:
         raise AppError("bad_request", "Unknown setting", 400)
     _validate_setting(key, value)
+    before = (await get_app_settings([key]))[key]
     await set_setting(key, value)
-    db.add(AuditLog(actor_id=admin.id, action="admin_update_setting", target=key, details=value))
+    audit(db, admin.id, "setting.updated", request=request, target_type="setting", target_id=key, before=before,
+          after=value)
     await db.commit()
     get_ai()._overrides_at = 0  # refresh model routing immediately
     return (await get_app_settings([key]))[key]
 
 
 @router.get("/admin/jobs", tags=["admin"])
-async def admin_jobs(_: AdminUser, db: DB, status: str | None = "failed", limit: int = 50):
+async def admin_jobs(_: Staff("system.logs.view"), db: DB, status: str | None = "failed", limit: int = 50):
     q = select(GenerationJob)
     if status:
         q = q.where(GenerationJob.status == status)
@@ -462,18 +381,19 @@ async def admin_jobs(_: AdminUser, db: DB, status: str | None = "failed", limit:
 
 
 @router.post("/admin/jobs/{job_id}/retry", tags=["admin"])
-async def admin_retry(job_id: uuid.UUID, _: AdminUser, db: DB):
+async def admin_retry(job_id: uuid.UUID, admin: Staff("system.logs.view"), request: Request, db: DB):
     j = await db.get(GenerationJob, job_id)
     if j is None:
         raise NotFound("Job")
     j.status, j.stage, j.error, j.attempts = "queued", "Queued (retry)", None, 0
+    audit(db, admin.id, "job.retried", request=request, target_user=j.owner_id, target_type="job", target_id=str(j.id))
     await db.commit()
     await run_inline_if_configured([j.id])
     return {"ok": True}
 
 
 @router.get("/admin/subscriptions", tags=["admin"])
-async def admin_subscriptions(_: AdminUser, db: DB):
+async def admin_subscriptions(_: Staff("billing.view"), db: DB):
     rows = (await db.execute(select(Subscription, User.email).join(User, User.id == Subscription.user_id)
                              .order_by(Subscription.created_at.desc()).limit(200))).all()
     return {"items": [{"email": e, "plan": s.plan_code, "status": s.status, "interval": s.interval,
