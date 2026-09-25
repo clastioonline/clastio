@@ -17,7 +17,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -277,14 +276,11 @@ async def _find_sub(db: AsyncSession, provider_sub_id: str | None) -> Subscripti
 
 
 async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
-    try:
-        db.add(WebhookEvent(provider="stripe", event_id=event["id"], type=event["type"], payload=event))
-        await db.flush()
-    except IntegrityError:
-        await db.rollback()
-        return "duplicate"
+    """Apply one verified Stripe event. Bookkeeping (idempotency, status, retries) is done by process_webhook."""
     obj = event["data"]["object"]
     etype = event["type"]
+    changes = _SubChanges()
+    result = "processed"
     if etype == "checkout.session.completed" and obj.get("mode") == "payment" and obj.get("payment_status") == "paid":
         meta = obj.get("metadata") or {}
         if meta.get("kind") == "media_pack" and meta.get("user_id"):
@@ -304,10 +300,12 @@ async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
                                                                 Subscription.status.in_(("active", "trialing"))))
                     ).scalars().all():
             if not sub or old.id != sub.id:
+                changes.see(old)
                 old.status = "canceled"
         if sub is None:
             sub = Subscription(user_id=user_id, provider="stripe", provider_subscription_id=obj.get("subscription"))
             db.add(sub)
+        changes.see(sub)
         sub.plan_code = meta.get("plan_code", "teacher")
         sub.interval = meta.get("interval", "month")
         sub.provider_customer_id = obj.get("customer")
@@ -321,6 +319,7 @@ async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
                                plan_code=meta.get("plan_code", "teacher"))
             db.add(sub)
         if sub is not None:
+            changes.see(sub)
             status = obj.get("status", "active")
             sub.status = {"incomplete_expired": "canceled", "unpaid": "past_due", "incomplete": "past_due"}.get(
                 status, status)
@@ -349,17 +348,21 @@ async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
                            amount=(obj.get("amount_paid") or 0) / 100, currency=(obj.get("currency") or "aed").upper(),
                            tax_amount=tax / 100, status="paid", invoice_url=obj.get("hosted_invoice_url")))
         if sub and sub.status == "past_due":
+            changes.see(sub)
             sub.status = "active"
     elif etype == "invoice.payment_failed":
         sub = await _find_sub(db, obj.get("subscription"))
         if sub:
+            changes.see(sub)
             sub.status = "past_due"
-    ev = (await db.execute(select(WebhookEvent).where(WebhookEvent.provider == "stripe",
-                                                      WebhookEvent.event_id == event["id"]))).scalars().first()
-    ev.processed_at = utcnow()
-    await db.commit()
+            err = (obj.get("last_finalization_error") or {}).get("message") or obj.get("billing_reason")
+            await _record_failed_payment(db, sub.user_id, "stripe", obj["id"], (obj.get("amount_due") or 0) / 100,
+                                         (obj.get("currency") or "aed").upper(), err, sub.provider_subscription_id)
+    else:
+        result = "ignored"
+    await changes.apply(db)
     log(logger, logging.INFO, "stripe_event", type=etype)
-    return "processed"
+    return result
 
 
 # --------------------------------------------------------------------------- media packs (shared by gateways)
@@ -396,13 +399,10 @@ def _iso(v: Any) -> datetime | None:
     return datetime.fromisoformat(str(v).replace("Z", "+00:00"))
 
 
-async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: str) -> str:
-    try:
-        db.add(WebhookEvent(provider="dodo", event_id=event_id, type=event.get("type", ""), payload=event))
-        await db.flush()
-    except IntegrityError:
-        await db.rollback()
-        return "duplicate"
+async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: str = "") -> str:
+    """Apply one verified Dodo Payments event. Bookkeeping is done by process_webhook."""
+    changes = _SubChanges()
+    result = "processed"
     etype = event.get("type", "")
     data = event.get("data") or {}
     meta = data.get("metadata") or {}
@@ -420,6 +420,7 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
                                provider_subscription_id=data.get("subscription_id"), plan_code=plan_code or "teacher")
             db.add(sub)
         if sub is not None:
+            changes.see(sub)
             status = DODO_STATUS.get(data.get("status") or etype.split(".", 1)[1], sub.status or "active")
             if etype in ("subscription.cancelled", "subscription.expired", "subscription.failed"):
                 status = "canceled"
@@ -428,6 +429,7 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
                         Subscription.user_id == sub.user_id, Subscription.status.in_(("active", "trialing")))
                         )).scalars().all():
                     if old.id != sub.id:
+                        changes.see(old)
                         old.status = "canceled"
             sub.status = status
             sub.plan_code = plan_code or sub.plan_code
@@ -457,14 +459,129 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
                                tax_amount=(data.get("tax") or 0) / 100, status="paid",
                                invoice_url=data.get("invoice_url")))
         if sub and sub.status == "past_due":
+            changes.see(sub)
             sub.status = "active"
     elif etype == "payment.failed":
         sub = await _find_sub(db, data.get("subscription_id"))
+        user_id = sub.user_id if sub else (uuid.UUID(meta["user_id"]) if meta.get("user_id") else None)
         if sub:
+            changes.see(sub)
             sub.status = "past_due"
-    ev = (await db.execute(select(WebhookEvent).where(WebhookEvent.provider == "dodo",
-                                                      WebhookEvent.event_id == event_id))).scalars().first()
-    ev.processed_at = utcnow()
-    await db.commit()
+        if user_id and data.get("payment_id"):
+            await _record_failed_payment(db, user_id, "dodo", data["payment_id"], (data.get("total_amount") or 0) / 100,
+                                         (data.get("currency") or "AED").upper(),
+                                         data.get("error_message") or data.get("error_code"),
+                                         sub.provider_subscription_id if sub else None)
+    else:
+        result = "ignored"
+    await changes.apply(db)
     log(logger, logging.INFO, "dodo_event", type=etype)
-    return "processed"
+    return result
+
+
+# --------------------------------------------------------------------------- webhook bookkeeping & side effects
+
+
+class _SubChanges:
+    """Remembers each subscription's status before a webhook touched it, then reacts to real transitions
+    (analytics, in-app notice and email) once the event has been applied."""
+
+    def __init__(self) -> None:
+        self.before: dict[int, tuple[Subscription, str | None]] = {}
+
+    def see(self, sub: Subscription) -> None:
+        self.before.setdefault(id(sub), (sub, sub.status if sub.id else None))
+
+    async def apply(self, db: AsyncSession) -> None:
+        from app.services.events import track
+        from app.services.notify import notify, queue_email
+
+        link = f"{get_settings().public_web_url}/billing"
+        for sub, before in self.before.values():
+            after = sub.status
+            if before == after:
+                continue
+            user = await db.get(User, sub.user_id)
+            plan = await db.get(Plan, sub.plan_code)
+            plan_name = plan.name if plan else sub.plan_code
+            if after == "active" and before in (None, "trialing", "canceled"):
+                track(db, "subscription_activated", user_id=sub.user_id, plan=sub.plan_code, provider=sub.provider)
+                await notify(db, sub.user_id, "billing", f"You're on {plan_name}", "Thank you for subscribing.",
+                             "/billing", dedupe_key=f"sub_active:{sub.provider_subscription_id or sub.id}")
+                if user:
+                    queue_email(db, user, "subscription_confirmed", link=link, plan=plan_name)
+            elif after == "canceled":
+                sub.canceled_at = sub.canceled_at or utcnow()
+                track(db, "subscription_canceled", user_id=sub.user_id, plan=sub.plan_code, provider=sub.provider)
+                if user and sub.provider in ("stripe", "dodo"):
+                    queue_email(db, user, "subscription_cancelled", link=link)
+            elif after == "past_due":
+                track(db, "payment_failed", user_id=sub.user_id, plan=sub.plan_code, provider=sub.provider)
+                await notify(db, sub.user_id, "billing", "We couldn't take your payment",
+                             "Update your payment method to keep your plan.", "/billing")
+                if user:
+                    queue_email(db, user, "payment_failed", link=link)
+
+
+async def _record_failed_payment(db: AsyncSession, user_id: uuid.UUID, provider: str, ref: str, amount: float,
+                                 currency: str, reason: str | None, subscription_ref: str | None) -> None:
+    if (await db.execute(select(Payment.id).where(Payment.provider_ref == ref))).first():
+        return
+    db.add(Payment(user_id=user_id, provider=provider, provider_ref=ref, amount=amount, currency=currency,
+                   status="failed", failure_reason=(reason or "")[:500] or None, subscription_ref=subscription_ref))
+
+
+async def process_webhook(db: AsyncSession, *, provider: str, event_id: str, event_type: str,
+                          event: dict[str, Any], raw: bytes, handler, request=None) -> str:
+    """Idempotent webhook processing with a durable record of every delivery.
+
+    1. The event row is inserted in its own transaction (unique provider + event_id), so it survives a failure.
+    2. A delivery already processed returns "duplicate" and changes nothing (no double credits or charges).
+    3. The same event id with a different payload is rejected and raised as a security event.
+    4. A failure is stored with its error and retry count; the 500 makes the gateway retry later.
+    """
+    import hashlib
+
+    from sqlalchemy.dialects.postgresql import insert
+
+    from app.core.db import get_sessionmaker, uuid7
+    from app.services.events import security_event
+
+    digest = hashlib.sha256(raw).hexdigest()
+    async with get_sessionmaker()() as s:
+        res = await s.execute(insert(WebhookEvent).values(
+            id=uuid7(), provider=provider, event_id=event_id, type=event_type[:100], payload=event,
+            payload_hash=digest, status="received", retry_count=0, created_at=utcnow())
+            .on_conflict_do_nothing(index_elements=["provider", "event_id"]))
+        if not res.rowcount:
+            ev = (await s.execute(select(WebhookEvent).where(WebhookEvent.provider == provider,
+                                                             WebhookEvent.event_id == event_id)
+                                  .with_for_update())).scalars().one()
+            if ev.payload_hash and ev.payload_hash != digest:
+                security_event(s, "webhook_rejected", request=request, severity="critical", provider=provider,
+                               event_id=event_id, reason="payload_changed")
+                await s.commit()
+                return "rejected"
+            if ev.status in ("processed", "ignored"):
+                await s.commit()
+                return "duplicate"
+            ev.retry_count += 1
+        await s.commit()
+    try:
+        result = await handler(db, event)
+        await db.flush()
+    except Exception as e:
+        await db.rollback()
+        async with get_sessionmaker()() as s:
+            ev = (await s.execute(select(WebhookEvent).where(WebhookEvent.provider == provider,
+                                                             WebhookEvent.event_id == event_id))).scalars().one()
+            ev.status, ev.error_message = "failed", f"{type(e).__name__}: {str(e)[:900]}"
+            await s.commit()
+        log(logger, logging.ERROR, "webhook_failed", provider=provider, type=event_type, error=str(e)[:300])
+        raise
+    ev = (await db.execute(select(WebhookEvent).where(WebhookEvent.provider == provider,
+                                                      WebhookEvent.event_id == event_id))).scalars().one()
+    ev.status = "ignored" if result == "ignored" else "processed"
+    ev.result, ev.error_message, ev.processed_at = result, None, utcnow()
+    await db.commit()
+    return result

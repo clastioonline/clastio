@@ -30,7 +30,7 @@ from app.models import (
 from app.services import admin as admin_svc
 from app.services import billing, usage
 from app.services import whatsapp as wa
-from app.services.events import audit
+from app.services.events import audit, security_event
 from app.services.settings import DEFAULTS, get_app_settings, set_setting
 
 router = APIRouter()
@@ -96,7 +96,12 @@ class CheckoutIn(BaseModel):
 
 @router.post("/billing/checkout", tags=["billing"])
 async def checkout(data: CheckoutIn, user: CurrentUser, db: DB):
-    return {"url": await billing.start_checkout(db, user, data.plan, data.interval)}
+    url = await billing.start_checkout(db, user, data.plan, data.interval)
+    from app.services.events import track
+
+    track(db, "checkout_started", user_id=user.id, plan=data.plan, interval=data.interval)
+    await db.commit()
+    return {"url": url}
 
 
 @router.post("/billing/portal", tags=["billing"])
@@ -113,9 +118,21 @@ async def cancel(user: CurrentUser, db: DB):
 @router.post("/webhooks/stripe", tags=["webhooks"])
 async def stripe_webhook(request: Request, db: DB):
     payload = await request.body()
-    event = (await billing.get_provider("stripe")).verify(payload, request.headers.get("stripe-signature"))
-    result = await billing.handle_stripe_event(db, event)
+    try:
+        event = (await billing.get_provider("stripe")).verify(payload, request.headers.get("stripe-signature"))
+    except AppError as e:
+        await _reject_webhook(db, request, "stripe", e)
+        raise
+    result = await billing.process_webhook(db, provider="stripe", event_id=event["id"], event_type=event["type"],
+                                           event=event, raw=payload, handler=billing.handle_stripe_event,
+                                           request=request)
     return {"received": True, "result": result}
+
+
+async def _reject_webhook(db, request: Request, provider: str, e: AppError) -> None:
+    if e.code == "invalid_signature":
+        security_event(db, "webhook_rejected", request=request, provider=provider, reason=e.code)
+        await db.commit()
 
 
 @router.post("/webhooks/dodo", tags=["webhooks"])
@@ -123,8 +140,14 @@ async def dodo_webhook(request: Request, db: DB):
     """Dodo Payments events, signed with Standard Webhooks (webhook-id / webhook-timestamp / webhook-signature)."""
     payload = await request.body()
     headers = {k: request.headers.get(k, "") for k in ("webhook-id", "webhook-timestamp", "webhook-signature")}
-    event = billing.verify_dodo_webhook(payload, headers)
-    result = await billing.handle_dodo_event(db, event, headers["webhook-id"])
+    try:
+        event = billing.verify_dodo_webhook(payload, headers)
+    except AppError as e:
+        await _reject_webhook(db, request, "dodo", e)
+        raise
+    result = await billing.process_webhook(db, provider="dodo", event_id=headers["webhook-id"],
+                                           event_type=event.get("type", ""), event=event, raw=payload,
+                                           handler=billing.handle_dodo_event, request=request)
     return {"received": True, "result": result}
 
 

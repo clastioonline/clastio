@@ -99,6 +99,9 @@ async def update_profile(data: ProfileIn, user: CurrentUser, db: DB):
 async def complete_onboarding(user: CurrentUser, db: DB):
     tp = await _profile(db, user)
     tp.onboarding_completed = True
+    from app.services.events import track
+
+    track(db, "onboarding_completed", user_id=user.id)
     await db.commit()
     return {"ok": True}
 

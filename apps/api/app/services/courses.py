@@ -125,6 +125,9 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
     db.add(course)
     await db.flush()
     job = await enqueue(db, "course_plan", {"course_id": str(course.id)}, owner_id=user.id)
+    from app.services.events import track
+
+    track(db, "project_created", user_id=user.id, lectures=data["num_lectures"], subject=data["subject"])
     await db.commit()
     await run_inline_if_configured([job.id])
     return course, job.id

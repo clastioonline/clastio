@@ -153,6 +153,51 @@ async def consume(db: AsyncSession, user_id: uuid.UUID, amount: int, reason: str
                   resource: str = "credits", **extra: Any) -> None:
     if amount:
         db.add(ledger_entry(user_id, -abs(amount), reason, ref=ref, resource=resource, **extra))
+        from app.services.events import track
+
+        track(db, USAGE_EVENTS.get(reason, "document_generated" if resource == "credits" else "credits_used"),
+              user_id=user_id, reason=reason, resource=resource, amount=abs(amount))
+        if resource == "credits":
+            await warn_usage(db, user_id, resource)
+
+
+# Product analytics event recorded for each kind of credit spend.
+USAGE_EVENTS = {"course_plan": "course_planned", "lesson_generation": "lesson_generated",
+                "slide_regeneration": "slide_regenerated", "ai_image": "ai_images_used",
+                "media_image": "media_generated", "media_video": "media_generated"}
+USAGE_THRESHOLDS = (50, 75, 90, 100)
+EMAIL_THRESHOLDS = (90, 100)
+
+
+async def warn_usage(db: AsyncSession, user_id: uuid.UUID, resource: str) -> int | None:
+    """Tell the teacher when they cross 50/75/90/100% of this period's allowance. Each threshold is sent once per
+    period (the notification's dedupe key); 90% and 100% also send an email."""
+    from app.core.config import get_settings
+    from app.services.notify import notify, queue_email
+
+    user = await db.get(User, user_id)
+    if user is None or user.role == "admin":
+        return None
+    plan, sub = await get_plan(db, user)
+    limit = plan.limits.get(resource)
+    if not limit or limit == -1:
+        return None
+    since = period_start(sub)
+    spent = await used(db, user_id, resource, since)  # autoflush includes the row just added
+    pct = spent * 100 // int(limit)
+    crossed = [t for t in USAGE_THRESHOLDS if pct >= t]
+    if not crossed:
+        return None
+    t = crossed[-1]
+    key = f"usage:{resource}:{since.date().isoformat()}:{t}"
+    title = "You've used all your credits this month" if t >= 100 else f"You've used {t}% of this month's credits"
+    body = (f"Your {plan.name} plan includes {limit} credits a month. "
+            + ("New lessons will wait until next month unless you upgrade." if t >= 100 else
+               f"{max(0, int(limit) - spent)} are left."))
+    if await notify(db, user_id, "usage", title, body, "/billing", dedupe_key=key) and t in EMAIL_THRESHOLDS:
+        queue_email(db, user, "usage_warning", link=f"{get_settings().public_web_url}/billing", percent=str(t),
+                    plan=plan.name)
+    return t
 
 
 async def refund(db: AsyncSession, user_id: uuid.UUID, amount: int, reason: str, ref: str | None = None,

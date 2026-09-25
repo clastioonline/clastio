@@ -28,6 +28,7 @@ from app.core.permissions import PERMISSIONS, ROLE_LABELS, ROLES
 from app.models import (
     AIUsage,
     AnalyticsEvent,
+    Announcement,
     ApiRequest,
     AuditLog,
     Consent,
@@ -35,11 +36,13 @@ from app.models import (
     CreditLedger,
     EmailOutbox,
     GenerationJob,
+    LegalDocument,
     Payment,
     Plan,
     SecurityEvent,
     Subscription,
     SupportTicket,
+    TicketMessage,
     User,
     UserNote,
     UserSession,
@@ -798,3 +801,299 @@ def _csv_safe(v: Any) -> Any:
     if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + v
     return v
+
+
+# --------------------------------------------------------------------------- support tickets
+
+
+@router.get("/support/tickets")
+async def support_tickets(_: Staff("support.manage"), db: DB, status: str | None = None, kind: str | None = None,
+                          priority: str | None = None, assigned: str | None = None, cursor: str | None = None,
+                          limit: int = 50):
+    from app.api.routes.account import ticket_out
+
+    q = select(SupportTicket)
+    if status == "active":
+        q = q.where(SupportTicket.status.in_(("open", "pending")))
+    elif status:
+        q = q.where(SupportTicket.status == status)
+    if kind:
+        q = q.where(SupportTicket.kind == kind)
+    if priority:
+        q = q.where(SupportTicket.priority == priority)
+    if assigned == "none":
+        q = q.where(SupportTicket.assigned_to.is_(None))
+    elif assigned:
+        q = q.where(SupportTicket.assigned_to == _as_uuid(assigned))
+    limit = clamp(limit)
+    rows, nxt = page(list((await db.execute(keyset(q, SupportTicket, cursor, limit))).scalars().all()), limit)
+    emails = await _emails(db, [t.user_id for t in rows] + [t.assigned_to for t in rows])
+    counts = dict((await db.execute(select(SupportTicket.status, func.count()).group_by(SupportTicket.status))).all())
+    return {"items": [{**ticket_out(t, email=emails.get(t.user_id)), "assigned_to": emails.get(t.assigned_to)}
+                      for t in rows], "next_cursor": nxt, "counts": counts}
+
+
+@router.get("/support/tickets/{ticket_id}")
+async def support_ticket(ticket_id: uuid.UUID, _: Staff("support.manage"), db: DB):
+    from app.api.routes.account import message_out, ticket_out
+
+    t = await db.get(SupportTicket, ticket_id)
+    if t is None:
+        raise NotFound("Ticket")
+    rows = (await db.execute(select(TicketMessage, User).outerjoin(User, User.id == TicketMessage.author_id)
+                             .where(TicketMessage.ticket_id == t.id).order_by(TicketMessage.created_at))).all()
+    owner = await db.get(User, t.user_id)
+    return {**ticket_out(t, email=owner.email if owner else None), "user_id": str(t.user_id),
+            "assigned_to": _uid(t.assigned_to), "request_id": t.request_id,
+            "messages": [message_out(m, a, staff_view=True) for m, a in rows]}
+
+
+class StaffReplyIn(BaseModel):
+    body: str = Field(min_length=1, max_length=10_000)
+    internal: bool = False
+    status: str | None = Field(None, pattern="^(open|pending|resolved|closed|planned|declined)$")
+
+
+@router.post("/support/tickets/{ticket_id}/messages")
+async def support_reply(ticket_id: uuid.UUID, data: StaffReplyIn, admin: Staff("support.manage"), request: Request,
+                        db: DB):
+    from app.core.config import get_settings
+
+    t = await db.get(SupportTicket, ticket_id)
+    if t is None:
+        raise NotFound("Ticket")
+    db.add(TicketMessage(ticket_id=t.id, author_id=admin.id, body=data.body.strip(), internal=data.internal))
+    if not data.internal:
+        t.status = data.status or "pending"  # waiting on the teacher
+        owner = await db.get(User, t.user_id)
+        link = f"{get_settings().public_web_url}/support/{t.id}"
+        await notify(db, t.user_id, "account", f"Reply on request #{t.number}", t.subject, f"/support/{t.id}")
+        if owner and owner.status == "active":
+            queue_email(db, owner, "ticket_reply", link=link, number=str(t.number), subject=t.subject,
+                        reply=data.body.strip()[:2000])
+    elif data.status:
+        t.status = data.status
+    if t.status in ("resolved", "closed") and not t.resolved_at:
+        t.resolved_at = utcnow()
+    t.updated_at = utcnow()
+    audit(db, admin.id, "support.replied", request=request, target_user=t.user_id, target_type="ticket",
+          target_id=str(t.id), internal=data.internal, status=t.status)
+    await db.commit()
+    return {"ok": True, "status": t.status}
+
+
+class TicketPatch(BaseModel):
+    status: str | None = Field(None, pattern="^(open|pending|resolved|closed|planned|declined)$")
+    priority: str | None = Field(None, pattern="^(low|normal|high|urgent)$")
+    assigned_to: uuid.UUID | None = None
+    unassign: bool = False
+    category: str | None = Field(None, max_length=60)
+
+
+@router.patch("/support/tickets/{ticket_id}")
+async def support_update(ticket_id: uuid.UUID, data: TicketPatch, admin: Staff("support.manage"), request: Request,
+                         db: DB):
+    t = await db.get(SupportTicket, ticket_id)
+    if t is None:
+        raise NotFound("Ticket")
+    before = {"status": t.status, "priority": t.priority, "assigned_to": _uid(t.assigned_to), "category": t.category}
+    if data.assigned_to:
+        staff_user = await db.get(User, data.assigned_to)
+        if staff_user is None or staff_user.role != "admin":
+            raise AppError("bad_request", "Tickets can only be assigned to staff.", 400)
+        t.assigned_to = staff_user.id
+    if data.unassign:
+        t.assigned_to = None
+    for f in ("status", "priority", "category"):
+        if getattr(data, f) is not None:
+            setattr(t, f, getattr(data, f))
+    if t.status in ("resolved", "closed") and not t.resolved_at:
+        t.resolved_at = utcnow()
+    t.updated_at = utcnow()
+    audit(db, admin.id, "support.updated", request=request, target_user=t.user_id, target_type="ticket",
+          target_id=str(t.id), before=before,
+          after={"status": t.status, "priority": t.priority, "assigned_to": _uid(t.assigned_to),
+                 "category": t.category})
+    await db.commit()
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------- announcements
+
+
+class AnnouncementIn(BaseModel):
+    kind: str = Field("product", pattern="^(maintenance|product|feature|important)$")
+    title: str = Field(min_length=3, max_length=200)
+    body: str = Field("", max_length=2000)
+    link: str | None = Field(None, max_length=300, pattern=r"^(/|https://)")
+    audience: str = Field("teachers", pattern="^(teachers|everyone|staff)$")
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+    active: bool = True
+
+
+@router.get("/announcements")
+async def announcements(_: Staff("announcements.manage"), db: DB):
+    from app.api.routes.account import announcement_out
+
+    rows = (await db.execute(select(Announcement).order_by(Announcement.created_at.desc()).limit(100))).scalars().all()
+    return {"items": [announcement_out(a) for a in rows]}
+
+
+@router.post("/announcements")
+async def create_announcement(data: AnnouncementIn, admin: Staff("announcements.manage"), request: Request, db: DB):
+    from app.api.routes.account import announcement_out
+
+    a = Announcement(**{**data.model_dump(exclude_none=True), "starts_at": data.starts_at or utcnow()},
+                     created_by=admin.id)
+    db.add(a)
+    await db.flush()
+    audit(db, admin.id, "announcement.created", request=request, target_type="announcement", target_id=str(a.id),
+          after=announcement_out(a))
+    await db.commit()
+    return announcement_out(a)
+
+
+@router.put("/announcements/{announcement_id}")
+async def update_announcement(announcement_id: uuid.UUID, data: AnnouncementIn,
+                              admin: Staff("announcements.manage"), request: Request, db: DB):
+    from app.api.routes.account import announcement_out
+
+    a = await db.get(Announcement, announcement_id)
+    if a is None:
+        raise NotFound("Announcement")
+    before = announcement_out(a)
+    for k, v in data.model_dump().items():
+        if k == "starts_at" and v is None:
+            continue
+        setattr(a, k, v)
+    audit(db, admin.id, "announcement.updated", request=request, target_type="announcement", target_id=str(a.id),
+          before=before, after=announcement_out(a))
+    await db.commit()
+    return announcement_out(a)
+
+
+# --------------------------------------------------------------------------- legal documents
+
+
+class LegalIn(BaseModel):
+    document_type: str
+    version: str = Field(min_length=1, max_length=20, pattern=r"^[0-9A-Za-z.\-]+$")
+    title: str = Field(min_length=3, max_length=200)
+    content: str = Field(min_length=20, max_length=200_000)
+    summary_of_changes: str | None = Field(None, max_length=5000)
+    requires_acceptance: bool = False
+    effective_from: datetime | None = None
+
+
+@router.get("/legal")
+async def legal_documents(_: Staff("legal.manage"), db: DB):
+    from app.services import legal as legal_svc
+
+    rows = (await db.execute(select(LegalDocument).order_by(LegalDocument.document_type,
+                                                             LegalDocument.created_at.desc()))).scalars().all()
+    accepted = dict((await db.execute(select(Consent.document_id, func.count(func.distinct(Consent.user_id)))
+                                      .where(Consent.granted.is_(True), Consent.document_id.is_not(None))
+                                      .group_by(Consent.document_id))).all())
+    return {"types": legal_svc.DOC_TYPES,
+            "items": [{**legal_svc.doc_out(d), "accepted_by": accepted.get(d.id, 0)} for d in rows]}
+
+
+@router.get("/legal/{doc_id}")
+async def legal_document_detail(doc_id: uuid.UUID, _: Staff("legal.manage"), db: DB):
+    from app.services import legal as legal_svc
+
+    d = await db.get(LegalDocument, doc_id)
+    if d is None:
+        raise NotFound("Document")
+    return legal_svc.doc_out(d, content=True)
+
+
+@router.post("/legal")
+async def create_legal_draft(data: LegalIn, admin: Staff("legal.manage"), request: Request, db: DB):
+    from app.services import legal as legal_svc
+
+    if data.document_type not in legal_svc.DOC_TYPES:
+        raise AppError("bad_request", "Unknown document type.", 400)
+    dup = (await db.execute(select(LegalDocument.id).where(LegalDocument.document_type == data.document_type,
+                                                           LegalDocument.version == data.version))).first()
+    if dup:
+        raise AppError("version_exists", "That version already exists. Published versions can't be changed; "
+                       "use a new version number.", 409)
+    d = LegalDocument(**data.model_dump(), status="draft", created_by=admin.id)
+    db.add(d)
+    await db.flush()
+    audit(db, admin.id, "legal.draft_created", request=request, target_type="legal_document", target_id=str(d.id),
+          after={"type": d.document_type, "version": d.version})
+    await db.commit()
+    return legal_svc.doc_out(d, content=True)
+
+
+@router.put("/legal/{doc_id}")
+async def update_legal_draft(doc_id: uuid.UUID, data: LegalIn, admin: Staff("legal.manage"), request: Request,
+                             db: DB):
+    from app.services import legal as legal_svc
+
+    d = await db.get(LegalDocument, doc_id)
+    if d is None:
+        raise NotFound("Document")
+    if d.status != "draft":
+        raise AppError("published_immutable", "Published versions can't be edited. Create a new version.", 409)
+    if data.document_type != d.document_type:
+        raise AppError("bad_request", "The document type can't change.", 400)
+    for k, v in data.model_dump().items():
+        setattr(d, k, v)
+    audit(db, admin.id, "legal.draft_updated", request=request, target_type="legal_document", target_id=str(d.id))
+    await db.commit()
+    return legal_svc.doc_out(d, content=True)
+
+
+@router.post("/legal/{doc_id}/publish")
+async def publish_legal(doc_id: uuid.UUID, admin: Staff("legal.manage"), request: Request, db: DB):
+    """Publish a draft. The previous version is archived (kept, still viewable). If the new version requires
+    acceptance, every signed-in teacher is asked to accept it before continuing."""
+    from app.services import legal as legal_svc
+
+    d = await db.get(LegalDocument, doc_id)
+    if d is None:
+        raise NotFound("Document")
+    if d.status != "draft":
+        raise AppError("not_draft", "Only drafts can be published.", 409)
+    previous = await legal_svc.current(db, d.document_type)
+    now = utcnow()
+    d.status, d.published_at = "published", now
+    d.effective_from = d.effective_from or now
+    if previous and d.effective_from <= now:
+        previous.status = "archived"
+    audit(db, admin.id, "legal.published", request=request, target_type="legal_document", target_id=str(d.id),
+          before={"version": previous.version} if previous else None,
+          after={"type": d.document_type, "version": d.version, "requires_acceptance": d.requires_acceptance})
+    await db.commit()
+    return legal_svc.doc_out(d)
+
+
+# --------------------------------------------------------------------------- product analytics
+
+
+@router.get("/analytics/events")
+async def analytics_events(_: Staff("analytics.view"), db: DB, days: int = 30):
+    """Counts of product events per day (sign-ups, trials, generations, checkouts…)."""
+    since = utcnow() - timedelta(days=max(1, min(days, 365)))
+    day = func.date_trunc("day", AnalyticsEvent.created_at)
+    rows = (await db.execute(select(day, AnalyticsEvent.name, func.count(), func.count(func.distinct(
+        AnalyticsEvent.user_id))).where(AnalyticsEvent.created_at >= since).group_by(day, AnalyticsEvent.name)
+        .order_by(day))).all()
+    totals: dict[str, dict[str, int]] = {}
+    for _d, name, n, users in rows:
+        t = totals.setdefault(name, {"count": 0, "users": 0})
+        t["count"] += n
+        t["users"] = max(t["users"], users)
+    funnel_names = ("signup", "trial_started", "project_created", "lesson_generated", "checkout_started",
+                    "subscription_activated")
+    funnel = []
+    for name in funnel_names:
+        users = (await db.execute(select(func.count(func.distinct(AnalyticsEvent.user_id))).where(
+            AnalyticsEvent.name == name, AnalyticsEvent.created_at >= since))).scalar_one()
+        funnel.append({"step": name, "users": users})
+    return {"days": [{"day": d.date().isoformat(), "name": name, "count": n} for d, name, n, _u in rows],
+            "totals": totals, "funnel": funnel}
