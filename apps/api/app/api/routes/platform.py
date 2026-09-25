@@ -409,6 +409,33 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
             raise bad("Trial length must be 0 to 90 days.")
     elif key == "ui" and value.get("default_skin", "forest") not in ("classic", "forest"):
         raise bad("Theme must be classic or forest.")
+    elif key == "system":
+        m = value.get("maintenance") or {}
+        if not isinstance(m, dict) or not isinstance(m.get("enabled", False), bool):
+            raise bad("maintenance.enabled must be true or false.")
+        if len(str(m.get("message") or "")) > 500:
+            raise bad("Maintenance message is too long (500 characters max).")
+        for flag in ("registration_enabled", "ai_generation_enabled", "require_email_verification_for_generation"):
+            if flag in value and not isinstance(value[flag], bool):
+                raise bad(f"{flag} must be true or false.")
+        mb = value.get("max_upload_mb", 100)
+        if not isinstance(mb, int) or not 1 <= mb <= 500:
+            raise bad("max_upload_mb must be 1 to 500.")
+        for k, days in (value.get("retention_days") or {}).items():
+            if not isinstance(days, int) or not 7 <= days <= 3650:
+                raise bad(f"Retention for {k} must be 7 to 3650 days.")
+    elif key == "plan_limits":
+        for plan, limits in value.items():
+            if not isinstance(limits, dict):
+                raise bad(f"Limits for {plan} must be an object.")
+            for field in ("daily_generations", "max_concurrent_jobs", "max_upload_mb"):
+                v = limits.get(field)
+                if v is not None and (not isinstance(v, int) or v < 0 or v > 100000):
+                    raise bad(f"{plan}.{field} must be a whole number (0 or more).")
+    elif key == "rate_limits":
+        for field, v in value.items():
+            if not isinstance(v, int) or not 1 <= v <= 100000:
+                raise bad(f"{field} must be a whole number between 1 and 100000.")
 
 
 @router.put("/admin/settings/{key}", tags=["admin"])

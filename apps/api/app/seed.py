@@ -30,6 +30,7 @@ from app.models import (
     TimetableSlot,
     User,
 )
+from app.services import legal
 from app.services.billing import seed_plans
 from app.services.styles import ensure_builtin_templates
 
@@ -110,6 +111,7 @@ async def seed_core() -> None:
             if not dup:
                 db.add(CalendarEvent(kind=kind, title=title, start_date=start, end_date=end, duration_factor=factor))
         await ensure_builtin_templates(db)
+        await legal.seed_documents(db)
         await db.commit()
     await embed_outcomes()
 

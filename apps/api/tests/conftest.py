@@ -81,7 +81,7 @@ async def client(app, seeded):
 async def make_user(client: httpx.AsyncClient, *, plan: str | None = "assistant", name: str = "Test Teacher") -> dict:
     email = f"t-{uuid.uuid4().hex[:10]}@example.com"
     r = await client.post("/api/v1/auth/signup", json={"email": email, "password": "correct-horse-1",
-                                                          "name": name})
+                                                          "name": name, "accept_terms": True})
     assert r.status_code == 200, r.text
     data = r.json()
     client.cookies.clear()  # each test user authenticates with its own bearer token

@@ -45,6 +45,25 @@ DEFAULTS: dict[str, Any] = {
     "trial": {"enabled": True, "plan": "pro", "days": 14},
     # Look of the web app. Teachers can still pick their own in Settings.
     "ui": {"default_skin": "forest"},
+    # Platform switches. Maintenance mode blocks the app for everyone but staff (the API answers 503).
+    "system": {
+        "maintenance": {"enabled": False, "message": "", "until": None},
+        "registration_enabled": True,
+        "ai_generation_enabled": True,
+        "max_upload_mb": 100,
+        "require_email_verification_for_generation": False,
+        "retention_days": {"api_requests": 90, "security_events": 365, "analytics_events": 400,
+                           "notifications": 180, "email_outbox": 90},
+    },
+    # Per-plan runtime limits (lesson credits live on the plan). Keys are plan codes; "*" is the fallback.
+    "plan_limits": {
+        "*": {"daily_generations": 30, "max_concurrent_jobs": 2, "max_upload_mb": 50},
+        "free": {"daily_generations": 5, "max_concurrent_jobs": 1, "max_upload_mb": 20},
+        "pro": {"daily_generations": 60, "max_concurrent_jobs": 3, "max_upload_mb": 100},
+        "assistant": {"daily_generations": 150, "max_concurrent_jobs": 5, "max_upload_mb": 100},
+    },
+    # Request rate limits (per minute). Staff edit these without a deploy.
+    "rate_limits": {"ip_per_minute": 300, "user_per_minute": 240, "auth_per_minute": 10, "ai_per_minute": 20},
 }
 
 

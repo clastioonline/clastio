@@ -8,7 +8,7 @@ from tests.conftest import SAMPLES, make_user
 
 async def test_signup_login_me(client):
     r = await client.post("/api/v1/auth/signup", json={"email": "Amira@Example.com", "password": "longenough1",
-                                                          "name": "Amira"})
+                                                          "name": "Amira", "accept_terms": True})
     assert r.status_code == 200
     assert r.json()["user"]["email"] == "amira@example.com"
     assert "ata_session" in r.headers.get("set-cookie", "")
@@ -26,7 +26,8 @@ async def test_bad_credentials_and_duplicates(client):
     r = await client.post("/api/v1/auth/login", json={"email": u["email"], "password": "wrong-password"})
     assert r.status_code == 401
     assert r.json()["error"]["code"] == "invalid_credentials"
-    r = await client.post("/api/v1/auth/signup", json={"email": u["email"], "password": "whatever12", "name": "x"})
+    r = await client.post("/api/v1/auth/signup", json={"email": u["email"], "password": "whatever12", "name": "x",
+                                                          "accept_terms": True})
     assert r.status_code == 409
 
 

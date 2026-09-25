@@ -8,10 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.logging import user_id_var
+from app.core.permissions import permissions_for
 from app.core.security import COOKIE_NAME, decode_token
 from app.models import User
 
 DB = Annotated[AsyncSession, Depends(get_db)]
+
+# Statuses that may still use the API. Everything else (suspended, banned, pending_deletion, deleted) is refused.
+USABLE_STATUSES = {"active"}
 
 
 def _token_from_request(request: Request) -> str | None:
@@ -22,22 +26,50 @@ def _token_from_request(request: Request) -> str | None:
 
 
 async def get_current_user(request: Request, db: DB) -> User:
+    from app.services import sessions
+
     token = _token_from_request(request)
     data = decode_token(token) if token else None
     if not data:
         raise HTTPException(status_code=401, detail="Not signed in")
     user = await db.get(User, uuid.UUID(data["sub"]))
-    if user is None or user.status != "active":
-        raise HTTPException(status_code=401, detail="Account unavailable")
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not signed in")
+    sess = await sessions.load_active(db, data.get("sid"), user.id)
+    if sess is None:
+        raise HTTPException(status_code=401, detail="Your session has ended. Please sign in again.")
+    if user.status not in USABLE_STATUSES:
+        raise HTTPException(status_code=403, detail="This account is not available. Contact support.")
     request.state.user_id = user.id
+    request.state.session_id = sess.id
     user_id_var.set(str(user.id))
+    await sessions.touch(db, sess, user)
     return user
+
+
+def staff_permissions(user: User) -> set[str]:
+    return permissions_for(user.role, user.admin_role)
 
 
 async def get_admin_user(user: Annotated[User, Depends(get_current_user)]) -> User:
-    if user.role != "admin":
+    if not staff_permissions(user):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
+
+
+def require(*perms: str):
+    """Dependency: the signed-in staff member must hold every listed permission."""
+
+    async def dep(user: Annotated[User, Depends(get_current_user)]) -> User:
+        granted = staff_permissions(user)
+        if not granted:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        missing = [p for p in perms if p not in granted]
+        if missing:
+            raise HTTPException(status_code=403, detail=f"Your role doesn't allow this ({', '.join(missing)}).")
+        return user
+
+    return dep
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]

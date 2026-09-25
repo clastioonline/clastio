@@ -65,14 +65,31 @@ class User(TimestampMixin, Base):
     password_hash: Mapped[str | None] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(200), default="")
     role: Mapped[str] = mapped_column(String(20), default="teacher")  # teacher | admin
-    status: Mapped[str] = mapped_column(String(20), default="active")  # active | suspended
+    # Staff permissions come from this role (see app/core/permissions.py); None for teachers.
+    admin_role: Mapped[str | None] = mapped_column(String(20))
+    # active | suspended | banned | pending_deletion | deleted  ("email_unverified" is derived from email_verified)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
     locale: Mapped[str] = mapped_column(String(10), default="en")
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Dubai")
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    phone: Mapped[str | None] = mapped_column(String(20))
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    signup_source: Mapped[str | None] = mapped_column(String(40))  # web | google | microsoft | admin
+    signup_meta: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)  # utm_*, referrer, landing page
+    referral_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    referred_by_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True, ondelete="SET NULL", index=False)
+    suspended_reason: Mapped[str | None] = mapped_column(String(500))
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     org_id: Mapped[uuid.UUID | None] = fk("organizations.id", nullable=True, ondelete="SET NULL")
 
-    profile: Mapped[TeacherProfile | None] = relationship(back_populates="user", uselist=False)
+    profile: Mapped[TeacherProfile | None] = relationship(back_populates="user", uselist=False,
+                                                          foreign_keys="TeacherProfile.user_id")
 
 
 class OrgMembership(TimestampMixin, Base):
@@ -97,20 +114,33 @@ class Consent(TimestampMixin, Base):
     __tablename__ = "consents"
     id: Mapped[uuid.UUID] = pk()
     user_id: Mapped[uuid.UUID] = fk("users.id")
-    kind: Mapped[str] = mapped_column(String(50))  # terms | privacy | whatsapp | marketing
+    # terms | privacy | acceptable_use | cookie | marketing_email | marketing_sms | marketing_whatsapp | whatsapp
+    kind: Mapped[str] = mapped_column(String(50), index=True)
     granted: Mapped[bool] = mapped_column(Boolean)
     version: Mapped[str] = mapped_column(String(20), default="1")
+    document_id: Mapped[uuid.UUID | None] = fk("legal_documents.id", nullable=True, ondelete="SET NULL", index=False)
+    method: Mapped[str | None] = mapped_column(String(40))  # signup_checkbox | reacceptance_modal | settings | banner
+    source: Mapped[str | None] = mapped_column(String(40))
+    ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(400))
 
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id: Mapped[uuid.UUID] = pk()
     actor_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True, ondelete="SET NULL")
-    action: Mapped[str] = mapped_column(String(100))
-    target: Mapped[str | None] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(100), index=True)
+    target: Mapped[str | None] = mapped_column(String(200), index=True)  # target user id where there is one
+    target_type: Mapped[str | None] = mapped_column(String(40))
+    target_id: Mapped[str | None] = mapped_column(String(200))
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    before: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    after: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    reason: Mapped[str | None] = mapped_column(String(500))
     ip: Mapped[str | None] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
+    user_agent: Mapped[str | None] = mapped_column(String(400))
+    request_id: Mapped[str | None] = mapped_column(String(40), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now(), index=True)
 
 
 def _now() -> datetime:
@@ -255,6 +285,7 @@ class UploadedFile(TimestampMixin, Base):
     error: Mapped[str | None] = mapped_column(Text)
     page_count: Mapped[int | None] = mapped_column(Integer)
     content_rights_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     meta: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
@@ -486,6 +517,8 @@ class GenerationJob(Base):
     locked_by: Mapped[str | None] = mapped_column(String(100))
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    credits_reserved: Mapped[int] = mapped_column(Integer, default=0)  # counted against limits while running
+    request_id: Mapped[str | None] = mapped_column(String(40), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -508,6 +541,8 @@ class AIUsage(Base):
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     success: Mapped[bool] = mapped_column(Boolean, default=True)
+    request_id: Mapped[str | None] = mapped_column(String(40), index=True)
+    error_code: Mapped[str | None] = mapped_column(String(60))
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now(), index=True)
 
@@ -549,6 +584,8 @@ class Subscription(TimestampMixin, Base):
     current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    price_aed: Mapped[float | None] = mapped_column(Numeric(12, 2))
 
 
 class Payment(TimestampMixin, Base):
@@ -560,8 +597,11 @@ class Payment(TimestampMixin, Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="AED")
     tax_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
-    status: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))  # paid | failed | refunded
     invoice_url: Mapped[str | None] = mapped_column(String(500))
+    invoice_id: Mapped[str | None] = mapped_column(String(120))
+    subscription_ref: Mapped[str | None] = mapped_column(String(120))
+    failure_reason: Mapped[str | None] = mapped_column(String(500))
 
 
 class CreditLedger(Base):
@@ -570,9 +610,17 @@ class CreditLedger(Base):
     id: Mapped[uuid.UUID] = pk()
     owner_id: Mapped[uuid.UUID] = fk("users.id")
     amount: Mapped[int] = mapped_column(Integer)  # negative = spend, positive = grant/refund
-    resource: Mapped[str] = mapped_column(String(30))  # credits | whatsapp | storage | images
+    resource: Mapped[str] = mapped_column(String(30))  # credits | media_credits | whatsapp_messages | ai_images
+    # CREDIT_USAGE | CREDIT_REFUND | CREDIT_PURCHASE | CREDIT_ADMIN_GRANT | CREDIT_ADJUSTMENT | CREDIT_EXPIRATION
+    event_type: Mapped[str] = mapped_column(String(30), default="CREDIT_USAGE")
     reason: Mapped[str] = mapped_column(String(80))
-    ref: Mapped[str | None] = mapped_column(String(120))
+    ref: Mapped[str | None] = mapped_column(String(120), index=True)
+    resource_type: Mapped[str | None] = mapped_column(String(40))
+    resource_id: Mapped[str | None] = mapped_column(String(80))
+    provider_cost_usd: Mapped[float | None] = mapped_column(Float)
+    actor_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True, ondelete="SET NULL", index=False)
+    request_id: Mapped[str | None] = mapped_column(String(40), index=True)
+    meta: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
 
 
@@ -584,6 +632,11 @@ class WebhookEvent(Base):
     event_id: Mapped[str] = mapped_column(String(200))
     type: Mapped[str] = mapped_column(String(100))
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    payload_hash: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(20), default="received")  # received | processed | failed | ignored
+    result: Mapped[str | None] = mapped_column(String(40))
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
 

@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     smtp_url: str | None = None
     email_from: str = "PPT Genie <no-reply@example.com>"
 
+    # --- bot protection (Cloudflare Turnstile); both empty = off ---
+    turnstile_site_key: str | None = None
+    turnstile_secret: str | None = None
+
     # --- OAuth (Google / Microsoft) ---
     google_client_id: str | None = None
     google_client_secret: str | None = None
