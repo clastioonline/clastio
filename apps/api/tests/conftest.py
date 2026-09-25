@@ -86,8 +86,18 @@ async def make_user(client: httpx.AsyncClient, *, plan: str | None = "assistant"
     data = r.json()
     client.cookies.clear()  # each test user authenticates with its own bearer token
     headers = {"Authorization": f"Bearer {data['token']}"}
-    if plan and plan != "free":
-        from app.core.db import get_sessionmaker
+    from app.core.db import get_sessionmaker
+
+    if plan == "free":  # end the sign-up trial so the account is on the Free plan
+        from sqlalchemy import update
+
+        from app.models import Subscription
+
+        async with get_sessionmaker()() as db:
+            await db.execute(update(Subscription).where(Subscription.user_id == uuid.UUID(data["user"]["id"]),
+                                                        Subscription.provider == "trial").values(status="canceled"))
+            await db.commit()
+    elif plan:
         from app.services.billing import set_manual_plan
 
         async with get_sessionmaker()() as db:

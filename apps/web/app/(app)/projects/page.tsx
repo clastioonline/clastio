@@ -11,7 +11,7 @@ export default function Projects() {
   const { data } = useApi<any>(`/projects${q ? `?q=${encodeURIComponent(q)}` : ""}`, { refreshInterval: 5000 });
   return (
     <div>
-      <PageHeader title="Projects" subtitle="Every course you've planned, with its lessons, slides and documents."
+      <PageHeader title="Lessons & PPTs" subtitle="Every unit you've planned, with its lessons, slides and documents."
         actions={<Button href="/projects/new"><Plus className="h-4 w-4" /> New course</Button>} />
       <div className="relative mb-5 max-w-sm">
         <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />

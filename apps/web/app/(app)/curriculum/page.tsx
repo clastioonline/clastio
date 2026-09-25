@@ -83,7 +83,7 @@ export default function Curriculum() {
   const [open, setOpen] = useState(false);
   return (
     <div className="space-y-6">
-      <PageHeader title="Classes & curriculum" subtitle="Each class keeps its own progress, pace and history. Coverage shows which outcomes you've taught."
+      <PageHeader title="Classes" subtitle="Each class keeps its own progress, pace and history. Coverage shows which outcomes you've taught."
         actions={<Button onClick={() => { setEditing(null); setOpen(true); }}><Plus className="h-4 w-4" /> Add class</Button>} />
       {!data ? <Skeleton className="h-64" /> : data.items.length ? (
         <div className="grid gap-5 lg:grid-cols-2">

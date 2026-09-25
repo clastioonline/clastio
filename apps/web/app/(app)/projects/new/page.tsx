@@ -178,7 +178,7 @@ function NewCourse() {
                 </button>
               ))}
             </div>
-            <div className="px-5 pb-5 text-xs text-muted">Want your own design? Upload an old deck in <a href="/templates" className="text-brand-600 underline">Design templates</a>.</div>
+            <div className="px-5 pb-5 text-xs text-muted">Want your own design? Upload an old deck in <a href="/templates" className="text-brand-600 underline">My designs</a>.</div>
           </Card>
           <Card className="p-5">
             <div className="flex items-center gap-2 font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent-500" /> You'll get</div>

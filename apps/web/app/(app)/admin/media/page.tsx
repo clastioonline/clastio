@@ -7,11 +7,6 @@ import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Select, Skel
 import { api, formatDate } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
-const PLANS = [
-  { code: "teacher", name: "Teacher" },
-  { code: "pro", name: "Teacher Pro" },
-  { code: "assistant", name: "AI Teaching Assistant" },
-];
 
 function Check({ ok, label, env }: { ok: boolean; label: string; env: string }) {
   return (
@@ -30,6 +25,8 @@ export default function AdminMedia() {
   const { notify } = useToast();
   const { data, mutate } = useApi<any>("/admin/media");
   const { data: settings, mutate: mutateSettings } = useApi<any>("/admin/settings");
+  const { data: planList } = useApi<any>("/admin/plans");
+  const PLANS = (planList?.items || []).filter((p: any) => p.code !== "free");
   const [media, setMedia] = useState<any>(null);
   const [billing, setBilling] = useState<any>(null);
   const [skin, setSkin] = useState("classic");
@@ -111,7 +108,7 @@ export default function AdminMedia() {
               <div className="mb-2 text-sm font-medium text-ink">Dodo product ids for plans</div>
               <p className="mb-3 text-xs text-muted">Create a subscription product per plan and interval in the Dodo dashboard and paste its id (pdt_…).</p>
               <div className="space-y-2">
-                {PLANS.map((p) => (
+                {PLANS.map((p: any) => (
                   <div key={p.code} className="grid grid-cols-[8rem_1fr_1fr] items-center gap-2 text-sm">
                     <span className="truncate text-ink-2">{p.name}</span>
                     {(["month", "year"] as const).map((iv) => (

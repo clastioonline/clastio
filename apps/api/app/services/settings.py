@@ -41,6 +41,8 @@ DEFAULTS: dict[str, Any] = {
              "active": True},
         ],
     },
+    # Free trial every new teacher gets on sign-up, no card needed. After it ends they are on the Free plan.
+    "trial": {"enabled": True, "plan": "pro", "days": 14},
     # Look of the web app. Teachers can still pick their own in Settings.
     "ui": {"default_skin": "forest"},
 }

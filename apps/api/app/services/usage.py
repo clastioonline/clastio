@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import LimitExceeded
@@ -39,7 +39,7 @@ DEFAULT_PLANS: list[dict[str, Any]] = [
                 "storage_mb": 5000, "max_lectures": 20},
      "features": ["Higher limits", "Unlimited classes & subjects", "Advanced memory & reflections",
                   "Arabic / bilingual slides", "Exports to Forms & LMS"]},
-    {"code": "assistant", "name": "AI Teaching Assistant", "price_monthly_aed": 249, "price_annual_aed": 2490,
+    {"code": "assistant", "name": "Genie Assistant", "price_monthly_aed": 249, "price_annual_aed": 2490,
      "sort": 3,
      "limits": {"credits": 4000, "style_profiles": 10, "classes": -1, "ai_images": 200, "whatsapp_messages": 300,
                 "storage_mb": 10000, "max_lectures": 30, "daily_planning": True},
@@ -55,10 +55,32 @@ def period_start(sub: Subscription | None) -> datetime:
     return datetime(now.year, now.month, 1, tzinfo=UTC)
 
 
+# Trials and admin-granted plans end on their end date; gateway subscriptions end by webhook.
+SELF_EXPIRING = ("trial", "manual")
+
+
 async def active_subscription(db: AsyncSession, user_id: uuid.UUID) -> Subscription | None:
     return (await db.execute(
-        select(Subscription).where(Subscription.user_id == user_id, Subscription.status.in_(ACTIVE_STATUSES))
+        select(Subscription).where(
+            Subscription.user_id == user_id, Subscription.status.in_(ACTIVE_STATUSES),
+            or_(Subscription.provider.notin_(SELF_EXPIRING), Subscription.current_period_end.is_(None),
+                Subscription.current_period_end > func.now()))
         .order_by(Subscription.created_at.desc()))).scalars().first()
+
+
+async def start_trial(db: AsyncSession, user: User) -> Subscription | None:
+    """Give a new teacher the admin-configured free trial (no card). Returns None when trials are off."""
+    from app.core.db import utcnow
+
+    cfg = await get_setting("trial")
+    if not cfg.get("enabled") or user.role == "admin" or int(cfg.get("days", 0)) <= 0:
+        return None
+    now = utcnow()
+    sub = Subscription(user_id=user.id, plan_code=cfg.get("plan", "pro"), status="trialing", provider="trial",
+                       interval="month", current_period_start=now,
+                       current_period_end=now + timedelta(days=int(cfg["days"])))
+    db.add(sub)
+    return sub
 
 
 async def get_plan(db: AsyncSession, user: User) -> tuple[Plan, Subscription | None]:
@@ -130,6 +152,14 @@ async def summary(db: AsyncSession, user: User) -> dict[str, Any]:
     since = period_start(sub)
     out: dict[str, Any] = {"plan": {"code": plan.code, "name": plan.name}, "period_start": since.isoformat(),
                            "subscription": None, "usage": {}}
+    had_trial = (await db.execute(select(Subscription.id).where(Subscription.user_id == user.id,
+                                                                Subscription.provider == "trial"))).first()
+    out["trial"] = None
+    if sub and sub.provider == "trial" and sub.current_period_end:
+        left = (sub.current_period_end - datetime.now(UTC)).total_seconds() / 86400
+        out["trial"] = {"active": True, "ends_at": sub.current_period_end.isoformat(), "days_left": max(0, round(left))}
+    elif had_trial and (sub is None or sub.provider in ("trial", "manual")) and plan.code == "free":
+        out["trial"] = {"active": False, "ended": True}
     if sub:
         out["subscription"] = {"status": sub.status, "interval": sub.interval,
                                "current_period_end": sub.current_period_end.isoformat()

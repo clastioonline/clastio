@@ -30,6 +30,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Logo } from "@/components/brand";
 import { Spinner } from "@/components/ui";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { api } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n";
@@ -55,17 +56,20 @@ const GENERAL: Item[] = [
   { href: "/settings", key: "nav.settings", label: "Settings", icon: Settings },
 ];
 const ADMIN: Item[] = [
-  { href: "/admin", key: "nav.admin", label: "Admin overview", icon: ShieldCheck },
-  { href: "/admin/users", key: "nav.adminUsers", label: "Users", icon: Users },
-  { href: "/admin/ai-costs", key: "nav.aiCosts", label: "AI costs", icon: ChartColumn },
+  { href: "/admin", key: "nav.admin", label: "Overview", icon: ShieldCheck },
+  { href: "/admin/users", key: "nav.adminUsers", label: "Teachers", icon: Users },
+  { href: "/admin/plans", key: "nav.plans", label: "Plans & trial", icon: CreditCard },
   { href: "/admin/media", key: "nav.payments", label: "Payments & media", icon: Wallet },
+  { href: "/admin/ai-costs", key: "nav.aiCosts", label: "AI costs", icon: ChartColumn },
 ];
+/* Pages an admin may open outside /admin. Everything else is the teacher product. */
+const ADMIN_ALLOWED = ["/settings"];
 
 function NavLink({ item, active, label }: { item: Item; active: boolean; label: string }) {
   const Icon = item.icon;
   return (
     <Link href={item.href} aria-current={active ? "page" : undefined}
-      className={cn("focus-ring group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition-colors",
+      className={cn("focus-ring group relative flex items-center gap-3 rounded-xl px-3 py-2 text-[15px] transition-colors",
         active
           ? "font-semibold text-ink before:absolute before:-start-4 before:top-1.5 before:bottom-1.5 before:w-1.5 before:rounded-e-full before:bg-brand-600"
           : "text-muted hover:bg-surface hover:text-ink")}>
@@ -85,16 +89,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/* The dark card at the bottom of the sidebar: plan and credits, with the next step. */
+/* The dark card at the bottom of the sidebar: plan, trial and credits, with the next step. */
 function PlanCard() {
   const { data } = useApi<any>("/me/usage", { refreshInterval: 30_000 });
   if (!data) return null;
   const c = data.usage.credits;
   const pct = c.limit && c.limit > 0 ? Math.min(100, (c.used / c.limit) * 100) : 0;
+  const trial = data.trial?.active ? data.trial : null;
   return (
     <div className="ui-hero relative overflow-hidden rounded-2xl bg-brand-800 p-4 text-white">
-      <div className="text-xs text-white/70">Your plan</div>
-      <div className="mt-0.5 font-semibold">{data.plan.name}</div>
+      <div className="text-xs text-white/70">{trial ? "Free trial" : "Your plan"}</div>
+      <div className="mt-0.5 font-semibold">{data.plan.name}{trial && <span className="font-normal text-white/80"> · {trial.days_left} day{trial.days_left === 1 ? "" : "s"} left</span>}</div>
       {c.limit > 0 && (
         <>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/20"><div className="h-full rounded-full bg-accent-400" style={{ width: `${Math.max(3, pct)}%` }} /></div>
@@ -102,22 +107,49 @@ function PlanCard() {
         </>
       )}
       <Link href="/billing" className="mt-3 block rounded-full bg-white/95 py-2 text-center text-sm font-semibold text-brand-800 hover:bg-white">
-        {data.plan.code === "free" ? "Upgrade" : "Manage plan"}
+        {trial ? "Choose a plan" : data.plan.code === "free" ? "Upgrade" : "Manage plan"}
       </Link>
     </div>
   );
 }
 
-function Notifications() {
+/* Trial and plan messages at the top of every teacher page. */
+function PlanBanner() {
+  const { data } = useApi<any>("/me/usage", { refreshInterval: 60_000 });
+  const pathname = usePathname();
+  if (!data || pathname === "/billing") return null;
+  const t = data.trial;
+  if (t?.active && t.days_left <= 3) {
+    return (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent-50 px-4 py-3 text-sm text-ink-2">
+        <span>Your {data.plan.name} trial ends in <b>{t.days_left} day{t.days_left === 1 ? "" : "s"}</b>. Choose a plan to keep everything you've set up working.</span>
+        <Link href="/billing" className="rounded-full bg-brand-800 px-4 py-2 font-semibold text-white hover:brightness-110">Choose a plan</Link>
+      </div>
+    );
+  }
+  if (t?.ended) {
+    return (
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-ink-2">
+        <span>Your free trial has ended and you're on the Free plan. Your lessons and designs are safe. Upgrade to keep building full units.</span>
+        <Link href="/billing" className="rounded-full bg-brand-800 px-4 py-2 font-semibold text-white hover:brightness-110">See plans</Link>
+      </div>
+    );
+  }
+  return null;
+}
+
+function Notifications({ admin }: { admin: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const { data } = useApi<any>("/me/dashboard", { refreshInterval: 60_000 });
+  const { data } = useApi<any>(admin ? null : "/me/dashboard", { refreshInterval: 60_000 });
+  const { data: failed } = useApi<any>(admin ? "/admin/jobs?status=failed" : null, { refreshInterval: 60_000 });
   useEffect(() => {
     const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
   const items: { text: string; href: string }[] = [];
+  if (failed?.items?.length) items.push({ text: `${failed.items.length} failed job(s) need a look`, href: "/admin#failed" });
   if (data?.next_class) {
     const n = data.next_class;
     items.push({ text: `${n.is_today ? "Today" : "Next"} ${n.start}: ${n.class.name} ${n.class.subject}${n.lesson ? ` — ${n.lesson.title}` : ""}`, href: n.lesson ? `/lessons/${n.lesson.id}` : "/calendar" });
@@ -143,6 +175,7 @@ function Notifications() {
 }
 
 function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
+  const admin = user.role === "admin";
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
@@ -163,9 +196,9 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
         <Menu className="h-5 w-5" />
       </button>
       <form className="relative hidden max-w-md flex-1 sm:block" role="search"
-        onSubmit={(e) => { e.preventDefault(); router.push(`/lessons${q ? `?q=${encodeURIComponent(q)}` : ""}`); }}>
+        onSubmit={(e) => { e.preventDefault(); router.push(`${admin ? "/admin/users" : "/lessons"}${q ? `?q=${encodeURIComponent(q)}` : ""}`); }}>
         <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lessons and documents" aria-label="Search lessons and documents"
+        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={admin ? "Search teachers by name or email" : "Search lessons and documents"} aria-label={admin ? "Search teachers" : "Search lessons and documents"}
           className="h-12 w-full rounded-full bg-surface ps-12 pe-16 text-sm text-ink outline-none placeholder:text-muted focus:ring-2 focus:ring-brand-200" />
         <kbd className="absolute end-3 top-1/2 -translate-y-1/2 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">⌘ K</kbd>
       </form>
@@ -175,16 +208,18 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
           className="focus-ring hidden h-11 w-11 place-items-center rounded-full bg-surface text-ink-2 hover:text-ink sm:grid">
           <Languages className="h-5 w-5" />
         </button>
-        <Link href="/whatsapp" aria-label="WhatsApp" className="focus-ring hidden h-11 w-11 place-items-center rounded-full bg-surface text-ink-2 hover:text-ink sm:grid">
-          <MessageCircle className="h-5 w-5" />
-        </Link>
-        <Notifications />
+        {!admin && (
+          <Link href="/whatsapp" aria-label="WhatsApp" className="focus-ring hidden h-11 w-11 place-items-center rounded-full bg-surface text-ink-2 hover:text-ink sm:grid">
+            <MessageCircle className="h-5 w-5" />
+          </Link>
+        )}
+        <Notifications admin={admin} />
         <Link href="/settings" className="focus-ring flex items-center gap-3 rounded-full py-1 pe-2 ps-1 hover:bg-surface">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-base font-semibold text-white">
             {(user.name || user.email).slice(0, 1).toUpperCase()}
           </span>
           <span className="hidden min-w-0 md:block">
-            <span className="block max-w-[11rem] truncate text-sm font-semibold text-ink">{user.name || "Teacher"}</span>
+            <span className="block max-w-[11rem] truncate text-sm font-semibold text-ink">{user.name || (admin ? "Admin" : "Teacher")}</span>
             <span className="block max-w-[11rem] truncate text-xs text-muted">{user.email}</span>
           </span>
         </Link>
@@ -204,9 +239,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (error) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [error, pathname, router]);
+  const admin = user?.role === "admin";
   useEffect(() => {
-    if (user && !user.onboarding_completed && pathname !== "/onboarding") router.replace("/onboarding");
-  }, [user, pathname, router]);
+    if (!user) return;
+    if (admin) {
+      // Admins run the platform; the teacher product is not theirs to use or pay for.
+      if (!pathname.startsWith("/admin") && !ADMIN_ALLOWED.includes(pathname)) router.replace("/admin");
+    } else if (pathname.startsWith("/admin")) {
+      router.replace("/dashboard");
+    } else if (!user.onboarding_completed && pathname !== "/onboarding") {
+      router.replace("/onboarding");
+    }
+  }, [user, admin, pathname, router]);
   useEffect(() => setOpen(false), [pathname]);
 
   if (isLoading || !user) {
@@ -220,24 +264,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const sidebar = (
-    <div className="flex h-full flex-col gap-6 overflow-hidden p-4">
+    <div className="flex h-full flex-col gap-5 overflow-hidden p-4">
       <div className="flex items-center justify-between px-2 pt-2">
         <Logo href={user.role === "admin" ? "/admin" : "/dashboard"} />
         <button className="rounded-full p-2 text-muted hover:bg-surface lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>
       </div>
-      <nav className="-mx-4 flex flex-1 flex-col gap-6 overflow-y-auto px-4" aria-label="Main">
-        {user.role === "admin" && (
+      <nav className="-mx-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4" aria-label="Main">
+        {admin ? (
           <Section title="Admin">{ADMIN.map((i) => <NavLink key={i.href} item={i} label={i.label} active={isActive(i.href)} />)}</Section>
+        ) : (
+          <Section title="Menu">{MENU.map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}</Section>
         )}
-        <Section title={user.role === "admin" ? "Teacher tools" : "Menu"}>{MENU.map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}</Section>
         <Section title="General">
-          {GENERAL.map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}
-          <button onClick={logout} className="focus-ring group flex items-center gap-3 rounded-xl px-3 py-2.5 text-start text-[15px] text-muted hover:bg-surface hover:text-ink">
+          {(admin ? GENERAL.filter((i) => ADMIN_ALLOWED.includes(i.href)) : GENERAL).map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}
+          <button onClick={logout} className="focus-ring group flex items-center gap-3 rounded-xl px-3 py-2 text-start text-[15px] text-muted hover:bg-surface hover:text-ink">
             <LogOut className="h-5 w-5 group-hover:text-brand-600" />{t("nav.signout", "Logout")}
           </button>
         </Section>
       </nav>
-      {user.role !== "admin" && <PlanCard />}
+      {admin ? (
+        <div className="rounded-2xl bg-surface p-4 text-sm text-muted">Signed in as a platform admin. Teachers manage their own plans; you manage prices, trials and payments here.</div>
+      ) : <div className="[@media(max-height:860px)]:hidden"><PlanCard /></div>}
     </div>
   );
 
@@ -254,13 +301,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="min-w-0 flex-1 space-y-3 lg:space-y-4">
           <TopBar user={user} onMenu={() => setOpen(true)} />
           <main className="min-h-[calc(100vh-8.5rem)] rounded-3xl bg-panel px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            {health && health.ai_mode === "offline" && (
+            {!admin && <PlanBanner />}
+            {admin && health && health.ai_mode === "offline" && (
               <div className="mb-6 rounded-2xl border border-accent-100 bg-accent-50 px-4 py-2.5 text-sm text-accent-600">
-                Demo mode: no AI key is configured, so content comes from built-in samples. Add an Anthropic, OpenAI or Gemini key for real lessons.
+                Demo mode: no AI key is configured on the server, so teachers get built-in sample content. Add an Anthropic, OpenAI or Gemini key to .env.
               </div>
             )}
             {children}
           </main>
+          {!admin && <UpgradeDialog />}
         </div>
       </div>
     </div>

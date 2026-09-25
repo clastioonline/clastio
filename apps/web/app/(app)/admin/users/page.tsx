@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserDrawer } from "@/components/admin-user-drawer";
 import { DashHeader } from "@/components/dash";
 import { Badge } from "@/components/ui";
@@ -11,13 +11,14 @@ import { useApi, useMe } from "@/lib/hooks";
 export default function AdminUsers() {
   const { user } = useMe();
   const [q, setQ] = useState("");
+  useEffect(() => { setQ(new URLSearchParams(window.location.search).get("q") || ""); }, []);
   const { data } = useApi<any>(user?.role === "admin" ? `/admin/users?limit=100${q ? `&q=${encodeURIComponent(q)}` : ""}` : null);
   const [selected, setSelected] = useState<string | null>(null);
   if (user && user.role !== "admin") return <p className="text-muted">Admins only.</p>;
 
   return (
     <div className="space-y-6">
-      <DashHeader title="Users" subtitle="Teachers and admins. Open a user to grant a plan, add credits or suspend the account." />
+      <DashHeader title="Teachers" subtitle="Everyone who signed up. Open a teacher to see usage, extend a trial, grant a plan for a school, add credits or suspend the account." />
       <section className="rounded-3xl bg-surface p-5 sm:p-6">
         <div className="relative mb-4 max-w-sm">
           <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
@@ -38,7 +39,16 @@ export default function AdminUsers() {
                       <span className="min-w-0"><span className="block truncate font-medium text-ink">{u.name || "—"}</span><span className="block truncate text-xs text-muted">{u.email}</span></span>
                     </div>
                   </td>
-                  <td className="px-3 py-3"><Badge tone={u.plan === "free" ? "neutral" : "brand"}>{u.plan}</Badge>{u.role === "admin" && <Badge className="ms-1" tone="accent">admin</Badge>}</td>
+                  <td className="px-3 py-3">
+                    {u.role === "admin" ? <Badge tone="accent">admin</Badge> : (
+                      <span className="flex flex-wrap gap-1">
+                        <Badge tone={u.plan === "free" ? "neutral" : "brand"}>{u.plan}</Badge>
+                        {u.plan_source === "trial" && <Badge tone="accent">trial</Badge>}
+                        {["stripe", "dodo"].includes(u.plan_source) && <Badge tone="success">paying</Badge>}
+                        {u.plan_source === "manual" && <Badge>granted</Badge>}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-muted">{u.created_at ? formatDate(u.created_at) : "—"}</td>
                   <td className="px-3 py-3 text-muted">{u.last_login_at ? timeAgo(u.last_login_at) : "—"}</td>
                   <td className="px-3 py-3"><Badge tone={u.status === "active" ? "success" : "danger"}>{u.status}</Badge></td>

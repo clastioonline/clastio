@@ -6,12 +6,16 @@ import { useEffect, useState } from "react";
 import { AuthLayout, OAuthButtons, TermsNote } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useApi } from "@/lib/hooks";
 
 export default function SignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { data: plans } = useApi<any>("/billing/plans");
+  const trial = plans?.trial?.enabled ? plans.trial : null;
+  const trialPlan = trial ? plans.items.find((p: any) => p.code === trial.plan)?.name : null;
   useEffect(() => {
     // The landing page's email box passes the address along.
     const email = new URLSearchParams(window.location.search).get("email");
@@ -33,7 +37,7 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout title="Create your teaching assistant" subtitle="Free to start. Set up in about 5 minutes."
+    <AuthLayout title="Create your teaching assistant" subtitle={trial ? `Start your ${trial.days}-day free trial of ${trialPlan || "PPT Genie"}. No card needed.` : "Free to start. Set up in about 5 minutes."}
       footer={<>Already have an account? <Link href="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></>}>
       <OAuthButtons />
       <form onSubmit={submit} className="space-y-4">

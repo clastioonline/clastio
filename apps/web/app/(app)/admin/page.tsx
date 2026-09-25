@@ -11,7 +11,6 @@ import { Badge, Button, Skeleton, Tabs } from "@/components/ui";
 import { api, timeAgo } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 
-const PLAN_NAMES: Record<string, string> = { teacher: "Teacher", pro: "Teacher Pro", assistant: "AI Teaching Assistant" };
 
 function lastDays(points: { date: string; value: number }[], n = 7) {
   const byDate = new Map(points.map((p) => [p.date, p.value]));
@@ -49,13 +48,13 @@ export default function AdminOverview() {
       <DashHeader title="Admin overview" subtitle="Revenue, teachers, generation health and AI spend across PPT Genie."
         actions={<>
           <PillButton href="/admin/media"><Wallet className="h-5 w-5" /> Payments & media</PillButton>
-          <PillButton href="/admin/users" variant="outline"><Users className="h-5 w-5" /> Manage users</PillButton>
+          <PillButton href="/admin/plans" variant="outline"><Users className="h-5 w-5" /> Plans & trial</PillButton>
         </>} />
       <Tabs value={days} onChange={setDays} tabs={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} />
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard hero label="Monthly revenue" value={compact(data.revenue.mrr_aed, "AED")} hint={`ARR ${compact(data.revenue.arr_aed, "AED")}`} href="/admin/media" />
-        <KpiCard label="Teachers" value={compact(data.users.total)} trend={data.users.paid || null} hint={`paid · ${data.users.active_30d} active`} href="/admin/users" />
+        <KpiCard label="Teachers" value={compact(data.users.total)} hint={`${data.users.paid} paying · ${data.users.trialing} on trial · ${data.users.active_30d} active`} href="/admin/users" />
         <KpiCard label="Lessons generated" value={compact(lessonJobs.succeeded || 0)} hint={`${Math.round(gen.lesson_success_rate * 100)}% success · avg ${Math.round(gen.avg_lesson_seconds)}s`} />
         <KpiCard label="AI spend" value={`$${data.ai.cost_usd.toFixed(2)}`} hint={`$${data.ai.cost_per_project_usd.toFixed(3)} per project`} href="/admin/ai-costs" />
       </div>
@@ -90,7 +89,7 @@ export default function AdminOverview() {
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 font-semibold text-white">{(u.name || u.email).slice(0, 1).toUpperCase()}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-ink">{u.name || u.email}</span>
-                    <span className="block truncate text-xs text-muted">{timeAgo(u.created_at)} · {u.plan}</span>
+                    <span className="block truncate text-xs text-muted">{timeAgo(u.created_at)} · {u.plan === "trial" ? "on trial" : u.plan}</span>
                   </span>
                 </button>
               </li>
@@ -106,12 +105,14 @@ export default function AdminOverview() {
           </div>
         </Panel>
 
-        <Panel title="Paying teachers" className="xl:col-span-4">
+        <Panel title="Paying teachers" className="xl:col-span-4"
+          action={<span className="text-sm text-muted">{data.users.converted} of {data.users.trial_starts} trials converted</span>}>
           <HalfDonut total={data.users.total} center={`${data.users.total ? Math.round((data.users.paid / data.users.total) * 100) : 0}%`} caption="on a paid plan"
             segments={[{ label: "Paid", value: data.users.paid, className: "text-brand-600" }]} />
           <Legend items={[
-            ...Object.entries(PLAN_NAMES).map(([code, name]) => ({ label: name, className: "bg-brand-600", value: byPlan[code] || 0 })),
-            { label: "Free", striped: true, value: data.users.total - data.users.paid },
+            ...(plans?.items || []).filter((p: any) => p.code !== "free").map((p: any) => ({ label: p.name, className: "bg-brand-600", value: byPlan[p.code] || 0 })),
+            { label: "Trial", className: "bg-accent-400", value: data.users.trialing },
+            { label: "Free or granted", striped: true, value: data.users.total - data.users.paid - data.users.trialing },
           ]} />
         </Panel>
 

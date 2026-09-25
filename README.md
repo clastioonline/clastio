@@ -20,7 +20,8 @@ A teacher uploads a deck they have taught with. The assistant learns its design:
 | **Assistant** | Chat over SSE that plans, creates lessons and documents, answers "what did I teach 8B last week?" and adapts content. The same assistant is reachable over WhatsApp. |
 | **Teacher memory** | Preferences stated by the teacher or learned from their slides (always shown and editable), lesson summaries and misconceptions, retrieved with pgvector. |
 | **Media studio** | Paid add-on for AI images (OpenAI / Gemini) and short videos (Sora 2 / Veo) with style presets, priced in media credits. Admins set prices, packs, models and lengths, and grant credits. Output is labelled AI-generated and keeps the provider's provenance data. |
-| **Business** | Plans and credits as data (no hard-coded limits). Dodo Payments (merchant of record, UAE/India) or Stripe for subscriptions and credit packs, chosen by the admin, with verified idempotent webhooks. Usage metering, and an admin dashboard with AI cost per model and task. |
+| **Business model** | Self-serve SaaS for individual teachers. Every sign-up gets a no-card free trial of a paid plan (admin sets the plan and length), then drops to the Free plan and is invited to upgrade in the app. Hitting any plan limit opens an upgrade dialog. Checkout, plan changes, cancellation and invoices run through Dodo Payments (merchant of record, UAE/India) or Stripe. Plans, prices, limits and the trial are data the admin edits in **Plans & trial**. Schools can be given plans by the admin (never overriding a paid subscription). |
+| **Admin** | Platform operators, not customers: no plan, no billing, no onboarding. Admin area only: overview (real revenue from paid subscriptions only, teachers, trial conversion, generation health, AI spend), Teachers (extend trials, grant plans, credits, suspend), Plans & trial, Payments & media, AI costs. |
 | **Dashboards** | Teacher dashboard (lessons prepared, weekly activity, next class, upcoming lessons, classes, curriculum coverage, lesson timer, getting-started checklist) with a Tutorials & help section. Separate admin overview (revenue, teachers, generation health, sign-ups, paying teachers, failed jobs) plus Users, AI costs and Payments & media pages. |
 | **Two looks** | "Forest" (green, rounded, default) and "Classic" (indigo), each in light and dark. Teachers pick in Settings; admins set the default. |
 | **Security & privacy** | Argon2 passwords, HttpOnly cookies, RBAC, signed download URLs, upload validation (optional ClamAV), rate limits, audit log, data export and account deletion (UAE PDPL / India DPDP). |
@@ -37,7 +38,7 @@ Demo accounts (created by the seed unless `SEED_DEMO=false`; never created when 
 
 | Role | Email | Password |
 |---|---|---|
-| Teacher with classes, timetable and the top plan | `sara@example.com` | `teacher-demo-123` |
+| Teacher with classes, timetable and a plan granted by the admin | `sara@example.com` | `teacher-demo-123` |
 | Platform admin | `admin@example.com` | `admin-demo-123` |
 
 Or sign up as a new teacher and go through onboarding with one of the sample decks in [`samples/`](samples).
@@ -82,7 +83,7 @@ npm run dev                                         # http://localhost:3000 (pro
 ## Tests
 
 ```bash
-cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 62 tests
+cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 66 tests
 cd apps/web && npm run typecheck && npm run build
 cd apps/web && BASE_URL=http://localhost:3000 node e2e/run.mjs          # needs a running, demo-seeded stack
 ```

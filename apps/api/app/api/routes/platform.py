@@ -71,8 +71,11 @@ def plan_out(p: Plan) -> dict[str, Any]:
 async def plans(db: DB):
     rows = (await db.execute(select(Plan).where(Plan.active.is_(True)).order_by(Plan.sort))).scalars().all()
     provider = await billing.active_provider_name()
+    trial = (await get_app_settings(["trial"]))["trial"]
     return {"items": [plan_out(p) for p in rows], "currency": "AED", "vat_rate": 0.05,
-            "online_payments": provider is not None, "payment_provider": provider}
+            "online_payments": provider is not None, "payment_provider": provider,
+            "trial": {"enabled": bool(trial.get("enabled")) and int(trial.get("days", 0)) > 0,
+                      "plan": trial.get("plan", "pro"), "days": int(trial.get("days", 0))}}
 
 
 @router.get("/billing/subscription", tags=["billing"])
@@ -261,7 +264,8 @@ async def admin_users(_: AdminUser, db: DB, q: str | None = None, limit: int = 5
     for u in rows:
         plan, sub = await usage.get_plan(db, u)
         items.append({"id": str(u.id), "email": u.email, "name": u.name, "role": u.role, "status": u.status,
-                      "plan": plan.code, "created_at": u.created_at.isoformat(),
+                      "plan": plan.code, "plan_source": sub.provider if sub else None,
+                      "created_at": u.created_at.isoformat(),
                       "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None})
     return {"items": items, "total": total}
 
@@ -290,6 +294,7 @@ class AdminUserPatch(BaseModel):
     plan: str | None = None
     months: int = Field(1, ge=1, le=36)
     credits_grant: int | None = Field(None, ge=1, le=100000)
+    extend_trial_days: int | None = Field(None, ge=1, le=90)
 
 
 @router.patch("/admin/users/{user_id}", tags=["admin"])
@@ -305,6 +310,24 @@ async def admin_patch_user(user_id: uuid.UUID, data: AdminUserPatch, admin: Admi
     if data.credits_grant:
         await usage.refund(db, u.id, data.credits_grant, "admin_grant", str(admin.id))
         changes["credits_grant"] = data.credits_grant
+    current = await usage.active_subscription(db, u.id)
+    if (data.plan or data.extend_trial_days) and current and current.provider in ("stripe", "dodo"):
+        # Replacing a paid subscription here would leave the gateway still charging the teacher.
+        raise AppError("paid_subscription", "This teacher pays through the payment gateway. Change or cancel their "
+                       "plan there first.", 409)
+    if data.extend_trial_days:
+        from datetime import timedelta
+
+        from app.core.db import utcnow
+
+        trial = current if current and current.provider == "trial" else None
+        if trial is None:
+            trial = await usage.start_trial(db, u)
+            if trial is None:
+                raise AppError("trial_disabled", "Trials are switched off in Plans & trial.", 409)
+            trial.current_period_end = utcnow()
+        trial.current_period_end = max(trial.current_period_end, utcnow()) + timedelta(days=data.extend_trial_days)
+        changes["extend_trial_days"] = data.extend_trial_days
     db.add(AuditLog(actor_id=admin.id, action="admin_update_user", target=str(u.id), details=changes))
     await db.commit()
     if data.plan:
@@ -379,6 +402,11 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
         for field in ("image_model", "video_model"):
             if value.get(field) and ":" not in value[field]:
                 raise bad(f"{field} must look like provider:model, e.g. openai:sora-2.")
+    elif key == "trial":
+        if value.get("plan", "pro") not in ("teacher", "pro", "assistant"):
+            raise bad("Trial plan must be teacher, pro or assistant.")
+        if not isinstance(value.get("days", 14), int) or not 0 <= value.get("days", 14) <= 90:
+            raise bad("Trial length must be 0 to 90 days.")
     elif key == "ui" and value.get("default_skin", "forest") not in ("classic", "forest"):
         raise bad("Theme must be classic or forest.")
 

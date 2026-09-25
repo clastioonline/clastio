@@ -120,7 +120,7 @@ function TimetableEditor() {
       notify({ tone: "error", title: "Import failed", body: errorMessage(e) });
     }
   };
-  if (!classes?.items?.length) return <EmptyState title="Add a class first" description="Create your classes in Classes & curriculum, then add their periods here." action={<Button href="/curriculum">Add classes</Button>} />;
+  if (!classes?.items?.length) return <EmptyState title="Add a class first" description="Create your classes in Classes, then add their periods here." action={<Button href="/curriculum">Add classes</Button>} />;
   const byDay = DAYS.map((_, i) => slots.map((s, idx) => ({ s, idx })).filter(({ s }) => s.day_of_week === i));
   return (
     <Card>
@@ -227,7 +227,7 @@ function CalendarPage() {
   const [tab, setTab] = useState<"week" | "timetable" | "calendar">((params.get("tab") as any) || "week");
   return (
     <div>
-      <PageHeader title="Calendar & timetable" subtitle="Your week at a glance: what each class is learning next, prepared in advance." />
+      <PageHeader title="Calendar" subtitle="Your week at a glance: what each class is learning next, prepared in advance." />
       <div className="mb-5"><Tabs value={tab} onChange={setTab} tabs={[{ value: "week", label: "Week plan" }, { value: "timetable", label: "Timetable" }, { value: "calendar", label: "School calendar" }]} /></div>
       {tab === "week" && <WeekView />}
       {tab === "timetable" && <TimetableEditor />}

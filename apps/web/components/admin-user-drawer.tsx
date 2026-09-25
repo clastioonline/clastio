@@ -36,9 +36,10 @@ export function UserDrawer({ id, onClose }: { id: string | null; onClose: () => 
             ))}
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <Field label="Grant plan"><Select value={plan} onChange={(e) => setPlan(e.target.value)}>{["teacher", "pro", "assistant"].map((p) => <option key={p}>{p}</option>)}</Select></Field>
+            <Field label="Grant plan (schools, support)"><Select value={plan} onChange={(e) => setPlan(e.target.value)}>{["teacher", "pro", "assistant"].map((p) => <option key={p}>{p}</option>)}</Select></Field>
             <Field label="Months"><Input type="number" min={1} max={36} value={months} onChange={(e) => setMonths(Number(e.target.value))} /></Field>
             <Button onClick={() => act({ plan, months })}>Grant</Button>
+            <Button variant="outline" onClick={() => act({ extend_trial_days: 7 })}>Extend trial 7 days</Button>
             <Button variant="outline" onClick={() => act({ credits_grant: 200 })}>+200 credits</Button>
             {data.user.status === "active" ? <Button variant="danger" onClick={() => act({ status: "suspended" })}>Suspend</Button> : <Button variant="outline" onClick={() => act({ status: "active" })}>Reactivate</Button>}
           </div>

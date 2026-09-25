@@ -47,7 +47,7 @@ teach.example.com {
 
 The proxy must set `X-Forwarded-For` to the client address (Caddy does by default; with nginx use `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). The web app forwards it unchanged and the API trusts it only from private-network proxies (`FORWARDED_ALLOW_IPS`, set in the API image). This is what makes per-IP rate limits and the audit log see real client addresses. Set generous proxy timeouts (≥ 120 s) and turn off response buffering for `/api/v1/jobs/*/events` and `/api/v1/assistant/messages` so server-sent events stream.
 
-Sign up with an address listed in `ADMIN_EMAILS` to get the admin role.
+Sign up with an address listed in `ADMIN_EMAILS` to get the admin role. Admin accounts run the platform: they see only the admin area and never have a plan or billing. Teachers sign up themselves, start a free trial (set it in **Admin → Plans & trial**), and buy inside the app.
 
 ## 2. Configure integrations
 

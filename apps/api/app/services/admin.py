@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import Date, case, cast, func, select
+from sqlalchemy import Date, case, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import utcnow
@@ -25,15 +25,27 @@ from app.models import (
 
 async def metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
     since = utcnow() - timedelta(days=days)
-    total_users = (await db.execute(select(func.count()).select_from(User))).scalar_one()
-    active_users = (await db.execute(select(func.count()).select_from(User).where(User.last_login_at >= since))
-                    ).scalar_one()
-    subs = (await db.execute(select(Subscription, Plan).join(Plan, Plan.code == Subscription.plan_code).where(
-        Subscription.status.in_(("active", "trialing", "past_due")), Subscription.plan_code != "free"))).all()
-    mrr = sum(float(p.price_annual_aed) / 12 if s.interval == "year" else float(p.price_monthly_aed) for s, p in subs)
+    teacher = User.role == "teacher"  # admins run the platform; they are not customers
+    total_users = (await db.execute(select(func.count()).select_from(User).where(teacher))).scalar_one()
+    active_users = (await db.execute(select(func.count()).select_from(User).where(
+        teacher, User.last_login_at >= since))).scalar_one()
+    live = (Subscription.status.in_(("active", "trialing", "past_due")),
+            or_(Subscription.provider.notin_(("trial", "manual")), Subscription.current_period_end > func.now()))
+    subs = (await db.execute(select(Subscription, Plan).join(Plan, Plan.code == Subscription.plan_code)
+                             .join(User, User.id == Subscription.user_id).where(teacher, *live))).all()
+    paying = [(s, p) for s, p in subs if s.provider in ("stripe", "dodo")]
+    # Revenue counts only subscriptions paid through a gateway: trials and admin-granted plans earn nothing.
+    mrr = sum(float(p.price_annual_aed) / 12 if s.interval == "year" else float(p.price_monthly_aed)
+              for s, p in paying if s.status != "trialing")
     by_plan: dict[str, int] = {}
-    for s, _ in subs:
+    for s, _ in paying:
         by_plan[s.plan_code] = by_plan.get(s.plan_code, 0) + 1
+    trials = sum(1 for s, _ in subs if s.provider == "trial")
+    granted = sum(1 for s, _ in subs if s.provider == "manual")
+    trial_starts = (await db.execute(select(func.count()).select_from(Subscription).where(
+        Subscription.provider == "trial", Subscription.created_at >= since))).scalar_one()
+    converted = (await db.execute(select(func.count(func.distinct(Subscription.user_id))).where(
+        Subscription.provider.in_(("stripe", "dodo")), Subscription.created_at >= since))).scalar_one()
 
     job_rows = (await db.execute(select(GenerationJob.type, GenerationJob.status, func.count()).where(
         GenerationJob.created_at >= since).group_by(GenerationJob.type, GenerationJob.status))).all()
@@ -60,13 +72,15 @@ async def metrics(db: AsyncSession, days: int = 30) -> dict[str, Any]:
     doc_kinds = (await db.execute(select(Document.kind, func.count()).group_by(Document.kind)
                                   .order_by(func.count().desc()))).all()
     projects = (await db.execute(select(func.count()).select_from(Project))).scalar_one()
-    recent = (await db.execute(select(User).order_by(User.created_at.desc()).limit(6))).scalars().all()
-    plan_of = {s.user_id: s.plan_code for s, _ in subs}
+    recent = (await db.execute(select(User).where(teacher).order_by(User.created_at.desc()).limit(6))
+              ).scalars().all()
+    plan_of = {s.user_id: ("trial" if s.provider == "trial" else s.plan_code) for s, _ in subs}
     return {
         "recent_signups": [{"id": str(u.id), "name": u.name, "email": u.email, "role": u.role,
                             "plan": plan_of.get(u.id, "free"), "created_at": u.created_at.isoformat()}
                            for u in recent],
-        "users": {"total": total_users, "active_30d": active_users, "paid": len(subs), "by_plan": by_plan},
+        "users": {"total": total_users, "active_30d": active_users, "paid": len(paying), "by_plan": by_plan,
+                  "trialing": trials, "granted": granted, "trial_starts": trial_starts, "converted": converted},
         "revenue": {"mrr_aed": round(mrr, 2), "arr_aed": round(mrr * 12, 2)},
         "generation": {"jobs": jobs, "lesson_success_rate": round(success_rate, 3),
                        "avg_lesson_seconds": round(float(avg_time or 0), 1),
@@ -92,7 +106,8 @@ async def series(db: AsyncSession, days: int = 30) -> dict[str, list[dict[str, A
     cost = (await db.execute(select(aday, func.sum(AIUsage.cost_usd)).where(AIUsage.created_at >= since)
                              .group_by(aday).order_by(aday))).all()
     uday = cast(User.created_at, Date)
-    signups = (await db.execute(select(uday, func.count()).where(User.created_at >= since).group_by(uday)
+    signups = (await db.execute(select(uday, func.count()).where(User.created_at >= since, User.role == "teacher")
+                                .group_by(uday)
                                 .order_by(uday))).all()
     return {"lessons": [{"date": d.isoformat(), "value": c} for d, c in gen],
             "ai_cost": [{"date": d.isoformat(), "value": round(float(c or 0), 4)} for d, c in cost],

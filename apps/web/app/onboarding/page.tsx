@@ -92,7 +92,7 @@ export default function Onboarding() {
 
         {step === 0 && (
           <Card className="p-6 sm:p-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">Welcome to your AI Teaching Assistant 👋</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Welcome to PPT Genie 👋</h1>
             <p className="mt-1 text-muted">A few details so every lesson fits your classroom.</p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <Field label="Your name"><Input value={basics.name} onChange={(e) => setBasics({ ...basics, name: e.target.value })} /></Field>
@@ -144,7 +144,7 @@ export default function Onboarding() {
             <div className="mt-6">
               <UploadDropzone onReady={({ templateId }) => { setTemplateId(templateId || null); notify({ tone: "success", title: "Your style is ready", body: "New lessons will use your design." }); }} />
             </div>
-            {templateId && <Alert tone="success" className="mt-4" title="Template created">It's set as your default. You can fine-tune it later in Design templates.</Alert>}
+            {templateId && <Alert tone="success" className="mt-4" title="Template created">It's set as your default. You can fine-tune it later in My designs.</Alert>}
             <div className="mt-6 flex justify-between">
               <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft className="h-4 w-4 rtl:rotate-180" /> Back</Button>
               <Button onClick={() => setStep(2)}>{templateId ? "Continue" : "Skip for now"} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Button>
@@ -215,7 +215,7 @@ export default function Onboarding() {
         {step === 4 && (
           <Card className="p-8 text-center">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Sparkles className="h-7 w-7" /></div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink">Your assistant is ready</h2>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink">PPT Genie is ready</h2>
             <p className="mx-auto mt-2 max-w-md text-muted">Create your first set of lessons. Try something you're teaching next week, like “Photosynthesis · 5 lessons · 10 slides”.</p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button size="lg" href="/projects/new">Create my first lessons</Button>

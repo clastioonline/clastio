@@ -42,7 +42,9 @@ class LoginIn(BaseModel):
 
 def user_out(u: User) -> dict[str, Any]:
     return {"id": str(u.id), "email": u.email, "name": u.name, "role": u.role, "locale": u.locale,
-            "timezone": u.timezone, "onboarding_completed": bool(u.profile and u.profile.onboarding_completed)}
+            "timezone": u.timezone,
+            # Admins run the platform; they have no teacher onboarding.
+            "onboarding_completed": u.role == "admin" or bool(u.profile and u.profile.onboarding_completed)}
 
 
 def set_session(response: Response, user: User) -> str:
@@ -69,6 +71,9 @@ async def _create_user(db, email: str, name: str, password: str | None) -> User:
     db.add(TeacherProfile(user_id=user.id))
     db.add(Consent(user_id=user.id, kind="terms", granted=True))
     db.add(Consent(user_id=user.id, kind="privacy", granted=True))
+    from app.services.usage import start_trial
+
+    await start_trial(db, user)
     return user
 
 

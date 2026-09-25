@@ -173,7 +173,7 @@ async def send_template(db: AsyncSession, user: User, contact: WhatsAppContact, 
 async def start_link(db: AsyncSession, user: User, phone: str) -> dict[str, Any]:
     plan, _ = await usage.get_plan(db, user)
     if not plan.limits.get("whatsapp_messages") and user.role != "admin":
-        raise AppError("upgrade_required", "WhatsApp is included in the AI Teaching Assistant plan.", 402)
+        raise AppError("upgrade_required", "WhatsApp is included in the Genie Assistant plan. Upgrade to use it.", 402)
     phone = normalize_phone(phone)
     taken = (await db.execute(select(WhatsAppContact).where(WhatsAppContact.phone_e164 == phone,
                                                               WhatsAppContact.user_id != user.id))).scalars().first()

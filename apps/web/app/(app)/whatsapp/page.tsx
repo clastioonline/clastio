@@ -49,9 +49,9 @@ export default function WhatsAppPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="WhatsApp assistant" subtitle="Your plan every school morning, a one-tap check-in after class, and your assistant on the go. Official WhatsApp Business Platform only." />
+      <PageHeader title="WhatsApp" subtitle="Your plan every school morning, a one-tap check-in after class, and your assistant on the go. Official WhatsApp Business Platform only." />
       {!data.enabled_on_plan && (
-        <Alert tone="accent" title="Included in the AI Teaching Assistant plan">Upgrade to get daily plans and chat with your assistant on WhatsApp. <a className="font-medium underline" href="/billing">See plans</a></Alert>
+        <Alert tone="accent" title="WhatsApp isn't included in your plan">Upgrade to get daily plans and chat with your assistant on WhatsApp. <a className="font-medium underline" href="/billing">See plans</a></Alert>
       )}
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-6">
@@ -112,7 +112,7 @@ export default function WhatsAppPage() {
             {[...data.messages].reverse().map((m: any, i: number) => (
               <div key={i} className={cn("flex", m.direction === "out" ? "justify-start" : "justify-end")}>
                 <div className={cn("max-w-[85%] rounded-xl px-3 py-2 text-sm shadow-sm", m.direction === "out" ? "bg-white text-slate-800" : "bg-[#d9fdd3] text-slate-800")}>
-                  <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                  <div className="whitespace-pre-wrap break-words">{m.body.replace(/https?:\/\/\S{60,}/g, "🔗 link")}</div>
                   <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-slate-500">
                     {m.template && <Badge className="border-0 bg-slate-100 px-1.5 text-[10px] text-slate-600">{m.template} · {m.category}</Badge>}
                     {formatDate(m.created_at, { hour: "2-digit", minute: "2-digit" })} · {m.status}

@@ -34,7 +34,7 @@ try {
   await page.getByRole("heading", { level: 1 }).waitFor();
   await shot("01-landing");
   await page.goto(BASE + "/pricing");
-  await page.getByText("AI Teaching Assistant").first().waitFor();
+  await page.getByText("Genie Assistant").first().waitFor();
   await shot("02-pricing");
   ok("marketing pages render");
 
@@ -48,8 +48,11 @@ try {
   await page.waitForURL("**/onboarding");
   ok("redirected to onboarding");
 
+  const usage = await page.request.get(BASE + "/api/v1/me/usage").then((r) => r.json());
+  assert(usage.trial?.active && usage.trial.days_left > 0, `new teacher starts a no-card trial (${usage.plan.name}, ${usage.trial?.days_left} days)`);
+
   step("Onboarding: basics");
-  await page.getByText("Welcome to your AI Teaching Assistant").waitFor();
+  await page.getByRole("heading", { name: /Welcome to PPT Genie/ }).waitFor();
   await shot("03-onboarding-basics");
   await page.getByRole("button", { name: "Continue" }).click();
 
@@ -66,7 +69,7 @@ try {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByText("Add your classes").waitFor();
   await page.getByRole("button", { name: "Finish setup" }).click();
-  await page.getByText("Your assistant is ready").waitFor();
+  await page.getByText("PPT Genie is ready").waitFor();
   ok("onboarding complete");
 
   step("Create a course (Free plan: 2 lessons × 10 slides)");
@@ -130,10 +133,10 @@ try {
     ["/dashboard", "Today's classes", "10-dashboard"],
     ["/templates", "Your templates", "11-templates"],
     ["/calendar", "Week plan", "12-calendar"],
-    ["/curriculum", "Classes & curriculum", "13-curriculum"],
+    ["/curriculum", "Add class", "13-curriculum"],
     ["/teacher-memory", "Teacher memory", "14-memory"],
-    ["/lessons", "Lessons & documents", "15-library"],
-    ["/whatsapp", "WhatsApp assistant", "16-whatsapp"],
+    ["/lessons", "Library", "15-library"],
+    ["/whatsapp", "Your number", "16-whatsapp"],
     ["/billing", "Plan & billing", "17-billing"],
     ["/settings", "Settings", "18-settings"],
     ["/tutorials", "Tutorials & help", "18a-tutorials"],
@@ -187,8 +190,14 @@ try {
   await page.waitForTimeout(800);
   await shot("22-admin");
   await page.goto(BASE + "/admin/users");
-  await page.getByRole("heading", { name: "Users" }).waitFor();
+  await page.getByRole("heading", { name: "Teachers", exact: true }).waitFor();
   await shot("22b-admin-users");
+  await page.goto(BASE + "/admin/plans");
+  await page.getByText("Free trial for new teachers").waitFor();
+  await shot("22c-admin-plans");
+  await page.goto(BASE + "/dashboard");
+  await page.waitForURL("**/admin");
+  ok("admins stay in the admin area (no teacher plan or billing)");
   await page.goto(BASE + "/admin/ai-costs");
   await page.getByRole("heading", { name: "Model routing", exact: true }).waitFor();
   await shot("23-admin-ai-costs");

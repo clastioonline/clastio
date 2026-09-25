@@ -44,7 +44,7 @@ function Appearance() {
 
 export default function Settings() {
   const { notify } = useToast();
-  const { mutate: refreshMe } = useMe();
+  const { user, mutate: refreshMe } = useMe();
   const { locale, setLocale } = useI18n();
   const { data, mutate } = useApi<any>("/me/profile");
   const [p, setP] = useState<any>(null);
@@ -52,6 +52,15 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState("");
   useEffect(() => { if (data) setP(data); }, [data]);
+  if (user?.role === "admin") {
+    // Admins have no teaching profile, plan or classes: only how the app looks for them.
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Settings" subtitle={`Signed in as ${user.email} (platform admin)`} />
+        <div className="max-w-xl"><Appearance /></div>
+      </div>
+    );
+  }
   if (!p) return <Skeleton className="h-96" />;
 
   const save = async () => {

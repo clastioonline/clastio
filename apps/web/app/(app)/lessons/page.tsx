@@ -22,7 +22,7 @@ function Library() {
 
   return (
     <div>
-      <PageHeader title="Lessons & documents" subtitle="Everything you've prepared: slides, worksheets, quizzes, homework and your question bank."
+      <PageHeader title="Library" subtitle="Everything you've prepared: slides, worksheets, quizzes, homework and your question bank."
         actions={<Button onClick={() => setDocOpen(true)}><Plus className="h-4 w-4" /> New worksheet or quiz</Button>} />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={tab} onChange={setTab} tabs={[{ value: "lessons", label: "Lessons" }, { value: "documents", label: "Documents" }, { value: "questions", label: "Question bank" }]} />
