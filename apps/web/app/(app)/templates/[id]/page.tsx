@@ -16,12 +16,14 @@ export default function TemplateDetail() {
   const router = useRouter();
   const { notify } = useToast();
   const { data, mutate } = useApi<any>(`/templates/${id}`);
+  const [name, setName] = useState("");
   const [colors, setColors] = useState<Record<string, string>>({});
   const [fonts, setFonts] = useState<Record<string, string>>({});
   const [typo, setTypo] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!data) return;
+    setName(data.name || "");
     setColors(data.colors || {});
     setFonts(data.fonts || {});
     setTypo({ title_pt: data.typography?.title_pt, body_pt: data.typography?.body_pt });
@@ -31,7 +33,7 @@ export default function TemplateDetail() {
   const save = async () => {
     setBusy(true);
     try {
-      await api(`/templates/${id}`, { method: "PATCH", body: { colors, fonts, typography: typo } });
+      await api(`/templates/${id}`, { method: "PATCH", body: { name, colors, fonts, typography: typo } });
       notify({ tone: "success", title: "Template updated", body: "Previews refreshed." });
       mutate();
     } catch (e) {
@@ -75,6 +77,9 @@ export default function TemplateDetail() {
           <Card>
             <CardHeader title="Design system" subtitle={data.builtin ? "Built-in templates can't be edited — upload your own deck to customise." : "Detected from your slides. Adjust if something looks off."} />
             <div className="space-y-4 p-5">
+              <div className="space-y-4 mb-4">
+                <Field label="Template name"><Input value={name} disabled={data.builtin} onChange={(e) => setName(e.target.value)} /></Field>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {COLOR_KEYS.map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 text-sm">

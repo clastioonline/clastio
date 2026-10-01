@@ -15,22 +15,17 @@ export default function Templates() {
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((t) => (
         <Link key={t.id} href={`/templates/${t.id}`} className="focus-ring group block rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-brand-200">
-          <div className="grid grid-cols-3 gap-1.5">
-            {(t.previews || []).slice(0, 3).map((p: string, i: number) => (
-              <div key={i} className={i === 0 ? "col-span-3 aspect-[16/9] overflow-hidden rounded-lg bg-surface-2" : "aspect-[16/9] overflow-hidden rounded-md bg-surface-2"}>
-                <img src={p} alt="" className="h-full w-full object-cover" loading="lazy" />
-              </div>
-            ))}
+          <div className="aspect-[16/9] w-full overflow-hidden rounded-xl bg-surface-2 border border-line relative">
+            {t.previews?.[0] ? (
+              <img src={t.previews[0]} alt={t.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm text-muted">No preview</div>
+            )}
           </div>
           <div className="mt-3 flex items-center justify-between gap-2 px-1">
             <div className="min-w-0">
               <div className="truncate font-medium text-ink group-hover:text-brand-700">{t.name}</div>
-              <div className="mt-1 flex items-center gap-1.5">
-                {[t.colors?.primary, t.colors?.secondary, t.colors?.background, t.colors?.text].filter(Boolean).map((c: string, i: number) => (
-                  <span key={i} className="h-4 w-4 rounded-full border border-line" style={{ background: c }} title={c} />
-                ))}
-                <span className="ms-1 truncate text-xs text-muted">{t.fonts?.heading} / {t.fonts?.body}</span>
-              </div>
+              <div className="mt-0.5 text-xs text-muted">Uploaded design</div>
             </div>
             {t.is_default && <Badge tone="success">Default</Badge>}
           </div>
