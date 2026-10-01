@@ -5,14 +5,20 @@ import { cn } from "@/lib/utils";
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 64 64" className={cn("h-9 w-9 shrink-0", className)} role="img" aria-label="Clastio">
-      <rect width="64" height="64" rx="18" fill="#155c38" />
-      <path d="M0 18A18 18 0 0 1 18 0h28a18 18 0 0 1 18 18v6C44 30 22 36 0 44z" fill="#23955c" />
-      <rect x="12" y="19" width="32" height="23" rx="4.5" fill="#fff" />
-      <rect x="17" y="24.5" width="14" height="3.4" rx="1.7" fill="#1b7446" />
-      <rect x="17" y="31" width="21" height="2.6" rx="1.3" fill="#a8dcbc" />
-      <rect x="17" y="35.8" width="15" height="2.6" rx="1.3" fill="#a8dcbc" />
-      <path d="M28 42.5v5.5M22 50h12" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" />
-      <path d="M48 8.5l2.7 6.6 6.6 2.7-6.6 2.7-2.7 6.6-2.7-6.6-6.6-2.7 6.6-2.7z" fill="#fbbf24" stroke="#0f3d26" strokeWidth="1.2" strokeLinejoin="round" />
+      <g strokeWidth="2" strokeLinejoin="round">
+        {/* Bottom/Shadow Layer (Dark Blue) */}
+        <path d="M12,38 L32,50 L52,38 L52,42 L32,54 L12,42 Z" fill="#20225d" stroke="#20225d" />
+        <path d="M12,30 L32,42 L52,30 L52,34 L32,46 L12,34 Z" fill="#36399b" stroke="#36399b" />
+        
+        {/* Middle Layer (Royal Blue) */}
+        <path d="M16,24 L32,34 L48,24 L32,14 Z" fill="#4d53df" stroke="#4d53df" />
+        <path d="M16,24 L32,34 L48,24 L48,28 L32,38 L16,28 Z" fill="#3c41bc" stroke="#3c41bc" />
+        <path d="M48,30 L32,40 L16,30 L16,34 L32,44 L48,34 Z" fill="#4d53df" stroke="#4d53df" />
+        
+        {/* Top Layer (Teal/Green) */}
+        <path d="M12,18 L28,28 L44,18 L28,8 Z" fill="#14b88b" stroke="#14b88b" />
+        <path d="M12,18 L28,28 L44,18 L44,22 L28,32 L12,22 Z" fill="#0d946d" stroke="#0d946d" />
+      </g>
     </svg>
   );
 }
@@ -20,7 +26,7 @@ export function LogoMark({ className }: { className?: string }) {
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("text-[19px] font-bold leading-none tracking-tight text-ink", className)}>
-      PPT <span className="text-brand-600">Genie</span>
+      Clastio
     </span>
   );
 }
