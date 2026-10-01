@@ -3,10 +3,12 @@
 import { CircleCheck, Trash } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSWRConfig } from "swr";
 import { errorMessage, useToast } from "@/components/toast";
-import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Skeleton } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, PageHeader, Skeleton } from "@/components/ui";
 import { api } from "@/lib/api";
-import { useApi } from "@/lib/hooks";
+import { TemplatePreview } from "@/components/template-preview";
+import { useApi, useJob } from "@/lib/hooks";
 import { LAYOUT_LABELS } from "@/lib/utils";
 
 const COLOR_KEYS = [["primary", "Primary"], ["secondary", "Accent"], ["background", "Background"], ["text", "Body text"], ["title", "Titles"], ["card_bg", "Cards"]];
@@ -15,11 +17,17 @@ export default function TemplateDetail() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { notify } = useToast();
-  const { data, mutate } = useApi<any>(`/templates/${id}`);
+  const { mutate: refreshCache } = useSWRConfig();
+  const { data, error, mutate } = useApi<any>(`/templates/${id}`);
   const [name, setName] = useState("");
   const [colors, setColors] = useState<Record<string, string>>({});
   const [fonts, setFonts] = useState<Record<string, string>>({});
   const [typo, setTypo] = useState<Record<string, number>>({});
+  const [jobId, setJobId] = useState<string | null>(null);
+  const job = useJob(jobId || (data?.job && ["queued", "running"].includes(data.job.status) ? data.job.id : null), async () => { setJobId(null); await mutate(); });
+  const refreshing = !!jobId || ["queued", "running"].includes(job?.status || data?.job?.status);
+  const editable = data?.can_edit ?? !data?.builtin;
+  const [action, setAction] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!data) return;
@@ -28,14 +36,17 @@ export default function TemplateDetail() {
     setFonts(data.fonts || {});
     setTypo({ title_pt: data.typography?.title_pt, body_pt: data.typography?.body_pt });
   }, [data]);
+  if (error) return <div className="space-y-4"><Button href="/templates" variant="outline">Back to designs</Button><Alert tone="danger">This design could not be loaded. It may have been removed or you may not have access.</Alert><Button onClick={() => mutate()}>Try again</Button></div>;
   if (!data) return <Skeleton className="h-96" />;
 
   const save = async () => {
     setBusy(true);
     try {
-      await api(`/templates/${id}`, { method: "PATCH", body: { name, colors, fonts, typography: typo } });
-      notify({ tone: "success", title: "Template updated", body: "Previews refreshed." });
-      mutate();
+      const result = await api<{ job_id: string }>(`/templates/${id}`, { method: "PATCH", body: { name, colors, fonts, typography: typo } });
+      setJobId(result.job_id);
+      notify({ tone: "success", title: "Design saved", body: "Previews are refreshing in the background. You can leave this page." });
+      await mutate();
+      await refreshCache("/templates");
     } catch (e) {
       notify({ tone: "error", title: "Couldn't save", body: errorMessage(e) });
     } finally {
@@ -43,62 +54,76 @@ export default function TemplateDetail() {
     }
   };
   const makeDefault = async () => {
-    await api(`/templates/${id}/default`, { method: "POST" });
-    notify({ tone: "success", title: "Default template set" });
-    mutate();
+    setAction("default");
+    try {
+      await api(`/templates/${id}/default`, { method: "POST" });
+      notify({ tone: "success", title: "Default template set" });
+      await mutate();
+      await refreshCache("/templates");
+    } catch (e) { notify({ tone: "error", title: "Couldn’t set default", body: errorMessage(e) }); }
+    finally { setAction(null); }
   };
   const remove = async () => {
     if (!confirm("Delete this template?")) return;
-    await api(`/templates/${id}`, { method: "DELETE" });
-    router.push("/templates");
+    setAction("delete");
+    try {
+      await api(`/templates/${id}`, { method: "DELETE" });
+      await refreshCache("/templates");
+      router.push("/templates");
+    } catch (e) { notify({ tone: "error", title: "Couldn’t delete design", body: errorMessage(e) }); }
+    finally { setAction(null); }
   };
   const analysis = data.analysis || {};
   const cs = data.content_style || {};
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
+      <Button href="/templates" variant="ghost">← All designs</Button>
       <PageHeader eyebrow={data.builtin ? "Built-in style" : data.mode === "native" ? "From your PowerPoint (exact master)" : "Reconstructed from PDF"}
         title={data.name}
         actions={
           <>
-            {data.is_default ? <Badge tone="success"><CircleCheck className="h-3.5 w-3.5" /> Default</Badge> : <Button variant="outline" onClick={makeDefault}>Use as default</Button>}
-            {!data.builtin && <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete"><Trash className="h-4 w-4" /></Button>}
+            {data.is_default ? <Badge tone="success"><CircleCheck className="h-3.5 w-3.5" /> Default</Badge> : <Button variant="outline" onClick={makeDefault} loading={action === "default"} disabled={!!action}>Use as default</Button>}
+            {editable && <Button variant="ghost" size="icon" onClick={remove} disabled={!!action || busy || refreshing} aria-label="Delete template"><Trash className="h-4 w-4" /></Button>}
           </>
         } />
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <Card className="p-4">
+      {refreshing && <Alert>Refreshing your previews. You can leave this page and follow progress in <a href="/activity" className="underline">Activity</a>.</Alert>}
+      {data.job?.status === "failed" && !refreshing && <Alert tone="danger">Your design is saved, but previews could not refresh. Save again to retry.</Alert>}
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <Card className="min-w-0 self-start p-3 sm:p-4">
+          <h2 className="mb-3 font-semibold">Slide previews</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {data.previews.map((p: string, i: number) => (
-              <div key={i} className="aspect-[16/9] overflow-hidden rounded-xl border border-line bg-surface-2"><img src={p} alt={`Preview ${i + 1}`} className="h-full w-full object-cover" /></div>
+            {(data.previews?.length ? data.previews : [undefined]).map((p: string | undefined, i: number) => (
+              <TemplatePreview key={i} src={p} name={`Preview ${i + 1}`} />
             ))}
           </div>
         </Card>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title="Design system" subtitle={data.builtin ? "Built-in templates can't be edited — upload your own deck to customise." : "Detected from your slides. Adjust if something looks off."} />
+            <CardHeader title="Design system" subtitle={!editable ? "This design is read-only. Upload your own deck to customise." : "Detected from your slides. Adjust if something looks off."} />
             <div className="space-y-4 p-5">
               <div className="space-y-4 mb-4">
-                <Field label="Template name"><Input value={name} disabled={data.builtin} onChange={(e) => setName(e.target.value)} /></Field>
+                <Field label="Template name"><Input maxLength={200} value={name} disabled={!editable || busy || refreshing} onChange={(e) => setName(e.target.value)} /></Field>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
                 {COLOR_KEYS.map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 text-sm">
-                    <input type="color" value={colors[k] || "#000000"} disabled={data.builtin} onChange={(e) => setColors({ ...colors, [k]: e.target.value.toUpperCase() })}
-                      className="h-8 w-8 cursor-pointer rounded-lg border border-line bg-transparent" />
+                    <input type="color" value={colors[k] || "#000000"} disabled={!editable || busy || refreshing} onChange={(e) => setColors({ ...colors, [k]: e.target.value.toUpperCase() })}
+                      className="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-line bg-transparent" />
                     <span><span className="block text-ink">{label}</span><span className="text-xs text-muted">{colors[k]}</span></span>
                   </label>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Heading font"><Input value={fonts.heading || ""} disabled={data.builtin} onChange={(e) => setFonts({ ...fonts, heading: e.target.value })} /></Field>
-                <Field label="Body font"><Input value={fonts.body || ""} disabled={data.builtin} onChange={(e) => setFonts({ ...fonts, body: e.target.value })} /></Field>
-                <Field label="Title size (pt)"><Input type="number" value={typo.title_pt || 36} disabled={data.builtin} onChange={(e) => setTypo({ ...typo, title_pt: Number(e.target.value) })} /></Field>
-                <Field label="Body size (pt)"><Input type="number" value={typo.body_pt || 20} disabled={data.builtin} onChange={(e) => setTypo({ ...typo, body_pt: Number(e.target.value) })} /></Field>
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
+                <Field label="Heading font"><Input value={fonts.heading || ""} disabled={!editable || busy || refreshing} onChange={(e) => setFonts({ ...fonts, heading: e.target.value })} /></Field>
+                <Field label="Body font"><Input value={fonts.body || ""} disabled={!editable || busy || refreshing} onChange={(e) => setFonts({ ...fonts, body: e.target.value })} /></Field>
+                <Field label="Title size (pt)"><Input type="number" min={12} max={60} value={typo.title_pt || 36} disabled={!editable || busy || refreshing} onChange={(e) => setTypo({ ...typo, title_pt: Number(e.target.value) })} /></Field>
+                <Field label="Body size (pt)"><Input type="number" min={12} max={60} value={typo.body_pt || 20} disabled={!editable || busy || refreshing} onChange={(e) => setTypo({ ...typo, body_pt: Number(e.target.value) })} /></Field>
               </div>
-              {!data.builtin && <Button className="w-full" onClick={save} loading={busy}>Save & refresh previews</Button>}
+              {editable && <Button className="w-full" onClick={save} loading={busy} disabled={refreshing || !name.trim() || [typo.title_pt, typo.body_pt].some(v => v != null && (v < 12 || v > 60))}>Save & refresh previews</Button>}
             </div>
           </Card>
-          {!data.builtin && (
+          {editable && (
             <Card>
               <CardHeader title="What we learned from your slides" />
               <div className="space-y-3 p-5 text-sm">

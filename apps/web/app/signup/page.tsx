@@ -6,10 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AuthLayout, Captcha, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useSWRConfig } from "swr";
 import { useApi } from "@/lib/hooks";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
@@ -41,6 +43,7 @@ export default function SignupPage() {
       if (document.referrer) utm.referrer = document.referrer.slice(0, 120);
       await api("/auth/signup", { body: { ...form, accept_terms: acceptTerms, marketing_email: marketing, utm,
         referral_code: params.get("ref") || undefined, captcha_token: captcha || undefined } });
+      await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
       router.replace("/onboarding");
     } catch (err: any) {
       setError(err.code === "validation_error" ? "Check your details: passwords need at least 8 characters." : err.message);

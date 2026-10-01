@@ -137,7 +137,7 @@ try {
   await page.keyboard.press("Enter");
   await page.getByText(/covered recently|you prepared these lessons|couldn.t find any lessons/).first().waitFor({ timeout: 30_000 });
   await shot("09-assistant");
-  ok("assistant answered via SSE");
+  ok("assistant reply saved by worker");
 
   step("Other pages render without errors");
   for (const [route, text, name] of [
@@ -152,6 +152,7 @@ try {
     ["/settings", "Settings", "18-settings"],
     ["/tutorials", "Tutorials & help", "18a-tutorials"],
     ["/media", "Media studio", "18b-media"],
+    ["/activity", "Start something, then get on with your day.", "18c-activity"],
   ]) {
     await page.goto(BASE + route);
     await page.getByText(text).first().waitFor();
@@ -255,9 +256,10 @@ try {
   await page.getByRole("tab", { name: "Sessions & security" }).click();
   await page.getByText("login success").first().waitFor();
   await page.getByRole("tab", { name: "Notes & audit" }).click();
-  await page.getByPlaceholder("Add a note…").fill("Demo account — do not suspend.");
+  const adminNote = `Demo account — do not suspend. Review ${Date.now()}`;
+  await page.getByPlaceholder("Add a note…").fill(adminNote);
   await page.getByRole("button", { name: "Add note" }).click();
-  await page.getByText("Demo account — do not suspend.").waitFor();
+  await page.locator("div.whitespace-pre-wrap").filter({ hasText: adminNote }).waitFor();
   ok("user detail with sessions, audit trail and notes");
   for (const [route, text, name] of [
     ["/admin/staff", "Permission matrix", "26-admin-staff"],

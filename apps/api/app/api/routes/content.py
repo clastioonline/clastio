@@ -9,7 +9,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import case, func, select
 from sse_starlette.sse import EventSourceResponse
 
@@ -157,15 +157,18 @@ async def list_templates(user: CurrentUser, db: DB):
     rows = (await db.execute(select(Template).where((Template.owner_id == user.id) | (Template.owner_id.is_(None)) |
                                                     ((Template.org_id == user.org_id) & Template.is_shared))
                              .order_by(Template.owner_id.is_(None), Template.created_at.desc()))).scalars().all()
-    return {"items": [template_out(t, tp.default_template_id if tp else None) for t in rows]}
+    return {"items": [{**template_out(t, tp.default_template_id if tp else None), "can_edit": t.owner_id == user.id} for t in rows]}
 
 
 async def _template(db, user, template_id: uuid.UUID, write: bool = False) -> Template:
-    t = await db.get(Template, template_id)
+    query = select(Template).where(Template.id == template_id)
+    if write:
+        query = query.with_for_update()
+    t = (await db.execute(query)).scalars().first()
     if t is None or (t.owner_id not in (None, user.id) and not (t.is_shared and t.org_id == user.org_id)):
         raise NotFound("Template")
     if write and t.owner_id != user.id:
-        raise AppError("forbidden", "Built-in templates can't be edited. Upload your own deck instead.", 403)
+        raise AppError("forbidden", "Only the owner can edit this template. Upload your own deck instead.", 403)
     return t
 
 
@@ -174,6 +177,11 @@ async def get_template(template_id: uuid.UUID, user: CurrentUser, db: DB):
     t = await _template(db, user, template_id)
     tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
     out = template_out(t, tp.default_template_id if tp else None, full=True)
+    out["can_edit"] = t.owner_id == user.id
+    job = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == user.id,
+        GenerationJob.type == "template_preview", GenerationJob.payload["template_id"].astext == str(t.id))
+        .order_by(GenerationJob.created_at.desc()).limit(1))).scalars().first()
+    out["job"] = job_out(job) if job else None
     if t.style_profile_id:
         sp = await db.get(StyleProfile, t.style_profile_id)
         prof = sp.profile if sp else {}
@@ -183,15 +191,42 @@ async def get_template(template_id: uuid.UUID, user: CurrentUser, db: DB):
 
 
 class TemplatePatch(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     colors: dict[str, str] | None = None
     fonts: dict[str, str] | None = None
-    typography: dict[str, Any] | None = None
+    typography: dict[str, float] | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError("Template name cannot be blank")
+        return value.strip() if value else value
+
+    @field_validator("colors")
+    @classmethod
+    def validate_colors(cls, value):
+        import re
+        if value and any(not re.fullmatch(r"#[0-9a-fA-F]{6}", color) for color in value.values()):
+            raise ValueError("Use six-digit hex colours")
+        return value
+
+    @field_validator("typography")
+    @classmethod
+    def validate_typography(cls, value):
+        if value and any(key not in ("title_pt", "body_pt") or not 12 <= size <= 60 for key, size in value.items()):
+            raise ValueError("Font sizes must be between 12 and 60 points")
+        return value
 
 
 @router.patch("/templates/{template_id}")
 async def patch_template(template_id: uuid.UUID, data: TemplatePatch, user: CurrentUser, db: DB):
     t = await _template(db, user, template_id, write=True)
+    pending = (await db.execute(select(GenerationJob.id).where(GenerationJob.owner_id == user.id,
+        GenerationJob.type == "template_preview", GenerationJob.payload["template_id"].astext == str(t.id),
+        GenerationJob.status.in_(["queued", "running"])).limit(1))).scalar_one_or_none()
+    if pending:
+        raise AppError("conflict", "Preview refresh is already in progress. Please wait before saving again.", 409)
     spec = dict(t.spec)
     if data.name:
         t.name = data.name
@@ -205,14 +240,10 @@ async def patch_template(template_id: uuid.UUID, data: TemplatePatch, user: Curr
                    <= 60}
         spec["typography"] = {**spec.get("typography", {}), **allowed}
     t.spec = spec
+    job = await enqueue(db, "template_preview", {"template_id": str(t.id)}, owner_id=user.id)
     await db.commit()
-    # refresh previews in the background-less way (fast: 6 slides)
-    from app.services.styles import render_previews
-
-    base = await get_storage().get(t.base_storage_key)
-    t.preview_keys = await render_previews(t.id, base, spec)
-    await db.commit()
-    return template_out(t, full=True)
+    await run_inline_if_configured(job.id)
+    return {**template_out(t, full=True), "job_id": str(job.id)}
 
 
 @router.post("/templates/{template_id}/default")

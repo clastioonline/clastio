@@ -84,7 +84,7 @@ export function Card({ className, children, ...props }: { className?: string; ch
 
 export function CardHeader({ title, subtitle, action, icon }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pt-5">
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
       <div className="flex min-w-0 items-start gap-3">
         {icon && <div className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">{icon}</div>}
         <div className="min-w-0">
@@ -100,7 +100,7 @@ export function CardHeader({ title, subtitle, action, icon }: { title: ReactNode
 // --------------------------------------------------------------------------- Form controls
 
 const control =
-  "focus-ring w-full rounded-xl border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-muted/70 transition-colors hover:border-brand-300";
+  "focus-ring min-w-0 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-muted/70 transition-colors hover:border-brand-300";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...p }, ref) {
   return <input ref={ref} className={cn(control, "h-10", className)} {...p} />;
@@ -233,10 +233,10 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow && <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-600">{eyebrow}</div>}
-        <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-[2.6rem] sm:leading-tight">{title}</h1>
+        <h1 className="break-words text-3xl font-bold tracking-tight text-ink sm:text-[2.6rem] sm:leading-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -256,10 +256,10 @@ export function Stat({ label, value, hint, icon }: { label: ReactNode; value: Re
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { value: T; label: ReactNode }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="inline-flex rounded-xl border border-line bg-surface-2 p-1" role="tablist">
+    <div className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-surface-2 p-1" role="tablist">
       {tabs.map((t) => (
         <button key={t.value} role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)}
-          className={cn("focus-ring rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+          className={cn("focus-ring shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
             value === t.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink")}>
           {t.label}
         </button>

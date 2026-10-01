@@ -81,8 +81,9 @@ async def render_previews(template_id: uuid.UUID, base: bytes, spec: dict[str, A
         log(logger, logging.WARNING, "template_preview_failed", error=str(e))
         return []
     keys = []
+    revision = uuid.uuid4().hex
     for i, t in enumerate(thumbs, start=1):
-        key = f"templates/{template_id}/preview_{i}.webp"
+        key = f"templates/{template_id}/previews/{revision}/{i}.webp"
         await get_storage().put(key, t, "image/webp")
         keys.append(key)
     return keys

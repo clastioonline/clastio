@@ -126,3 +126,24 @@ async def media_generation_failed(ctx: JobContext, error: str) -> None:
     from app.services import media
 
     await media.handle_media_failed(ctx, error)
+
+
+@handler("template_preview", queue="docs")
+async def template_preview(ctx: JobContext) -> dict[str, Any]:
+    from app.core.db import get_sessionmaker
+    from app.core.storage import get_storage
+    from app.jobs.queue import PermanentJobError
+    from app.models import Template
+
+    await ctx.progress(10, "Refreshing template previews")
+    async with get_sessionmaker()() as db:
+        template = await db.get(Template, uuid.UUID(ctx.payload["template_id"]))
+        if not template or template.owner_id != ctx.owner_id:
+            raise PermanentJobError("Template is no longer available")
+        base = await get_storage().get(template.base_storage_key)
+        previews = await styles.render_previews(template.id, base, template.spec)
+        if not previews:
+            raise PermanentJobError("Preview rendering failed. Your saved design is preserved.")
+        template.preview_keys = previews
+        await db.commit()
+    return {"template_id": ctx.payload["template_id"]}

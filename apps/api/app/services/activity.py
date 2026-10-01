@@ -6,21 +6,30 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Conversation, Course, Document, GenerationJob, Lesson, MediaItem, UploadedFile
+from app.models import (
+    Conversation,
+    Course,
+    Document,
+    GenerationJob,
+    Lesson,
+    MediaItem,
+    Template,
+    UploadedFile,
+)
 
 LABELS = {
     "style_analysis": "Learn your presentation style", "source_indexing": "Read reference material",
     "course_plan": "Plan your lessons", "lesson_generation": "Build lesson slides",
     "slide_regeneration": "Update a slide", "lesson_render": "Rebuild presentation",
     "document_generation": "Create a worksheet or quiz", "media_generation": "Create lesson media",
-    "assistant_reply": "Assistant reply",
+    "assistant_reply": "Assistant reply", "template_preview": "Refresh template previews",
 }
 
 
 async def summaries(db: AsyncSession, jobs: list[GenerationJob]) -> list[dict]:
     objects = {}
     for field, model in (("course_id", Course), ("lesson_id", Lesson), ("document_id", Document),
-                         ("media_id", MediaItem), ("file_id", UploadedFile), ("conversation_id", Conversation)):
+                         ("template_id", Template), ("media_id", MediaItem), ("file_id", UploadedFile), ("conversation_id", Conversation)):
         ids = {uuid.UUID(j.payload[field]) for j in jobs if j.payload.get(field)}
         if ids:
             objects[field] = {str(x.id): x for x in (await db.execute(select(model).where(model.id.in_(ids)))).scalars()}
@@ -37,6 +46,8 @@ async def summaries(db: AsyncSession, jobs: list[GenerationJob]) -> list[dict]:
                 title, href = obj.title, f"/lessons/{obj.id}"
             elif field == "document_id":
                 title, href = obj.title, f"/lessons?tab=documents&document={obj.id}"
+            elif field == "template_id":
+                title, href = obj.name, f"/templates/{obj.id}"
             elif field == "media_id":
                 title, href = obj.prompt[:100], "/media"
             elif field == "file_id":

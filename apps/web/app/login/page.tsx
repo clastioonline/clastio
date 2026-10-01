@@ -6,9 +6,11 @@ import { Suspense, useState } from "react";
 import { AuthLayout, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useSWRConfig } from "swr";
 
 function LoginForm() {
   const router = useRouter();
+  const { mutate } = useSWRConfig();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,6 +23,7 @@ function LoginForm() {
     setError(null);
     try {
       const res = await api<{ user: { onboarding_completed: boolean; role: string } }>("/auth/login", { body: { email, password } });
+      await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
       const next = params.get("next");
       router.replace(!res.user.onboarding_completed ? "/onboarding" : next && next.startsWith("/") ? next : res.user.role === "admin" ? "/admin" : "/dashboard");
     } catch (err: any) {

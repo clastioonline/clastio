@@ -100,6 +100,9 @@ jobs:
       - name: Sign up → upload deck → lessons → editable PPTX → worksheet → assistant
         working-directory: apps/web
         run: node e2e/run.mjs
+      - name: Background tasks survive navigation and reopening
+        working-directory: apps/web
+        run: npm run e2e:background
       - name: Service logs
         if: failure()
         run: docker compose logs --no-color --tail 300

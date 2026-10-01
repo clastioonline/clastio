@@ -36,6 +36,9 @@ class RateLimiter:
 
     async def take(self, key: str, capacity: int, refill_per_s: float, cost: float = 1.0) -> tuple[bool, int]:
         """Spend `cost` tokens. Returns (allowed, tokens left) for the X-RateLimit-Remaining header."""
+        if get_settings().environment == "development":
+            capacity *= 1000
+            refill_per_s *= 1000
         if self._redis is not None:
             return await self._hit_redis(key, capacity, refill_per_s, cost)
         now = time.monotonic()
@@ -75,6 +78,8 @@ limiter = RateLimiter()
 
 async def enforce(key: str, capacity: int, per_seconds: float) -> None:
     """Raise 429 when `key` has used up `capacity` requests in `per_seconds`."""
+    if get_settings().environment == "development":
+        capacity *= 1000
     if not await limiter.hit(key, capacity, capacity / per_seconds):
         raise HTTPException(status_code=429, detail="Too many requests. Please slow down.",
                             headers={"Retry-After": str(int(per_seconds / capacity) + 1)})

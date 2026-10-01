@@ -115,7 +115,7 @@ export function ActivityOverview() {
   const ready = items.filter((item) => item.status === "succeeded").length;
   return <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 p-5 text-white sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex items-start gap-3"><Sparkles className="mt-1 h-6 w-6 shrink-0 text-accent-300" /><div>
+      <div className="flex min-w-0 flex-1 items-start gap-3"><Sparkles className="mt-1 h-6 w-6 shrink-0 text-accent-300" /><div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-widest text-white/70">Your teaching workspace</p>
         <h2 className="mt-1 text-xl font-semibold">{error ? "Your work has a home here" : count ? `${count} task${count === 1 ? " is" : "s are"} moving forward` : ready ? "Your next lesson starts a step ahead" : "A great lesson starts with an idea"}</h2>
         <p className="mt-2 max-w-xl text-sm text-white/80">{count ? "Keep planning or take a break. Your results will be waiting in Activity." : "Plan a unit, create a quiz, or explore an idea with your assistant."}</p>
