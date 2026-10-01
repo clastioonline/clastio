@@ -37,6 +37,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ActivityButton } from "@/components/activity-center";
 import { Logo } from "@/components/brand";
 import { LegalGate } from "@/components/legal-gate";
 import { AnnouncementBanners, MaintenanceBanner, NotificationBell, VerifyEmailBanner } from "@/components/notification-center";
@@ -62,6 +63,7 @@ const MENU: Item[] = [
   { href: "/whatsapp", key: "nav.whatsapp", label: "WhatsApp", icon: MessageCircle },
 ];
 const GENERAL: Item[] = [
+  { href: "/activity", key: "nav.activity", label: "Activity", icon: Activity },
   { href: "/notifications", key: "nav.notifications", label: "Notifications", icon: Bell },
   { href: "/support", key: "nav.support", label: "Help & support", icon: LifeBuoy },
   { href: "/tutorials", key: "nav.tutorials", label: "Tutorials & help", icon: CircleHelp },
@@ -103,7 +105,7 @@ const ADMIN_GROUPS: { title: string; items: AdminItem[] }[] = [
   ] },
 ];
 /* Pages an admin may open outside /admin. Everything else is the teacher product. */
-const ADMIN_ALLOWED = ["/settings", "/notifications"];
+const ADMIN_ALLOWED = ["/settings", "/notifications", "/activity"];
 
 function NavLink({ item, active, label }: { item: Item; active: boolean; label: string }) {
   const Icon = item.icon;
@@ -255,7 +257,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
           <kbd className="absolute end-3 top-1/2 -translate-y-1/2 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">⌘ K</kbd>
         </form>
       )}
-      <div className="lg:hidden"><Logo href="/dashboard" /></div>
+      <div className="shrink-0 lg:hidden"><Logo href="/dashboard" className="[&>span]:hidden sm:[&>span]:inline" /></div>
       <div className="ms-auto flex items-center gap-2">
         <button onClick={() => setLocale(locale === "ar" ? "en" : "ar")} aria-label="Switch language" title={locale === "ar" ? "English" : "العربية"}
           className="focus-ring hidden h-11 w-11 place-items-center rounded-full bg-surface text-ink-2 hover:text-ink sm:grid">
@@ -266,6 +268,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
             <MessageCircle className="h-5 w-5" />
           </Link>
         )}
+        <ActivityButton />
         <NotificationBell />
         <Link href="/settings" className="focus-ring flex items-center gap-3 rounded-full py-1 pe-2 ps-1 hover:bg-surface">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-base font-semibold text-white">

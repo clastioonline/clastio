@@ -3,7 +3,7 @@
 import { NotebookPen, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { StatusBadge } from "@/components/common";
 import { DocumentDialog, DocumentFiles } from "@/components/document-dialog";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Skeleton, Tabs } from "@/components/ui";
@@ -18,6 +18,14 @@ function Library() {
   const { data: lessons } = useApi<any>(tab === "lessons" ? "/lessons?limit=200" : null);
   const { data: docs, mutate: refreshDocs } = useApi<any>(tab === "documents" ? "/documents" : null, { refreshInterval: 4000 });
   const { data: questions } = useApi<any>(tab === "questions" ? `/questions?limit=200${q ? `&q=${encodeURIComponent(q)}` : ""}` : null);
+  useEffect(() => {
+    const next = params.get("tab");
+    if (next === "lessons" || next === "documents" || next === "questions") setTab(next);
+  }, [params]);
+  useEffect(() => {
+    const id = params.get("document");
+    if (id && tab === "documents" && docs) document.getElementById(`document-${id}`)?.scrollIntoView({ block: "center" });
+  }, [params, tab, docs]);
   const filt = (s: string) => !q || s.toLowerCase().includes(q.toLowerCase());
 
   return (
@@ -55,7 +63,7 @@ function Library() {
       {tab === "documents" && (!docs ? <Skeleton className="h-64" /> : docs.items.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {docs.items.filter((d: any) => filt(d.title)).map((d: any) => (
-            <Card key={d.id} className="p-4">
+            <Card key={d.id} id={`document-${d.id}`} className={`p-4 ${params.get("document") === d.id ? "ring-2 ring-brand-400" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-medium text-ink">{d.title}</div>

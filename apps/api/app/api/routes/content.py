@@ -10,7 +10,7 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.db import get_sessionmaker
@@ -575,6 +575,18 @@ async def question_bank(user: CurrentUser, db: DB, q: str | None = None, difficu
 
 
 # --------------------------------------------------------------------------- jobs
+
+
+@router.get("/activity")
+async def activity(user: CurrentUser, db: DB):
+    from app.services.activity import summaries
+
+    active = GenerationJob.status.in_(["queued", "running"])
+    counts = dict((await db.execute(select(GenerationJob.status, func.count()).where(
+        GenerationJob.owner_id == user.id).group_by(GenerationJob.status))).all())
+    jobs = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == user.id).order_by(
+        case((active, 0), else_=1), GenerationJob.created_at.desc()).limit(100))).scalars().all()
+    return {"items": await summaries(db, list(jobs)), "active_count": counts.get("queued", 0) + counts.get("running", 0)}
 
 
 def job_out(j: GenerationJob) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-.venv
+.venv*
 var
 tests
 **/__pycache__

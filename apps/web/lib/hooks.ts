@@ -56,6 +56,7 @@ export function useJob(jobId: string | null | undefined, onDone?: (job: Job) => 
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
   useEffect(() => {
+    setJob(null);
     if (!jobId) return;
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -64,12 +65,12 @@ export function useJob(jobId: string | null | undefined, onDone?: (job: Job) => 
         const j = await api<Job>(`/jobs/${jobId}`);
         if (stop) return;
         setJob(j);
-        if (j.status === "succeeded" || j.status === "failed") {
-          doneRef.current?.(j);
+        if (j.status === "succeeded" || j.status === "failed" || j.status === "cancelled") {
+          await doneRef.current?.(j);
           return;
         }
       } catch {}
-      timer = setTimeout(tick, 1200);
+      if (!stop) timer = setTimeout(tick, 1200);
     };
     tick();
     return () => {

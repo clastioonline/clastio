@@ -76,10 +76,11 @@ export function DocumentDialog({ open, onClose, kind: initialKind = "worksheet",
       if (source === "lesson") body.lesson_id = lesson;
       if (source === "month") body.scope = "month";
       if (source === "topic") body.topic = topic;
-      const r = await api<any>("/documents", { body });
+      const r = await api<any>("/documents", { body, idempotent: true });
       setDocId(r.document.id);
       setJobId(r.job_id);
       if (r.document.status === "ready") setDoc(r.document);
+      else notify({ tone: "info", title: "Your assessment is on its way", body: "You can close this window. Find progress in Activity and the finished files in your library." });
     } catch (e) {
       notify({ tone: "error", title: "Couldn't create", body: errorMessage(e) });
     } finally {
@@ -89,7 +90,9 @@ export function DocumentDialog({ open, onClose, kind: initialKind = "worksheet",
 
   return (
     <Modal open={open} onClose={onClose} title="Create an assessment" size="lg"
-      footer={doc ? <Button onClick={onClose}>Done</Button> : (
+      footer={doc ? <Button onClick={onClose}>Done</Button> : jobId ? (
+        <Button onClick={onClose}>{job?.status === "failed" ? "Close" : "Continue in background"}</Button>
+      ) : (
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={create} loading={busy || (!!jobId && !doc)} disabled={(source === "lesson" && !lesson) || (source === "topic" && !topic)}>Create</Button>
@@ -101,7 +104,11 @@ export function DocumentDialog({ open, onClose, kind: initialKind = "worksheet",
           <DocumentFiles files={doc.files} />
         </div>
       ) : jobId ? (
-        <div className="space-y-3 py-4"><JobLine job={job} /></div>
+        <div className="space-y-4 py-4"><JobLine job={job} />
+          <Alert tone={job?.status === "failed" ? "warn" : "brand"} title={job?.status === "failed" ? "This assessment needs attention" : "No need to wait here"}>
+            {job?.status === "failed" ? "Close this window and create a new assessment when you’re ready." : "Keep planning, explore another lesson, or close the browser. We’ll save your files in Library → Documents and notify you when they’re ready."}
+          </Alert>
+        </div>
       ) : (
         <div className="space-y-5">
           <Field label="Type"><Chips options={KINDS} value={kind} onChange={setKind} /></Field>

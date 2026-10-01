@@ -3,6 +3,7 @@
 import { ArrowLeft, ArrowRight, Check, Plus, Sparkles, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ActivityButton } from "@/components/activity-center";
 import { Logo } from "@/components/brand";
 import { useToast } from "@/components/toast";
 import { Alert, Button, Card, Chips, Field, Input, Select, Textarea, Toggle } from "@/components/ui";
@@ -20,6 +21,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [uploadAccepted, setUploadAccepted] = useState(false);
   const [basics, setBasics] = useState({
     name: "", country: "AE", region: "Dubai", school_name: "", curriculum: "british", subjects: ["Science"],
     grades: ["8"], teaching_languages: ["en"], class_duration_minutes: 45, working_days: [0, 1, 2, 3, 4], teaching_style: "",
@@ -52,6 +54,8 @@ export default function Onboarding() {
     try {
       await api("/me/profile", { method: "PUT", body: { preferences: prefs } });
       setStep(3);
+    } catch (e: any) {
+      notify({ tone: "error", title: "Couldn't save preferences", body: e.message });
     } finally {
       setSaving(false);
     }
@@ -77,7 +81,7 @@ export default function Onboarding() {
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
           <Logo href="/" />
-          <span className="text-sm text-muted">Step {step + 1} of {STEPS.length}</span>
+          <div className="flex items-center gap-3"><ActivityButton /><span className="text-sm text-muted">Step {step + 1} of {STEPS.length}</span></div>
         </div>
       </header>
       <div className="mx-auto max-w-3xl px-4 py-8">
@@ -142,12 +146,13 @@ export default function Onboarding() {
             <h2 className="text-xl font-semibold text-ink">Upload a presentation you like</h2>
             <p className="mt-1 text-muted">We read its colours, fonts, layouts, header bands and logo, so new lessons look like yours. This is optional; you can use a built-in style for now.</p>
             <div className="mt-6">
-              <UploadDropzone onReady={({ templateId }) => { setTemplateId(templateId || null); notify({ tone: "success", title: "Your style is ready", body: "New lessons will use your design." }); }} />
+              <UploadDropzone onQueued={() => setUploadAccepted(true)} onReady={({ templateId }) => { setTemplateId(templateId || null); notify({ tone: "success", title: "Your style is ready", body: "New lessons will use your design." }); }} />
             </div>
             {templateId && <Alert tone="success" className="mt-4" title="Template created">It's set as your default. You can fine-tune it later in My designs.</Alert>}
+            {uploadAccepted && !templateId && <Alert tone="brand" className="mt-4" title="Carry on with setup">Your design is being prepared in the background. It will appear in My designs when it’s ready.</Alert>}
             <div className="mt-6 flex justify-between">
               <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft className="h-4 w-4 rtl:rotate-180" /> Back</Button>
-              <Button onClick={() => setStep(2)}>{templateId ? "Continue" : "Skip for now"} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Button>
+              <Button onClick={() => setStep(2)}>{templateId || uploadAccepted ? "Continue" : "Skip for now"} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Button>
             </div>
           </Card>
         )}

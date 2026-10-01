@@ -69,7 +69,7 @@ Requirements: Python 3.11+, Node 22, PostgreSQL 16 with pgvector, LibreOffice an
 cd apps/api
 python -m venv .venv && . .venv/bin/activate
 python -c "import tomllib;p=tomllib.load(open('pyproject.toml','rb'))['project'];print('\n'.join(p['dependencies']+p['optional-dependencies']['dev']))" > /tmp/req.txt
-pip install -r /tmp/req.txt
+pip install -r /tmp/req.txt -c constraints.txt
 createdb teacher_assistant && alembic upgrade head && python -m app.seed --demo
 uvicorn app.main:app --reload --port 8000          # API docs at http://localhost:8000/api/docs
 python -m app.worker --concurrency 4               # in a second terminal
@@ -83,8 +83,8 @@ npm run dev                                         # http://localhost:3000 (pro
 ## Tests
 
 ```bash
-cd apps/api && createdb teacher_assistant_test && python -m pytest -q   # 66 tests
-cd apps/web && npm run typecheck && npm run build
+cd apps/api && createdb teacher_assistant_test && python -m pytest -q
+cd apps/web && npm test && npm run typecheck && npm run build
 cd apps/web && BASE_URL=http://localhost:3000 node e2e/run.mjs          # needs a running, demo-seeded stack
 ```
 

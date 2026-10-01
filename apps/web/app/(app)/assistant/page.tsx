@@ -2,11 +2,12 @@
 
 import { Bot, MessageSquarePlus, Send, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Markdown } from "@/components/markdown";
 import { errorMessage, useToast } from "@/components/toast";
-import { Button, Card, Spinner, Textarea } from "@/components/ui";
-import { api, streamPost, timeAgo } from "@/lib/api";
+import { Alert, Button, Card, Select, Spinner, Textarea } from "@/components/ui";
+import { api, timeAgo } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
@@ -23,42 +24,50 @@ const SUGGESTIONS = [
   "Create a test from everything taught this month",
 ];
 
-export default function Assistant() {
+function Assistant() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const conversationId = params.get("conversation");
   const { user } = useMe();
   const { notify } = useToast();
-  const { data: convs, mutate: refreshConvs } = useApi<any>("/assistant/conversations");
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const { data: convs, mutate: refreshConvs } = useApi<any>("/assistant/conversations", { revalidateOnFocus: true });
+  const { data: conversation, error, mutate: refreshConversation } = useApi<any>(conversationId ? `/assistant/conversations/${conversationId}` : null, {
+    refreshInterval: (data: any) => ["queued", "running"].includes(data?.job?.status) ? 1500 : 0,
+    revalidateOnFocus: true,
+  });
   const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const bottom = useRef<HTMLDivElement>(null);
+  const pending = ["queued", "running"].includes(conversation?.job?.status);
+  const sending = submitting || pending;
+  const messages: Msg[] = conversation?.messages || [];
+  const partial = pending ? conversation?.job?.result?.text || "" : "";
 
-  useEffect(() => bottom.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length, partial]);
 
-  const open = async (id: string) => {
-    const c = await api<any>(`/assistant/conversations/${id}`);
-    setConversationId(id);
-    setMessages(c.messages.map((m: any) => ({ role: m.role, content: m.content, actions: m.actions })));
-  };
-
+  const open = (id: string) => router.push(`/assistant?conversation=${encodeURIComponent(id)}`);
   const send = async (value?: string) => {
     const msg = (value ?? text).trim();
-    if (!msg || sending) return;
-    setText("");
-    setSending(true);
-    setMessages((m) => [...m, { role: "user", content: msg }, { role: "assistant", content: "", actions: [], pending: true }]);
+    if (!msg || sending || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
-      await streamPost("/assistant/messages", { text: msg, conversation_id: conversationId }, ({ event, data }) => {
-        if (event === "conversation") setConversationId(data.id);
-        if (event === "token") setMessages((m) => { const c = [...m]; const last = c[c.length - 1]; c[c.length - 1] = { ...last, content: last.content + data.text }; return c; });
-        if (event === "action") setMessages((m) => { const c = [...m]; const last = c[c.length - 1]; c[c.length - 1] = { ...last, actions: [...(last.actions || []), data] }; return c; });
+      const result = await api<{ conversation_id: string; job_id: string }>("/assistant/tasks", {
+        body: { text: msg, conversation_id: conversationId }, idempotent: true,
       });
+      setText("");
+      router.replace(`/assistant?conversation=${result.conversation_id}`);
+      await refreshConversation();
+      await refreshConvs();
+      notify({ tone: "info", title: "Your assistant is on it", body: "Feel free to leave this page. Your reply will be saved in this conversation." });
     } catch (e) {
-      notify({ tone: "error", title: "Assistant unavailable", body: errorMessage(e) });
+      notify({ tone: "error", title: "Couldn't send message", body: errorMessage(e) });
     } finally {
-      setMessages((m) => { const c = [...m]; c[c.length - 1] = { ...c[c.length - 1], pending: false }; return c; });
-      setSending(false);
-      refreshConvs();
+      setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -66,7 +75,7 @@ export default function Assistant() {
     <div className="grid h-[calc(100vh-8rem)] gap-5 lg:grid-cols-[260px_1fr]">
       <Card className="hidden flex-col overflow-hidden lg:flex">
         <div className="border-b border-line p-3">
-          <Button className="w-full" variant="outline" onClick={() => { setConversationId(null); setMessages([]); }}><MessageSquarePlus className="h-4 w-4" /> New chat</Button>
+          <Button className="w-full" variant="outline" onClick={() => router.push("/assistant")}><MessageSquarePlus className="h-4 w-4" /> New chat</Button>
         </div>
         <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {(convs?.items || []).map((c: any) => (
@@ -79,8 +88,18 @@ export default function Assistant() {
         </div>
       </Card>
       <Card className="flex min-h-0 flex-col overflow-hidden">
+        <div className="border-b border-line p-3 lg:hidden">
+          <Select aria-label="Choose a conversation" value={conversationId || ""} onChange={(e) => e.target.value ? open(e.target.value) : router.push("/assistant")}>
+            <option value="">New conversation</option>
+            {(convs?.items || []).map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
+          </Select>
+        </div>
         <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
-          {!messages.length && (
+          {error && <Alert tone="warn" title="Couldn't load this conversation"><Button variant="outline" onClick={() => refreshConversation()}>Try again</Button></Alert>}
+          {conversationId && !conversation && !error && <Spinner />}
+          {conversation?.job?.status === "failed" && <Alert tone="warn" title="This reply couldn't finish">Your message is saved. You can send it again or try another question.</Alert>}
+          {pending && <Alert tone="brand" title="Thinking in the background">You can switch pages or close the browser. Your reply will be saved here and in Activity.</Alert>}
+          {!conversationId && !messages.length && (
             <div className="mx-auto max-w-2xl py-8 text-center">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Sparkles className="h-7 w-7" /></div>
               <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink">How can I help, {user?.name?.split(" ")[0] || "teacher"}?</h1>
@@ -108,6 +127,7 @@ export default function Assistant() {
               </div>
             </div>
           ))}
+          {pending && <div className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-white"><Bot className="h-4 w-4" /></div><div className="max-w-[85%] rounded-2xl border border-line bg-surface-2/60 px-4 py-3">{partial ? <Markdown text={partial} /> : <span className="flex items-center gap-2 text-sm text-muted"><Spinner className="h-4 w-4" />{conversation.job.stage || "Preparing your reply"}</span>}</div></div>}
           <div ref={bottom} />
         </div>
         <form className="border-t border-line p-3 sm:p-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
@@ -115,10 +135,14 @@ export default function Assistant() {
             <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} className="min-h-[48px] resize-none"
               placeholder="Ask anything… e.g. “Create 2 lessons on magnets for grade 5”"
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
-            <Button type="submit" size="lg" loading={sending} disabled={!text.trim()} aria-label="Send"><Send className="h-4 w-4 rtl:rotate-180" /></Button>
+            <Button type="submit" size="lg" loading={submitting} disabled={!text.trim() || sending || (!!conversationId && !conversation)} aria-label="Send"><Send className="h-4 w-4 rtl:rotate-180" /></Button>
           </div>
         </form>
       </Card>
     </div>
   );
+}
+
+export default function AssistantPage() {
+  return <Suspense fallback={<Spinner />}><Assistant /></Suspense>;
 }

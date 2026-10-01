@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   forwardRef,
   useEffect,
+  useId,
+  useRef,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -51,6 +53,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     className,
   );
   if (href) {
+    // Downloads and external destinations use normal navigation. Next Link would
+    // prefetch signed files as route data, wasting bandwidth and losing signatures.
+    if (href.startsWith("/api/") || /^(https?:|mailto:|tel:)/i.test(href)) {
+      return <a href={href} className={cls}>{children}</a>;
+    }
     return (
       <Link href={href} className={cls}>
         {children}
@@ -264,24 +271,40 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { valu
 // --------------------------------------------------------------------------- Modal
 
 export function Modal({ open, onClose, title, children, footer, size = "md" }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; size?: "md" | "lg" | "xl" }) {
+  const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    dialog.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); close.current(); }
+      if (e.key !== "Tab") return;
+      const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]') || []).filter((el) => el.offsetParent !== null);
+      const first = controls[0], last = controls[controls.length - 1];
+      if (!first) { e.preventDefault(); return; }
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = overflow;
+      if (previous?.isConnected) previous.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   const w = size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-3xl" : "max-w-lg";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" onClick={onClose}>
-      <div role="dialog" aria-modal="true" className={cn("flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-line bg-surface shadow-[var(--shadow-pop)] sm:rounded-2xl", w)}
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} className={cn("flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-line bg-surface shadow-[var(--shadow-pop)] outline-none sm:rounded-2xl", w)}
         onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="font-semibold text-ink">{title}</h2>
+          <h2 id={titleId} className="font-semibold text-ink">{title}</h2>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X className="h-4 w-4" /></Button>
         </div>
         <div className="overflow-y-auto px-5 py-4">{children}</div>

@@ -22,6 +22,7 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from app.engine.pptx_xml import (
+    all_slide_layouts,
     copy_background,
     copy_element_with_rels,
     delete_slide,
@@ -193,9 +194,10 @@ class DeckRenderer:
     def _new_slide(self, role: str, number: int):
         cfg = self.spec.get(role) or self.spec["content"]
         layout_index = cfg.get("layout_index")
-        if layout_index is None or layout_index >= len(self.prs.slide_layouts):
+        layouts = all_slide_layouts(self.prs)
+        if layout_index is None or layout_index >= len(layouts):
             layout_index = self.spec["content"]["layout_index"]
-        slide = self.prs.slides.add_slide(self.prs.slide_layouts[layout_index])
+        slide = self.prs.slides.add_slide(layouts[layout_index])
         donor_idx = cfg.get("donor_index")
         donor = self.donors[donor_idx] if donor_idx is not None and donor_idx < len(self.donors) else None
         if donor is not None and cfg.get("copy_background"):
@@ -787,7 +789,7 @@ class DeckRenderer:
         role = self._section_role()
         if role == "section":
             cfg = self.spec["section"]
-            slide = self.prs.slides.add_slide(self.prs.slide_layouts[cfg["layout_index"]])
+            slide = self.prs.slides.add_slide(all_slide_layouts(self.prs)[cfg["layout_index"]])
             ph = self._placeholder(slide, "title")
             if ph is not None:
                 self.text(slide, Box(ph.left, ph.top, ph.width, ph.height), [P(spec.title)], role="title", shape=ph,

@@ -65,6 +65,7 @@ function NewCourse() {
     setError(null);
     try {
       const r = await api<any>("/courses", {
+        idempotent: true,
         body: {
           ...form,
           class_section_id: form.class_section_id || null,
@@ -73,7 +74,7 @@ function NewCourse() {
           outcomes: selected.map((o) => ({ code: o.code, text: o.text })),
         },
       });
-      notify({ tone: "success", title: "Planning your lessons", body: form.auto_generate ? "Slides will be built right after the plan." : "Review the plan, then generate slides." });
+      notify({ tone: "success", title: "Planning your lessons", body: form.auto_generate ? "You can leave this page. Follow the plan and slides in Activity." : "Review the plan, then generate slides." });
       router.push(`/projects/${r.course.project_id}`);
     } catch (e: any) {
       setError(e.message);

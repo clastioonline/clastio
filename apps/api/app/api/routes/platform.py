@@ -57,10 +57,22 @@ async def ready():
     try:
         async with get_sessionmaker()() as s:
             await s.execute(text("select 1"))
-            try:
-                checks["migration"] = (await s.execute(text("select version_num from alembic_version"))).scalar()
-            except Exception:  # noqa: BLE001 - schema built without Alembic (tests)
-                checks["migration"] = None
+            from alembic.config import Config
+            from alembic.script import ScriptDirectory
+
+            from app.core.config import API_ROOT
+
+            config = Config()
+            config.set_main_option("script_location", str(API_ROOT / "alembic"))
+            expected = set(ScriptDirectory.from_config(config).get_heads())
+            exists = (await s.execute(text("select to_regclass('alembic_version')"))).scalar()
+            applied = set((await s.execute(text("select version_num from alembic_version"))).scalars()) if exists else set()
+            checks["migration"] = next(iter(applied), None)
+            # Unit/integration fixtures build their schema directly from the models.
+            current = applied == expected or (get_settings().environment == "test" and not exists)
+            checks["schema"] = {"ok": current}
+            if not current:
+                status = 503
         checks["database"] = {"ok": True, "ms": int((_time.monotonic() - t0) * 1000)}
     except Exception:  # noqa: BLE001
         checks["database"] = {"ok": False}
@@ -235,6 +247,7 @@ async def whatsapp_status(user: CurrentUser, db: DB):
     plan, _ = await usage.get_plan(db, user)
     return {"enabled_on_plan": bool(plan.limits.get("whatsapp_messages")) or user.role == "admin",
             "live": wa.WhatsAppClient().enabled,
+            "simulation_enabled": not get_settings().is_production,
             "contact": None if contact is None else {
                 "phone": contact.phone_e164, "verified": contact.verified, "opted_in": contact.opted_in,
                 "daily_time": contact.daily_time, "reflection_time": contact.reflection_time,
@@ -287,7 +300,7 @@ async def whatsapp_unlink(user: CurrentUser, db: DB):
 @router.post("/whatsapp/simulate", tags=["whatsapp"])
 async def whatsapp_simulate(user: CurrentUser, db: DB, body: dict[str, Any]):
     """Dev/demo only: pretend the teacher sent a WhatsApp message (when no live WhatsApp is configured)."""
-    if wa.WhatsAppClient().enabled and get_settings().is_production:
+    if get_settings().is_production:
         raise AppError("forbidden", "Simulation is disabled in production.", 403)
     contact = (await db.execute(select(WhatsAppContact).where(WhatsAppContact.user_id == user.id))).scalars().first()
     if contact is None:

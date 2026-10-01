@@ -279,3 +279,40 @@ async def test_refused_jobs_fail_once_with_a_clear_message(database):
         assert job.error == queue.REFUSAL_MESSAGE
     assert len(calls) == 1
     queue.HANDLERS.pop("test_refusal")
+
+
+def test_multiple_slide_masters_analyze_and_render(tmp_path):
+    """Imported slides may use layouts from a second master, not prs.slide_layouts."""
+    from lxml import etree
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    from pptx.opc.packuri import PackURI
+    from pptx.oxml.ns import qn
+
+    from app.engine.pptx_xml import all_slide_layouts
+
+    first, second = Presentation(), Presentation()
+    master = second.slide_master
+    master.part._partname = PackURI("/ppt/slideMasters/slideMaster99.xml")
+    master.part.part_related_by(RT.THEME)._partname = PackURI("/ppt/theme/theme99.xml")
+    for i, layout in enumerate(master.slide_layouts):
+        layout.part._partname = PackURI(f"/ppt/slideLayouts/slideLayout{100 + i}.xml")
+    rid = first.part.relate_to(master.part, RT.SLIDE_MASTER)
+    entry = etree.SubElement(first._element.sldMasterIdLst, qn("p:sldMasterId"))
+    entry.set("id", "2147483649")
+    entry.set(qn("r:id"), rid)
+    for title in ("Welcome", "Fractions", "Equivalent fractions"):
+        slide = first.slides.add_slide(master.slide_layouts[1])
+        slide.shapes.title.text = title
+        slide.placeholders[1].text = "One half equals two quarters."
+    source = tmp_path / "multiple-masters.pptx"
+    first.save(source)
+    loaded = Presentation(source)
+    assert len(loaded.slide_masters) == 2
+    analysis = analyze_pptx(source)
+    assert analysis["layout_map"]["content_layout_index"] >= len(loaded.slide_layouts)
+    base, spec = build_native(source, analysis)
+    data = DeckRenderer(base, spec).render([SlideSpec(number=1, layout="concept", purpose="Explain", title="Fractions",
+                                                    bullets=[Bullet(text="Two quarters make one half.")])])
+    result = Presentation(io.BytesIO(data))
+    assert len(result.slides) == 1
+    assert result.slides[0].slide_layout == all_slide_layouts(result)[spec["content"]["layout_index"]]

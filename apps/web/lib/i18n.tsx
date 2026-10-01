@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 type Dict = Record<string, string>;
 
 const ar: Dict = {
+  "nav.activity": "النشاط",
   "nav.today": "اليوم",
   "nav.assistant": "المساعد",
   "nav.projects": "المشاريع",

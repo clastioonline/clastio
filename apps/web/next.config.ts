@@ -21,12 +21,16 @@ const CSP = [
 ].join("; ");
 
 // Signed-in areas are private: never indexed.
-const PRIVATE = ["dashboard", "projects", "assistant", "lessons", "calendar", "curriculum", "templates", "media", "teacher-memory",
+const PRIVATE = ["activity", "dashboard", "projects", "assistant", "lessons", "calendar", "curriculum", "templates", "media", "teacher-memory",
   "whatsapp", "tutorials", "billing", "settings", "notifications", "support", "admin", "onboarding", "auth", "verify-email", "reset-password"];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    serverActions: { bodySizeLimit: "100mb" },
+    proxyClientMaxBodySize: 104857600, // 100MB
+  },
   // The Docker image sets NEXT_OUTPUT=standalone for a small self-contained server; `next start` is unaffected.
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   // The browser only ever talks to this origin; /api is proxied to FastAPI so session cookies stay first-party

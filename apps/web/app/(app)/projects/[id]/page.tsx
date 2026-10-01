@@ -99,6 +99,7 @@ export default function ProjectPage() {
           </>
         } />
 
+      {working && <Alert tone="brand" title="Keep teaching while we prepare">This work continues in the background. You can leave this page or close the browser. <Link href="/activity" className="font-medium underline">Follow progress in Activity</Link>.</Alert>}
       {course.status === "planning" && (
         <Card className="p-6">
           <div className="flex items-center gap-3 text-ink"><WandSparkles className="h-5 w-5 animate-pulse text-brand-600" /> Planning a connected lesson sequence…</div>

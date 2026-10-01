@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .venv/
+.venv*/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -16,7 +17,8 @@ next-env.d.ts
 
 # Env / local
 .env
-.env.local
+.env.*
+!.env.example
 *.log
 .DS_Store
 test-results/

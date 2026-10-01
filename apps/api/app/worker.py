@@ -55,6 +55,7 @@ async def scheduler(stop: asyncio.Event) -> None:
 
 async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool) -> None:
     settings = get_settings()
+    settings.validate_production()
     configure_logging(settings.log_level, environment=settings.environment, version=settings.app_version)
     if settings.sentry_dsn:
         import sentry_sdk

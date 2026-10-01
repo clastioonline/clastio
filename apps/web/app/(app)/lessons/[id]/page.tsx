@@ -212,14 +212,14 @@ export default function LessonPage() {
   const [docOpen, setDocOpen] = useState<string | null>(null);
   const [regenOpen, setRegenOpen] = useState(false);
   const [regenText, setRegenText] = useState("");
-  const job = useJob(jobId, (j) => {
+  const job = useJob(jobId || (["queued", "running"].includes(data?.job?.status) ? data.job.id : null), (j) => {
     setJobId(null);
     mutate();
     if (j.status === "succeeded") notify({ tone: "success", title: "Slides updated", body: "Your design system was preserved." });
     else notify({ tone: "error", title: "Update failed", body: j.error || undefined });
   });
 
-  const generating = data?.lesson?.status === "generating";
+  const generating = data?.lesson?.status === "generating" || ["queued", "running"].includes(data?.job?.status);
   useEffect(() => {
     if (!generating) return;
     const t = setInterval(() => mutate(), 2500);
@@ -288,7 +288,7 @@ export default function LessonPage() {
 
       {lesson.carry_over?.text && <Alert tone="accent" title="Carried over from the last lesson">{lesson.carry_over.text}</Alert>}
       {(jobId || generating) && (
-        <Alert tone="brand"><span className="flex items-center gap-2"><LoaderCircle className="h-4 w-4 animate-spin" /> {job?.stage || "Working on your lesson"}… {job ? `${job.progress}%` : ""}</span></Alert>
+        <Alert tone="brand"><span className="flex items-center gap-2"><LoaderCircle className="h-4 w-4 animate-spin" /> {job?.stage || "Working on your lesson"}… {job ? `${job.progress}%` : ""}</span><p className="mt-2 text-sm">No need to wait here. Your changes keep processing; track them in <Link href="/activity" className="underline">Activity</Link>.</p></Alert>
       )}
 
       <Tabs value={tab} onChange={setTab} tabs={[

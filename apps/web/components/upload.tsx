@@ -3,6 +3,7 @@
 import { CircleCheck, FileUp, LoaderCircle, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +11,8 @@ const STAGES = ["Uploaded", "Analysing", "Extracting design", "Understanding con
 
 type UploadResult = { file: { id: string; status: string; stage: string | null; error: string | null }; job_id: string | null };
 
-export function UploadDropzone({ kind = "style", onReady, compact = false }: { kind?: "style" | "source"; onReady?: (info: { fileId: string; templateId?: string }) => void; compact?: boolean }) {
+export function UploadDropzone({ kind = "style", onReady, onQueued, compact = false }: { kind?: "style" | "source"; onReady?: (info: { fileId: string; templateId?: string }) => void; onQueued?: () => void; compact?: boolean }) {
+  const { notify } = useToast();
   const [drag, setDrag] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileId, setFileId] = useState<string | null>(null);
@@ -20,10 +22,13 @@ export function UploadDropzone({ kind = "style", onReady, compact = false }: { k
   const [rights, setRights] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const readyRef = useRef(onReady);
+  const queuedRef = useRef(onQueued);
   readyRef.current = onReady;
+  queuedRef.current = onQueued;
 
   const start = useCallback(async (f: File) => {
     setFile(f);
+    setFileId(null);
     setError(null);
     setStatus("uploading");
     setStage("Uploading");
@@ -35,29 +40,42 @@ export function UploadDropzone({ kind = "style", onReady, compact = false }: { k
     try {
       const res = await api<UploadResult>("/uploads", { form });
       setFileId(res.file.id);
-      setStatus(res.file.status);
+      if (res.file.status !== "failed") queuedRef.current?.();
+      if (res.job_id && res.file.status !== "ready") notify({ tone: "info", title: "Upload received", body: "Processing continues in the background. You can carry on; we’ll notify you when it’s ready." });
+      // Always fetch the completed upload detail: it contains the template id,
+      // including when a fast worker finishes before the upload response arrives.
+      setStatus(res.file.status === "ready" ? "processing" : res.file.status);
       setStage(res.file.stage);
+      if (res.file.status === "failed") setError(res.file.error || "We couldn't analyse this file.");
     } catch (e: any) {
       setError(e.message);
       setStatus("failed");
     }
-  }, [kind, rights]);
+  }, [kind, rights, notify]);
 
   useEffect(() => {
     if (!fileId || status === "ready" || status === "failed") return;
-    const t = setInterval(async () => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const poll = async () => {
       try {
-        const res = await api<{ file: UploadResult["file"]; template_id: string | null }>(`/uploads/${fileId}`);
+        const res = await api<{ file: UploadResult["file"]; template_id: string | null }>(`/uploads/${fileId}`, { signal: controller.signal });
+        if (stopped) return;
         setStage(res.file.stage);
         setStatus(res.file.status);
         if (res.file.status === "ready") {
           readyRef.current?.({ fileId, templateId: res.template_id || undefined });
+          return;
         } else if (res.file.status === "failed") {
           setError(res.file.error || "We couldn't analyse this file.");
+          return;
         }
       } catch {}
-    }, 1200);
-    return () => clearInterval(t);
+      if (!stopped) timer = setTimeout(poll, 1200);
+    };
+    void poll();
+    return () => { stopped = true; controller.abort(); clearTimeout(timer); };
   }, [fileId, status]);
 
   const onDrop = (e: React.DragEvent) => {
@@ -93,6 +111,7 @@ export function UploadDropzone({ kind = "style", onReady, compact = false }: { k
           </ol>
         )}
         {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
+        {busy && <p className="mt-4 text-sm text-muted">{status === "uploading" ? "Transferring your file. Keep this tab open until the upload is received." : "You can leave this page. Track progress in Activity; your file keeps processing in the background."}</p>}
       </div>
     );
   }

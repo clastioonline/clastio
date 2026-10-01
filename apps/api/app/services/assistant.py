@@ -287,8 +287,8 @@ async def run_action(db: AsyncSession, user: User, intent: Intent, text: str) ->
     raise AppError("general", "", 200)
 
 
-async def converse(db: AsyncSession, user: User, text: str, conversation_id: uuid.UUID | None
-                   ) -> AsyncIterator[dict[str, Any]]:
+async def converse(db: AsyncSession, user: User, text: str, conversation_id: uuid.UUID | None,
+                   *, record_user: bool = True) -> AsyncIterator[dict[str, Any]]:
     """Yield SSE events: status, token, action, done."""
     if conversation_id:
         conv = await db.get(Conversation, conversation_id)
@@ -298,7 +298,8 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
         conv = Conversation(owner_id=user.id, title=text[:80])
         db.add(conv)
         await db.flush()
-    db.add(ConversationMessage(conversation_id=conv.id, role="user", content=text))
+    if record_user:
+        db.add(ConversationMessage(conversation_id=conv.id, role="user", content=text))
     await db.commit()
     yield {"event": "conversation", "data": {"id": str(conv.id)}}
     intent = await classify(text, user.id)

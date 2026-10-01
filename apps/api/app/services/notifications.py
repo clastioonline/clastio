@@ -50,6 +50,8 @@ class Event:
 
 
 EVENTS: dict[str, Event] = {
+    "task_ready": Event("product", "Ready: {title}", "Your background task is complete. Open it whenever you're ready.", "{link}"),
+    "task_failed": Event("product", "Needs attention: {title}", "Your background task couldn't finish. Open Activity to review it.", "/activity"),
     # --- trial & plan
     "trial_ending": Event("billing", "Your trial ends in {days} day{s}",
                           "Choose a plan to keep your {plan} features. Your lessons stay safe either way.",
@@ -81,7 +83,8 @@ EVENTS: dict[str, Event] = {
                            "Nothing was charged. Open the lesson to try again.", "/lessons/{id}", None),
     "course_planned": Event("product", "Unit planned: {title}", "Your lesson sequence is ready to review.",
                             "/projects/{id}", None),
-    "document_ready": Event("product", "{title} is ready", "Download it from your library.", "/lessons", None),
+    "course_failed": Event("product", "We couldn't plan “{title}”", "Open your project to review the problem.", "/projects/{id}", None),
+    "document_ready": Event("product", "{title} is ready", "Download it from your library.", "/lessons?tab=documents&document={id}", None),
     "document_failed": Event("product", "We couldn't create “{title}”", "Nothing was charged. Please try again.",
                              "/lessons", None),
     "media_ready": Event("product", "Your {kind} is ready", "It's in your media studio, labelled as AI-generated.",
@@ -342,7 +345,8 @@ async def job_failure_watch() -> int:
 
 # --------------------------------------------------------------------------- job completion
 
-NOTIFY_JOBS = {"lesson_generation", "course_plan", "document_generation", "media_generation"}
+NOTIFY_JOBS = {"lesson_generation", "course_plan", "document_generation", "media_generation",
+               "style_analysis", "source_indexing", "slide_regeneration", "lesson_render", "assistant_reply"}
 
 
 async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | None, payload: dict[str, Any],
@@ -361,13 +365,21 @@ async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | N
                     "lesson_ready" if ok else "lesson_failed"
             elif job_type == "course_plan":
                 obj = await db.get(Course, uuid.UUID(payload["course_id"]))
-                ctx, event = ({"title": obj.topic, "id": str(obj.project_id)} if obj and ok else None), "course_planned"
+                ctx, event = ({"title": obj.topic, "id": str(obj.project_id)} if obj else None), "course_planned" if ok else "course_failed"
             elif job_type == "document_generation":
                 obj = await db.get(Document, uuid.UUID(payload["document_id"]))
-                ctx, event = ({"title": obj.title} if obj else None), "document_ready" if ok else "document_failed"
-            else:
+                ctx, event = ({"title": obj.title, "id": str(obj.id)} if obj else None), "document_ready" if ok else "document_failed"
+            elif job_type == "media_generation":
                 obj = await db.get(MediaItem, uuid.UUID(payload["media_id"]))
                 ctx, event = ({"kind": obj.kind} if obj else None), "media_ready" if ok else "media_failed"
+            else:
+                from app.models import GenerationJob
+                from app.services.activity import summaries
+
+                job = await db.get(GenerationJob, job_id)
+                item = (await summaries(db, [job]))[0] if job else None
+                ctx = {"title": item["title"], "link": item["href"]} if item else None
+                event = "task_ready" if ok else "task_failed"
             user = await db.get(User, owner_id)
             if ctx is None or user is None or user.role == "admin":
                 return

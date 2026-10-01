@@ -48,7 +48,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; print(chr(10).join(p['dependencies'] + p['optional-dependencies']['dev']))" > /tmp/requirements.txt
-          pip install -r /tmp/requirements.txt
+          pip install -r /tmp/requirements.txt -c constraints.txt
       - name: Lint
         run: ruff check app tests
       - name: Migrations apply and match the models
@@ -74,6 +74,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run typecheck
       - run: npm run build
 

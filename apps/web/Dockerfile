@@ -11,6 +11,8 @@ RUN npm ci --no-audit --no-fund
 FROM ${NODE_IMAGE} AS build
 WORKDIR /web
 ARG API_URL=http://api:8000
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV API_URL=${API_URL} NEXT_OUTPUT=standalone NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /web/node_modules ./node_modules
 COPY . .

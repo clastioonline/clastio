@@ -41,7 +41,7 @@ MAINTENANCE_OPEN = (f"{API}/health", f"{API}/ready", f"{API}/public/", f"{API}/a
                     f"{API}/webhooks/", f"{API}/legal", f"{API}/status")
 # Endpoints that start paid AI work get their own, tighter per-user bucket.
 AI_ROUTES = re.compile(rf"^{API}/(courses(/[^/]+/(generate|replan))?|lessons/[^/]+/(regenerate|slides/\d+/regenerate)"
-                       rf"|documents|media|assistant/chat|planner/.+)$")
+                       rf"|documents|media|assistant/(chat|tasks)|planner/.+)$")
 PRIVATE_PREFIXES = (f"{API}/auth", f"{API}/me", f"{API}/admin", f"{API}/billing", f"{API}/support")
 ID_SEGMENT = re.compile(r"/(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|\d+|req_\w+)"
                         r"(?=/|$)")
@@ -147,7 +147,7 @@ def _csrf_rejected(request: Request) -> bool:
     """Cookie-authenticated writes must come from our own site. Bearer-token clients aren't exposed to CSRF."""
     if request.method not in UNSAFE or request.url.path.startswith(f"{API}/webhooks/"):
         return False
-    if request.headers.get("authorization") or COOKIE_NAME not in request.cookies:
+    if request.headers.get("authorization", "").lower().startswith("bearer ") or COOKIE_NAME not in request.cookies:
         return False
     origin = request.headers.get("origin")
     if not origin and request.headers.get("referer"):
@@ -179,6 +179,10 @@ async def _guard(request: Request, claims: dict | None) -> Response | None:
                               reason="csrf_origin", origin=request.headers.get("origin"))
         return error_response(403, "csrf_failed", "This request didn't come from PPT Genie. Reload the page and "
                               "try again.")
+
+    # Probes must still work when the database or cache is unavailable.
+    if path in (f"{API}/health", f"{API}/ready"):
+        return None
 
     system = await get_setting_cached("system")
     maintenance = (system or {}).get("maintenance") or {}
@@ -289,7 +293,8 @@ def _security_headers(request: Request, response: Response) -> None:
         h.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
     if s.is_production:
         h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if request.url.path.startswith(PRIVATE_PREFIXES):
+    if (request.url.path.startswith(PRIVATE_PREFIXES)
+            or request.headers.get("authorization") or request.cookies.get(COOKIE_NAME)):
         h.setdefault("Cache-Control", "no-store")
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -121,6 +122,25 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    def validate_production(self) -> None:
+        """Fail before serving requests or processing jobs with unsafe deployment settings."""
+        if not self.is_production:
+            return
+        errors = []
+        if self.secret_key.startswith("dev-insecure") or len(self.secret_key) < 32:
+            errors.append("SECRET_KEY must be a random value of at least 32 characters")
+        if not self.cookie_secure:
+            errors.append("COOKIE_SECURE must be true")
+        url = urlparse(self.public_web_url)
+        if url.scheme != "https" or not url.hostname or url.hostname in {"localhost", "127.0.0.1", "::1"}:
+            errors.append("PUBLIC_WEB_URL must be your public HTTPS origin")
+        if url.username or url.password or url.query or url.fragment or url.path not in ("", "/"):
+            errors.append("PUBLIC_WEB_URL must contain only an origin")
+        if self.run_jobs_inline:
+            errors.append("RUN_JOBS_INLINE must be false; run a separate worker")
+        if errors:
+            raise RuntimeError("Invalid production configuration: " + "; ".join(errors))
 
     @property
     def sync_database_url(self) -> str:

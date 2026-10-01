@@ -28,9 +28,9 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install dependencies from pyproject.toml first so code changes don't invalidate this layer.
-COPY pyproject.toml ./
+COPY pyproject.toml constraints.txt ./
 RUN python -c "import tomllib; d = tomllib.load(open('pyproject.toml', 'rb')); open('/tmp/requirements.txt', 'w').write(chr(10).join(d['project']['dependencies']))" \
-    && pip install -r /tmp/requirements.txt
+    && pip install -r /tmp/requirements.txt -c constraints.txt
 
 COPY alembic.ini ./
 COPY alembic ./alembic

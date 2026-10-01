@@ -9,6 +9,39 @@ from app.jobs.queue import JobContext, handler, on_failure
 from app.services import courses, documents, sources, styles
 
 
+@handler("assistant_reply", queue="ai")
+async def assistant_reply(ctx: JobContext) -> dict[str, Any]:
+    import time
+
+    from sqlalchemy import update
+
+    from app.core.db import get_sessionmaker
+    from app.jobs.queue import PermanentJobError
+    from app.models import GenerationJob, User
+    from app.services import assistant
+
+    await ctx.progress(10, "Thinking about your request")
+    result = {"conversation_id": ctx.payload["conversation_id"], "text": "", "actions": []}
+    last_saved = 0.0
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, ctx.owner_id)
+        if not user or user.status != "active":
+            raise PermanentJobError("This account is no longer available.")
+        async for ev in assistant.converse(db, user, ctx.payload["text"],
+                                          uuid.UUID(ctx.payload["conversation_id"]), record_user=False):
+            if ev["event"] == "token":
+                result["text"] += ev["data"]["text"]
+            elif ev["event"] == "action":
+                result["actions"].append(ev["data"])
+            if time.monotonic() - last_saved > 0.8 or ev["event"] == "done":
+                async with get_sessionmaker()() as progress_db:
+                    await progress_db.execute(update(GenerationJob).where(GenerationJob.id == ctx.job_id)
+                                              .values(result=dict(result), stage="Preparing your reply", progress=50))
+                    await progress_db.commit()
+                last_saved = time.monotonic()
+    return result
+
+
 @handler("style_analysis", queue="docs")
 async def style_analysis(ctx: JobContext) -> dict[str, Any]:
     await ctx.progress(5, "Analysing your slides")

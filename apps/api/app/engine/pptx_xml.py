@@ -18,6 +18,11 @@ NS = {
 }
 R_ATTRS = (qn("r:embed"), qn("r:link"), qn("r:id"), qn("r:pict"))
 
+
+def all_slide_layouts(prs: PresentationT) -> list:
+    """Stable layout indices across every master, retaining first-master indices."""
+    return [layout for master in prs.slide_masters for layout in master.slide_layouts]
+
 SCHEME_SLOTS = ["dk1", "lt1", "dk2", "lt2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6",
                 "hlink", "folHlink"]
 

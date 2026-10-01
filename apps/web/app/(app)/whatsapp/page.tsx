@@ -121,7 +121,7 @@ export default function WhatsAppPage() {
               </div>
             ))}
           </div>
-          {!data.live && c && (
+          {!data.live && data.simulation_enabled && c && (
             <div className="border-t border-line bg-surface p-3">
               <div className="mb-2 flex flex-wrap gap-2">
                 {c.pending_code && <Button size="sm" variant="outline" onClick={() => simulate(`LINK ${c.pending_code}`)}>Send “LINK {c.pending_code}”</Button>}

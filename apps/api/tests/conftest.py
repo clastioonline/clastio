@@ -35,6 +35,11 @@ SAMPLES = Path(__file__).resolve().parents[3] / "samples"
 @pytest.fixture(scope="session", autouse=True)
 def database():
     settings = get_settings()
+    from sqlalchemy.engine import make_url
+
+    name = make_url(settings.database_url).database or ""
+    if not name.endswith("_test"):
+        raise RuntimeError("Tests delete all tables: DATABASE_URL must name a dedicated database ending in _test")
     engine = create_engine(settings.sync_database_url)
     from app.models import Base
 

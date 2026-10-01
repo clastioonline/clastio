@@ -18,7 +18,7 @@ from pptx.enum.dml import MSO_COLOR_TYPE, MSO_FILL
 from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
 from pptx.oxml.ns import qn
 
-from app.engine.pptx_xml import NS, read_theme
+from app.engine.pptx_xml import NS, all_slide_layouts, read_theme
 from app.engine.style.common import (
     ColorTally,
     ContentStats,
@@ -93,7 +93,7 @@ class PptxAnalyzer:
         self.theme = read_theme(self.prs)
         self.theme_colors: dict[str, str] = self.theme["colors"]
         self.theme_fonts: dict[str, str] = self.theme["fonts"]
-        self.layouts = list(self.prs.slide_layouts)
+        self.layouts = all_slide_layouts(self.prs)
 
     # ------------------------------------------------------------------ colour/font resolution
 

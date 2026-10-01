@@ -24,9 +24,11 @@ ANTHROPIC_API_KEY=...          # and/or OPENAI_API_KEY, GEMINI_API_KEY
 OPENAI_API_KEY=...             # default provider for embeddings and images
 ADMIN_EMAILS=["you@example.com"]
 # Keep the API off the public internet; only the web app is exposed through the proxy.
-API_PORT=127.0.0.1:8000
+API_PORT=127.0.0.1:8000         # also the default binding
 WEB_PORT=127.0.0.1:3000
 ```
+
+Production startup rejects insecure cookies, a development signing key, a non-HTTPS public origin, and inline jobs. Set `RUN_JOBS_INLINE=false` and run the worker service. The web image receives `PUBLIC_WEB_URL` at build time for metadata, robots and sitemap URLs; rebuild the web image when changing domains. API readiness returns 503 until the database schema matches the bundled migrations.
 
 Start it:
 

@@ -60,7 +60,8 @@ function Studio() {
   const generate = async () => {
     setBusy("generate");
     try {
-      await api("/media", { body: { kind, prompt, style, aspect, seconds: kind === "video" ? seconds : null } });
+      await api("/media", { idempotent: true, body: { kind, prompt, style, aspect, seconds: kind === "video" ? seconds : null } });
+      notify({ tone: "info", title: "Creating your media", body: "You can leave this page. We’ll notify you when it’s ready." });
       setPrompt("");
       mutate();
     } catch (e) {

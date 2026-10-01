@@ -90,7 +90,9 @@ async def create_document(db: AsyncSession, user: User, data: dict[str, Any]) ->
         raise AppError("bad_request", "Choose a lesson, a course, a scope or a topic.", 400)
     cost = await usage.credit_cost(COST_KEY[kind])
     await usage.check(db, user, "credits", cost, jobs=1)
-    title = data.get("title") or kind.replace("_", " ").title()
+    topic = data.get("topic") or (lesson.title if lesson_id else "")
+    title = data.get("title") or (kind.replace("_", " ").title() + (f" · {topic}" if topic else ""))
+    title = title[:300]
     doc = Document(owner_id=user.id, lesson_id=lesson_id if kind != "assessment" or not data.get("scope") else None,
                    course_id=course_id, kind=kind, title=title, difficulty=data.get("difficulty", "mixed"),
                    content={"options": {k: v for k, v in data.items() if k not in ("kind",)}}, status="queued")

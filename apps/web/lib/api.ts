@@ -30,7 +30,7 @@ export function newIdempotencyKey() {
 
 export async function api<T = any>(path: string, opts: Options = {}): Promise<T> {
   const init: RequestInit = {
-    method: opts.method || (opts.body || opts.form ? "POST" : "GET"),
+    method: opts.method || (opts.body !== undefined || opts.form ? "POST" : "GET"),
     credentials: "include",
     signal: opts.signal,
     headers: {},
@@ -66,6 +66,9 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     if (res.status >= 500 && requestId) message = `${message} (ref ${requestId})`;
     throw new ApiError(res.status, err?.code || "http_error", message, err?.details, requestId);
   }
+  if (init.method !== "GET" && typeof window !== "undefined") {
+    window.dispatchEvent(new Event("pptg:work-started"));
+  }
   return data as T;
 }
 
@@ -91,28 +94,33 @@ export async function streamPost(path: string, body: unknown, onEvent: (e: SSEEv
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buffer.search(/\r?\n\r?\n/)) >= 0) {
-      const chunk = buffer.slice(0, idx);
-      buffer = buffer.slice(idx).replace(/^\r?\n\r?\n/, "");
-      let event = "message";
-      const dataLines: string[] = [];
-      for (const line of chunk.split(/\r?\n/)) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
-      }
-      if (dataLines.length) {
-        try {
-          onEvent({ event, data: JSON.parse(dataLines.join("\n")) });
-        } catch {
-          onEvent({ event, data: dataLines.join("\n") });
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.search(/\r?\n\r?\n/)) >= 0) {
+        const chunk = buffer.slice(0, idx);
+        buffer = buffer.slice(idx).replace(/^\r?\n\r?\n/, "");
+        let event = "message";
+        const dataLines: string[] = [];
+        for (const line of chunk.split(/\r?\n/)) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+        }
+        if (dataLines.length) {
+          let data: unknown = dataLines.join("\n");
+          try {
+            data = JSON.parse(data as string);
+          } catch {} // Plain-text SSE data is valid too.
+          onEvent({ event, data });
         }
       }
     }
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
   }
 }
 

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ActivityOverview } from "@/components/activity-center";
 import { ClassChip, StatusBadge } from "@/components/common";
 import { DashHeader, HalfDonut, KpiCard, Legend, Panel, PillButton, PillChart } from "@/components/dash";
 import { DocumentDialog } from "@/components/document-dialog";
@@ -378,6 +379,7 @@ export default function Dashboard() {
             <CalendarCheck className="h-5 w-5" /> {busy === "week" ? "Preparing…" : "Prepare my week"}
           </PillButton>
         </>} />
+      <ActivityOverview />
 
       {!data ? <Skeleton className="h-40 rounded-3xl" /> : (
         <>

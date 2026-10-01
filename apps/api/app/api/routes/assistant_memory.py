@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sse_starlette.sse import EventSourceResponse
 
+from app.core.db import utcnow
 from app.core.deps import DB, CurrentUser
-from app.core.errors import NotFound
+from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
-from app.models import Conversation, ConversationMessage, TeacherMemory, TeacherPreference
+from app.jobs.queue import enqueue, run_inline_if_configured
+from app.models import Conversation, ConversationMessage, GenerationJob, TeacherMemory, TeacherPreference
 from app.services import assistant
 from app.services import memory as memory_svc
 
@@ -106,6 +108,37 @@ class MessageIn(BaseModel):
     conversation_id: uuid.UUID | None = None
 
 
+@router.post("/assistant/tasks", status_code=202, dependencies=[Depends(rate_limit("assistant", 40, 600))])
+async def queue_message(data: MessageIn, user: CurrentUser, db: DB):
+    from app.services import usage
+
+    await usage.lock_user(db, user.id)
+    await usage.check_generation_allowed(db, user)
+    if not data.text.strip():
+        raise AppError("empty_message", "Write a message first.", 422)
+    if data.conversation_id:
+        conv = await db.get(Conversation, data.conversation_id)
+        if conv is None or conv.owner_id != user.id:
+            raise NotFound("Conversation")
+        pending = (await db.execute(select(GenerationJob.id).where(
+            GenerationJob.owner_id == user.id, GenerationJob.type == "assistant_reply",
+            GenerationJob.payload["conversation_id"].astext == str(conv.id),
+            GenerationJob.status.in_(["queued", "running"])))).first()
+        if pending:
+            raise AppError("reply_pending", "A reply is already being prepared in this conversation.", 409)
+    else:
+        conv = Conversation(owner_id=user.id, title=data.text.strip()[:80])
+        db.add(conv)
+        await db.flush()
+    conv.updated_at = utcnow()
+    db.add(ConversationMessage(conversation_id=conv.id, role="user", content=data.text.strip()))
+    job = await enqueue(db, "assistant_reply", {"conversation_id": str(conv.id), "text": data.text.strip()},
+                        owner_id=user.id, max_attempts=1)
+    await db.commit()
+    await run_inline_if_configured([job.id])
+    return {"conversation_id": str(conv.id), "job_id": str(job.id)}
+
+
 @router.post("/assistant/messages", dependencies=[Depends(rate_limit("assistant", 40, 600))])
 async def message(data: MessageIn, user: CurrentUser, db: DB):
     async def gen():
@@ -129,6 +162,11 @@ async def conversation(conv_id: uuid.UUID, user: CurrentUser, db: DB):
         raise NotFound("Conversation")
     msgs = (await db.execute(select(ConversationMessage).where(ConversationMessage.conversation_id == c.id)
                              .order_by(ConversationMessage.created_at))).scalars().all()
+    job = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == user.id,
+        GenerationJob.type == "assistant_reply", GenerationJob.payload["conversation_id"].astext == str(c.id))
+        .order_by(GenerationJob.created_at.desc()).limit(1))).scalars().first()
     return {"id": str(c.id), "title": c.title,
+            "job": {"id": str(job.id), "status": job.status, "stage": job.stage,
+                    "result": job.result} if job else None,
             "messages": [{"role": m.role, "content": m.content, "actions": m.actions,
                           "created_at": m.created_at.isoformat()} for m in msgs]}

@@ -285,7 +285,7 @@ try {
   const staffAlerts = await page.request.get(BASE + "/api/v1/me/notifications").then((r) => r.json());
   assert(staffAlerts.items.some((n) => n.type === "staff"), "staff get alerts (new support ticket)");
 
-  const serious = errors.filter((e) => !/hydrat|favicon|401|Unauthorized|Not signed in/i.test(e));
+  const serious = errors.filter((e) => !/favicon|401|Unauthorized|Not signed in/i.test(e));
   assert(serious.length === 0, `no browser errors (${serious.join(" | ").slice(0, 300)})`);
   console.log("\n✅ E2E passed. Screenshots in", OUT);
 } catch (e) {
