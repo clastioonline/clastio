@@ -4,18 +4,18 @@ import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: { default: "PPT Genie — lessons and slides in your own design", template: "%s · PPT Genie" },
+  title: { default: "Clastio — lessons and slides in your own design", template: "%s · Clastio" },
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
   icons: { icon: "/icon.svg" },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   openGraph: {
     type: "website",
-    siteName: "PPT Genie",
-    title: "PPT Genie — lessons and slides in your own design",
+    siteName: "Clastio",
+    title: "Clastio — lessons and slides in your own design",
     description: "Lessons, slides in your own design, worksheets, quizzes and daily plans for teachers.",
   },
-  twitter: { card: "summary", title: "PPT Genie", description: "Lessons and slides in your own design." },
+  twitter: { card: "summary", title: "Clastio", description: "Lessons and slides in your own design." },
 };
 
 export const viewport: Viewport = {

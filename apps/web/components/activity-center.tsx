@@ -55,8 +55,8 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
   }, [data, user?.id, notify, refreshCache]);
   useEffect(() => {
     const refresh = () => { if (user) void mutate(); };
-    window.addEventListener("pptg:work-started", refresh);
-    return () => window.removeEventListener("pptg:work-started", refresh);
+    window.addEventListener("clastio:work-started", refresh);
+    return () => window.removeEventListener("clastio:work-started", refresh);
   }, [mutate, user?.id]);
   const open = useCallback(() => setOpened(true), []);
   return <Context.Provider value={{ items: user ? data?.items || [] : [], count: data?.active_count || 0,

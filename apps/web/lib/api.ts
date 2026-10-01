@@ -56,10 +56,10 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     const err = data?.error;
     if (res.status === 402 && typeof window !== "undefined") {
       // A plan limit was reached: the app shell offers an upgrade instead of a dead-end error.
-      window.dispatchEvent(new CustomEvent("pptg:limit", { detail: { message: err?.message, details: err?.details } }));
+      window.dispatchEvent(new CustomEvent("clastio:limit", { detail: { message: err?.message, details: err?.details } }));
     }
     if (res.status === 503 && err?.code === "maintenance" && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("pptg:maintenance", { detail: { message: err?.message } }));
+      window.dispatchEvent(new CustomEvent("clastio:maintenance", { detail: { message: err?.message } }));
     }
     const requestId = err?.requestId || res.headers.get("x-request-id") || undefined;
     let message = err?.message || res.statusText || "Request failed";
@@ -67,7 +67,7 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
     throw new ApiError(res.status, err?.code || "http_error", message, err?.details, requestId);
   }
   if (init.method !== "GET" && typeof window !== "undefined") {
-    window.dispatchEvent(new Event("pptg:work-started"));
+    window.dispatchEvent(new Event("clastio:work-started"));
   }
   return data as T;
 }

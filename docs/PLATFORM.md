@@ -1,4 +1,4 @@
-# PPT Genie platform: security, operations and admin
+# Clastio platform: security, operations and admin
 
 This covers the production SaaS layer: accounts, sessions, roles, audit, limits, billing safety, notifications,
 legal and the admin console. Status is labelled throughout:

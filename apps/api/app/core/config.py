@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # --- core ---
     environment: Literal["development", "test", "production"] = "development"
-    app_name: str = "PPT Genie"
+    app_name: str = "Clastio"
     # Build identifier shown in /health, logs and error reports (set by CI, e.g. the git SHA or a release tag).
     app_version: str = "dev"
     # The one origin browsers use. The web app proxies /api to the API, so OAuth callbacks and cookies live here too.
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
 
     # --- email ---
     smtp_url: str | None = None
-    email_from: str = "PPT Genie <no-reply@example.com>"
+    email_from: str = "Clastio <no-reply@example.com>"
 
     # --- bot protection (Cloudflare Turnstile); both empty = off ---
     turnstile_site_key: str | None = None

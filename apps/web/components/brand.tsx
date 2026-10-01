@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/* PPT Genie mark: a slide on its stand with a spark of magic at the corner. */
+/* Clastio mark: a slide on its stand with a spark of magic at the corner. */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 64" className={cn("h-9 w-9 shrink-0", className)} role="img" aria-label="PPT Genie">
+    <svg viewBox="0 0 64 64" className={cn("h-9 w-9 shrink-0", className)} role="img" aria-label="Clastio">
       <rect width="64" height="64" rx="18" fill="#155c38" />
       <path d="M0 18A18 18 0 0 1 18 0h28a18 18 0 0 1 18 18v6C44 30 22 36 0 44z" fill="#23955c" />
       <rect x="12" y="19" width="32" height="23" rx="4.5" fill="#fff" />
@@ -27,7 +27,7 @@ export function Wordmark({ className }: { className?: string }) {
 
 export function Logo({ href = "/", className }: { href?: string; className?: string }) {
   return (
-    <Link href={href} className={cn("flex items-center gap-2.5", className)} aria-label="PPT Genie home">
+    <Link href={href} className={cn("flex items-center gap-2.5", className)} aria-label="Clastio home">
       <LogoMark />
       <Wordmark />
     </Link>

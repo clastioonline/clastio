@@ -177,7 +177,7 @@ async def _guard(request: Request, claims: dict | None) -> Response | None:
     if _csrf_rejected(request):
         await _security_event("suspicious_request", request, throttle_key=client_ip(request) or "?", user_id=uid,
                               reason="csrf_origin", origin=request.headers.get("origin"))
-        return error_response(403, "csrf_failed", "This request didn't come from PPT Genie. Reload the page and "
+        return error_response(403, "csrf_failed", "This request didn't come from Clastio. Reload the page and "
                               "try again.")
 
     # Probes must still work when the database or cache is unavailable.
@@ -187,7 +187,7 @@ async def _guard(request: Request, claims: dict | None) -> Response | None:
     system = await get_setting_cached("system")
     maintenance = (system or {}).get("maintenance") or {}
     if maintenance.get("enabled") and not path.startswith(MAINTENANCE_OPEN) and not await _is_staff(uid):
-        return error_response(503, "maintenance", maintenance.get("message") or "PPT Genie is down for scheduled "
+        return error_response(503, "maintenance", maintenance.get("message") or "Clastio is down for scheduled "
                               "maintenance. Please try again shortly.", {"until": maintenance.get("until")},
                               headers={"Retry-After": "300"})
 

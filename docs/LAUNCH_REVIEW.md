@@ -45,4 +45,4 @@ No production deployment or live provider purchase was performed.
 
 ## Local preview
 
-The review preview is running at http://localhost:3008 with offline AI and isolated demo data. It uses Docker containers `pptgenie-review-api` and `pptgenie-review-db` on the `pptgenie-review` network, plus a local Next.js production server on port 3008. It does not use the private `.env` credentials.
+The review preview is running at http://localhost:3008 with offline AI and isolated demo data. It uses Docker containers `clastioenie-review-api` and `clastioenie-review-db` on the `clastioenie-review` network, plus a local Next.js production server on port 3008. It does not use the private `.env` credentials.

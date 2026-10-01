@@ -27,12 +27,12 @@ export type Tutorial = {
 
 export const TUTORIALS: Tutorial[] = [
   {
-    id: "design", check: "template", title: "Teach PPT Genie your slide design", minutes: 2, icon: Palette, color: "#fbcab8",
+    id: "design", check: "template", title: "Teach Clastio your slide design", minutes: 2, icon: Palette, color: "#fbcab8",
     summary: "Upload a deck you've taught with so every new lesson looks like yours.",
     href: "/templates", cta: "Upload a deck",
     steps: [
       "Open My designs and drop in a PowerPoint (.pptx) you like. A PDF works too, but PowerPoint gives an exact match.",
-      "PPT Genie reads the colours, fonts, slide master, logo, header bands and footer. Your original file is never changed.",
+      "Clastio reads the colours, fonts, slide master, logo, header bands and footer. Your original file is never changed.",
       "Check the preview. If it looks right, keep it as your default design.",
       "You can add more designs later, for example one per subject or school.",
     ],
@@ -98,7 +98,7 @@ export const TUTORIALS: Tutorial[] = [
     href: "/whatsapp", cta: "Connect WhatsApp",
     steps: [
       "Open WhatsApp and enter your mobile number.",
-      "Send the code shown to the PPT Genie number to confirm it's you.",
+      "Send the code shown to the Clastio number to confirm it's you.",
       "Choose when the morning plan and the after-class check-in arrive. Reply STOP at any time to pause.",
     ],
   },

@@ -221,8 +221,8 @@ def message_out(m: TicketMessage, author: User | None, *, staff_view: bool) -> d
     is_staff = bool(author and author.role == "admin")
     return {"id": str(m.id), "body": m.body, "internal": m.internal, "created_at": m.created_at.isoformat(),
             "from_staff": is_staff,
-            # Teachers see "PPT Genie support", never the staff member's personal details.
-            "author": (author.email if staff_view and author else ("PPT Genie support" if is_staff else "You"))}
+            # Teachers see "Clastio support", never the staff member's personal details.
+            "author": (author.email if staff_view and author else ("Clastio support" if is_staff else "You"))}
 
 
 class TicketIn(BaseModel):

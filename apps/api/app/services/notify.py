@@ -29,40 +29,40 @@ MAX_EMAIL_ATTEMPTS = 5
 
 # template -> (subject, body). Bodies are plain text; {name}, {link} and template-specific fields are filled in.
 TEMPLATES: dict[str, tuple[str, str]] = {
-    "welcome": ("Welcome to PPT Genie",
-                "Hi {name},\n\nWelcome to PPT Genie. Upload a deck you've taught with and your first lessons will "
+    "welcome": ("Welcome to Clastio",
+                "Hi {name},\n\nWelcome to Clastio. Upload a deck you've taught with and your first lessons will "
                 "come out in your own design.\n\nGet started: {link}\n"),
-    "verify_email": ("Confirm your email for PPT Genie",
+    "verify_email": ("Confirm your email for Clastio",
                      "Hi {name},\n\nPlease confirm your email address:\n{link}\n\nThis link expires in 48 hours. If "
                      "you didn't create an account, ignore this email.\n"),
-    "password_reset": ("Reset your PPT Genie password",
+    "password_reset": ("Reset your Clastio password",
                        "Hi {name},\n\nSomeone asked to reset your password. If it was you, choose a new one here:\n"
                        "{link}\n\nThe link expires in 30 minutes. If it wasn't you, ignore this email: your password "
                        "has not changed.\n"),
-    "password_changed": ("Your PPT Genie password was changed",
+    "password_changed": ("Your Clastio password was changed",
                          "Hi {name},\n\nYour password was just changed and your other devices were signed out. If this "
                          "wasn't you, reset your password now: {link}\n"),
-    "login_alert": ("New sign-in to PPT Genie",
+    "login_alert": ("New sign-in to Clastio",
                     "Hi {name},\n\nWe noticed a sign-in from a new device: {device} ({ip}).\n\nIf this was you, "
                     "there's nothing to do. If not, sign out that device and change your password: {link}\n"),
     "subscription_confirmed": ("You're on {plan}",
                                "Hi {name},\n\nThank you! Your {plan} plan is active. Manage it any time: {link}\n"),
-    "payment_failed": ("Payment problem with your PPT Genie plan",
+    "payment_failed": ("Payment problem with your Clastio plan",
                        "Hi {name},\n\nWe couldn't take your latest payment. Please update your payment method to keep "
                        "your plan: {link}\n"),
-    "subscription_cancelled": ("Your PPT Genie plan was cancelled",
+    "subscription_cancelled": ("Your Clastio plan was cancelled",
                                "Hi {name},\n\nYour plan has been cancelled. You keep access until the end of the "
                                "period you paid for. You can re-subscribe any time: {link}\n"),
     "usage_warning": ("You've used {percent}% of your monthly credits",
                       "Hi {name},\n\nYou've used {percent}% of this month's credits on your {plan} plan. When they run "
                       "out, new lessons wait until next month unless you upgrade: {link}\n"),
-    "deletion_scheduled": ("Your PPT Genie account will be deleted",
+    "deletion_scheduled": ("Your Clastio account will be deleted",
                            "Hi {name},\n\nYour account is scheduled for deletion on {date}. Until then you can cancel "
                            "by contacting support. After that date your content is permanently removed.\n"),
-    "account_suspended": ("Your PPT Genie account is suspended",
+    "account_suspended": ("Your Clastio account is suspended",
                           "Hi {name},\n\nYour account has been suspended: {reason}\n\nIf you think this is a "
                           "mistake, reply to this email or contact support.\n"),
-    "account_restored": ("Your PPT Genie account is active again",
+    "account_restored": ("Your Clastio account is active again",
                          "Hi {name},\n\nYour account has been restored. You can sign in again: {link}\n"),
     "ticket_reply": ("Update on your request #{number}",
                      "Hi {name},\n\nThere's a new reply on your request \"{subject}\":\n\n{reply}\n\nView it: {link}\n"),

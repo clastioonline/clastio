@@ -16,8 +16,8 @@ export function UpgradeDialog() {
       if (d.details?.resource === "media_credits") return;
       setReason(d.message || "You've reached a limit of your current plan.");
     };
-    window.addEventListener("pptg:limit", onLimit);
-    return () => window.removeEventListener("pptg:limit", onLimit);
+    window.addEventListener("clastio:limit", onLimit);
+    return () => window.removeEventListener("clastio:limit", onLimit);
   }, []);
   return (
     <Modal open={!!reason} onClose={() => setReason(null)} title="Upgrade to keep going" size="xl">

@@ -31,7 +31,7 @@ export function LegalGate() {
     <div className="fixed inset-0 z-[70] grid place-items-center bg-ink/50 p-4 backdrop-blur-[2px]">
       <div role="dialog" aria-modal="true" aria-labelledby="legal-title" className="w-full max-w-lg rounded-2xl border border-line bg-surface p-6 shadow-[var(--shadow-pop)]">
         <h2 id="legal-title" className="text-lg font-semibold text-ink">We've updated our policies</h2>
-        <p className="mt-1 text-sm text-muted">Please review the changes to keep using PPT Genie.</p>
+        <p className="mt-1 text-sm text-muted">Please review the changes to keep using Clastio.</p>
         <ul className="mt-4 space-y-3">
           {pendingLegal.map((d) => (
             <li key={d.id} className="rounded-xl bg-surface-2 p-3 text-sm">

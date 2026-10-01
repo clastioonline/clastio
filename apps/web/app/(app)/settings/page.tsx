@@ -85,7 +85,7 @@ export default function Settings() {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "ppt-genie-export.json";
+    a.download = "clastio-export.json";
     a.click();
   };
   const deleteAccount = async () => {

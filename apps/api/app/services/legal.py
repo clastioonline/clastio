@@ -95,13 +95,13 @@ async def latest_consents(db: AsyncSession, user_id: uuid.UUID) -> dict[str, dic
 
 # --------------------------------------------------------------------------- default documents
 
-_NOTICE = ("> **Template — requires review by a qualified lawyer before launch.** This text describes how PPT Genie "
+_NOTICE = ("> **Template — requires review by a qualified lawyer before launch.** This text describes how Clastio "
            "actually works so it is a useful starting point, but it is not legal advice and has not been reviewed for "
            "UAE, India or any other jurisdiction.\n\n")
 
 DEFAULT_DOCUMENTS: dict[str, tuple[str, str]] = {
     "terms": ("Terms & Conditions", _NOTICE + """## 1. The service
-PPT Genie helps teachers plan lessons and create presentations, documents and media using AI. You need an account, and
+Clastio helps teachers plan lessons and create presentations, documents and media using AI. You need an account, and
 you must be at least 18 and a teacher or education professional to use it.
 
 ## 2. Your account
@@ -156,9 +156,9 @@ accounts: content removed after a 30-day grace period; billing records kept for 
 You can export your data and delete your account from Settings, and withdraw marketing consent at any time.
 
 ## Contact
-privacy@pptgenie.example (replace with your real contact).
+privacy@clastioenie.example (replace with your real contact).
 """),
-    "acceptable_use": ("Acceptable Use Policy", _NOTICE + """You must not use PPT Genie to:
+    "acceptable_use": ("Acceptable Use Policy", _NOTICE + """You must not use Clastio to:
 - upload personal data about students or anyone else without a lawful basis;
 - create content that is illegal, hateful, harassing, sexual involving minors, or that promotes violence;
 - create deceptive media of real people, or remove or hide the AI-generated label or provenance data from output;

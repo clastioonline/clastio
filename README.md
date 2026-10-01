@@ -1,4 +1,4 @@
-# PPT Genie
+# Clastio
 
 An AI teaching assistant for teachers, starting in the UAE with India and international markets to follow.
 

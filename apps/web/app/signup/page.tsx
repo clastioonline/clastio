@@ -49,7 +49,7 @@ export default function SignupPage() {
   };
 
   return (
-    <AuthLayout title="Create your teaching assistant" subtitle={trial ? `Start your ${trial.days}-day free trial of ${trialPlan || "PPT Genie"}. No card needed.` : "Free to start. Set up in about 5 minutes."}
+    <AuthLayout title="Create your teaching assistant" subtitle={trial ? `Start your ${trial.days}-day free trial of ${trialPlan || "Clastio"}. No card needed.` : "Free to start. Set up in about 5 minutes."}
       footer={<>Already have an account? <Link href="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></>}>
       <OAuthButtons />
       <form onSubmit={submit} className="space-y-4">

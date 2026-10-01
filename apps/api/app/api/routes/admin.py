@@ -803,7 +803,7 @@ async def export(dataset: str, admin: Staff("data.export"), request: Request, db
     audit(db, admin.id, "data.export", request=request, target_type="dataset", target_id=dataset,
           after={"rows": len(rows), "format": format, "days": days})
     await db.commit()
-    name = f"pptgenie-{dataset}-{utcnow():%Y%m%d}.{format}"
+    name = f"clastioenie-{dataset}-{utcnow():%Y%m%d}.{format}"
     headers = {"content-disposition": f'attachment; filename="{name}"', "cache-control": "no-store"}
     if format == "json":
         return Response(json.dumps(rows, default=str), media_type="application/json", headers=headers)

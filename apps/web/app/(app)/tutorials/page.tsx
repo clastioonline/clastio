@@ -44,7 +44,7 @@ export default function Tutorials() {
 
   return (
     <div className="space-y-6">
-      <DashHeader title="Tutorials & help" subtitle="Short guides to get the most out of PPT Genie. Each takes two or three minutes." />
+      <DashHeader title="Tutorials & help" subtitle="Short guides to get the most out of Clastio. Each takes two or three minutes." />
 
       <section className="ui-hero flex flex-col gap-5 overflow-hidden rounded-3xl bg-brand-800 p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div>
@@ -52,7 +52,7 @@ export default function Tutorials() {
           <div className="mt-1 text-2xl font-bold sm:text-3xl">{done} of {SETUP_STEPS.length} steps done</div>
           <div className="mt-3 h-2 w-72 max-w-full overflow-hidden rounded-full bg-white/20"><div className="h-full rounded-full bg-accent-400" style={{ width: `${(done / SETUP_STEPS.length) * 100}%` }} /></div>
         </div>
-        <p className="max-w-md text-white/80">Finish these once and PPT Genie knows your design, your classes and your week, so every lesson it prepares fits.</p>
+        <p className="max-w-md text-white/80">Finish these once and Clastio knows your design, your classes and your week, so every lesson it prepares fits.</p>
       </section>
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

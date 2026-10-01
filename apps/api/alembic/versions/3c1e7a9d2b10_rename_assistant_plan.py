@@ -1,4 +1,4 @@
-"""rename the assistant plan to Genie Assistant (the product is now PPT Genie)
+"""rename the assistant plan to Genie Assistant (the product is now Clastio)
 
 Revision ID: 3c1e7a9d2b10
 Revises: 29b0142b86ed

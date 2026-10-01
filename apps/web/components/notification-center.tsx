@@ -118,7 +118,7 @@ function useDismissed(key: string) {
 
 export function AnnouncementBanners() {
   const { data } = useApi<{ items: any[] }>("/announcements", { refreshInterval: 300_000 });
-  const { dismissed, dismiss } = useDismissed("pptg:dismissed-announcements");
+  const { dismissed, dismiss } = useDismissed("clastio:dismissed-announcements");
   const items = (data?.items || []).filter((a) => !dismissed.includes(a.id));
   if (!items.length) return null;
   return (
@@ -157,9 +157,9 @@ export function VerifyEmailBanner({ email }: { email: string }) {
 export function MaintenanceBanner() {
   const [msg, setMsg] = useState<string | null>(null);
   useEffect(() => {
-    const on = (e: Event) => setMsg((e as CustomEvent).detail?.message || "PPT Genie is down for maintenance.");
-    window.addEventListener("pptg:maintenance", on);
-    return () => window.removeEventListener("pptg:maintenance", on);
+    const on = (e: Event) => setMsg((e as CustomEvent).detail?.message || "Clastio is down for maintenance.");
+    window.addEventListener("clastio:maintenance", on);
+    return () => window.removeEventListener("clastio:maintenance", on);
   }, []);
   if (!msg) return null;
   return <div role="alert" className="mb-6 rounded-2xl bg-warn-50 px-4 py-3 text-sm font-medium text-warn-600">{msg} Your work is saved; please try again shortly.</div>;

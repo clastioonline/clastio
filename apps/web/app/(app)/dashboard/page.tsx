@@ -143,7 +143,7 @@ function MemoryInsights() {
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {confirmed.map((p: any) => <Badge key={p.key} tone="brand">{p.label}: {prefValue(p.value)}</Badge>)}
-          {!confirmed.length && <span className="text-sm text-muted">Tell PPT Genie how you like to teach in Teacher memory.</span>}
+          {!confirmed.length && <span className="text-sm text-muted">Tell Clastio how you like to teach in Teacher memory.</span>}
         </div>
         {unconfirmed.map((p: any) => (
           <div key={p.key} className="flex items-center justify-between gap-3 rounded-2xl bg-accent-50 px-3 py-2 text-sm">
@@ -160,7 +160,7 @@ function MemoryInsights() {
 function GettingStarted({ checklist }: { checklist: Record<string, boolean> }) {
   const [hidden, setHidden] = useState(true);
   useEffect(() => {
-    try { setHidden(localStorage.getItem("pptg-hide-getting-started") === "1"); } catch { setHidden(false); }
+    try { setHidden(localStorage.getItem("clastio-hide-getting-started") === "1"); } catch { setHidden(false); }
   }, []);
   const done = SETUP_STEPS.filter((s) => checklist[s.check!]).length;
   if (hidden || done === SETUP_STEPS.length) return null;
@@ -170,12 +170,12 @@ function GettingStarted({ checklist }: { checklist: Record<string, boolean> }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-brand-600"><GraduationCap className="h-4 w-4" /> Getting started · {done} of {SETUP_STEPS.length} done</div>
-          <h2 className="mt-1 text-xl font-semibold text-ink">Set up PPT Genie in about 10 minutes</h2>
+          <h2 className="mt-1 text-xl font-semibold text-ink">Set up Clastio in about 10 minutes</h2>
           <div className="mt-3 h-2 w-64 max-w-full overflow-hidden rounded-full bg-surface-2"><div className="h-full rounded-full bg-brand-600" style={{ width: `${(done / SETUP_STEPS.length) * 100}%` }} /></div>
         </div>
         <div className="flex items-center gap-2">
           {next && <PillButton href={next.href}>{next.cta} <ArrowRight className="h-4 w-4 rtl:rotate-180" /></PillButton>}
-          <Button variant="ghost" size="sm" onClick={() => { try { localStorage.setItem("pptg-hide-getting-started", "1"); } catch {} setHidden(true); }}>Hide</Button>
+          <Button variant="ghost" size="sm" onClick={() => { try { localStorage.setItem("clastio-hide-getting-started", "1"); } catch {} setHidden(true); }}>Hide</Button>
         </div>
       </div>
       <ol className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
@@ -304,7 +304,7 @@ function Coverage({ c }: { c: any }) {
 
 /* A class timer: counts up, survives page changes, pause and stop. */
 function LessonTimer() {
-  const KEY = "pptg-timer";
+  const KEY = "clastio-timer";
   const [state, setState] = useState<{ start: number | null; acc: number }>({ start: null, acc: 0 });
   const [, tick] = useState(0);
   useEffect(() => {

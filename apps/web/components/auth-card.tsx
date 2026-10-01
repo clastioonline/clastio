@@ -68,8 +68,8 @@ export function Captcha({ onToken }: { onToken: (t: string | null) => void }) {
   const key = data?.turnstile_site_key;
   useEffect(() => {
     if (!key) return;
-    (window as any).pptgCaptcha = (t: string) => onToken(t);
-    (window as any).pptgCaptchaExpired = () => onToken(null);
+    (window as any).clastioCaptcha = (t: string) => onToken(t);
+    (window as any).clastioCaptchaExpired = () => onToken(null);
     if (!document.getElementById("cf-turnstile")) {
       const sc = document.createElement("script");
       sc.id = "cf-turnstile";
@@ -79,5 +79,5 @@ export function Captcha({ onToken }: { onToken: (t: string | null) => void }) {
     }
   }, [key, onToken]);
   if (!key) return null;
-  return <div className="cf-turnstile" data-sitekey={key} data-callback="pptgCaptcha" data-expired-callback="pptgCaptchaExpired" />;
+  return <div className="cf-turnstile" data-sitekey={key} data-callback="clastioCaptcha" data-expired-callback="clastioCaptchaExpired" />;
 }

@@ -68,7 +68,7 @@ function Billing() {
   let line = "";
   if (trial?.active) { title = `${data.plan.name} free trial`; line = `${trial.days_left} day${trial.days_left === 1 ? "" : "s"} left · ends ${fmt(trial.ends_at)}. No card on file, nothing is charged.`; }
   else if (paid) line = sub.cancel_at_period_end ? `Cancelled · access until ${fmt(sub.current_period_end)}` : `Billed ${sub.interval === "year" ? "yearly" : "monthly"} · renews ${fmt(sub.current_period_end)}`;
-  else if (sub?.provider === "manual") line = `Provided by your school or PPT Genie${sub.current_period_end ? ` until ${fmt(sub.current_period_end)}` : ""}.`;
+  else if (sub?.provider === "manual") line = `Provided by your school or Clastio${sub.current_period_end ? ` until ${fmt(sub.current_period_end)}` : ""}.`;
   else line = trial?.ended ? "Your free trial has ended. Upgrade any time to unlock full units and more credits." : "Free forever, with limited credits each month.";
 
   return (

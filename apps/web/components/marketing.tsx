@@ -50,7 +50,7 @@ export function LandingFooter() {
           <p>British · CBSE · ICSE · American · IB · UAE MoE · UAE AI curriculum</p>
         </div>
       </div>
-      <div className="border-t border-[var(--l-line)] py-4 text-center text-xs text-[var(--l-muted)]">© {new Date().getFullYear()} PPT Genie</div>
+      <div className="border-t border-[var(--l-line)] py-4 text-center text-xs text-[var(--l-muted)]">© {new Date().getFullYear()} Clastio</div>
     </footer>
   );
 }

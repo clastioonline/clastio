@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="PPT Genie API", version=f"1.0.0+{settings.app_version}", lifespan=lifespan,
+    app = FastAPI(title="Clastio API", version=f"1.0.0+{settings.app_version}", lifespan=lifespan,
                   dependencies=[Depends(capture_route)],
                   docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=True,

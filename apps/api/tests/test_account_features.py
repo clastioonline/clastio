@@ -132,7 +132,7 @@ async def test_support_ticket_flow_and_isolation(client):
     mine = (await client.get(f"/api/v1/support/tickets/{t['id']}", headers=a["headers"])).json()
     bodies = [m["body"] for m in mine["messages"]]
     assert "Customer on old template, check renderer." not in bodies  # internal notes stay internal
-    assert mine["status"] == "pending" and mine["messages"][-1]["author"] == "PPT Genie support"
+    assert mine["status"] == "pending" and mine["messages"][-1]["author"] == "Clastio support"
     staff_view = (await client.get(f"/api/v1/admin/support/tickets/{t['id']}", headers=support["headers"])).json()
     assert len(staff_view["messages"]) == 3
     await client.post(f"/api/v1/support/tickets/{t['id']}/messages", headers=a["headers"], json={"body": "Works!"})

@@ -20,7 +20,7 @@ export default function StatusPage() {
     <div className="landing min-h-screen bg-[var(--l-bg)] text-[var(--l-ink)]">
       <LandingNav />
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <h1 className="text-3xl font-bold tracking-tight">PPT Genie status</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Clastio status</h1>
         {error ? <p className="mt-6 rounded-2xl bg-[var(--l-card)] p-6">We can't reach the service right now. If this continues, it's likely an outage; we're on it.</p>
           : !data ? <Skeleton className="mt-6 h-64" /> : (
           <>

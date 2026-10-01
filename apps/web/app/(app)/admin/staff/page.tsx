@@ -10,7 +10,7 @@ export default function StaffPage() {
   const { data: staff } = useApi<any>("/admin/staff");
   const { data: roles } = useApi<any>("/admin/roles");
   return (
-    <AdminPage title="Staff & roles" perm="users.view" subtitle="Who runs PPT Genie and what each role may do. Super admins change roles from an account's page.">
+    <AdminPage title="Staff & roles" perm="users.view" subtitle="Who runs Clastio and what each role may do. Super admins change roles from an account's page.">
       <section className="rounded-3xl bg-surface p-5 sm:p-6">
         <DataTable rows={staff?.items || []} onRowClick={(u) => router.push(`/admin/users/${u.id}`)} columns={[
           { key: "email", label: "Staff member", render: (u) => <><span className="block font-medium text-ink">{u.name || "—"}</span><span className="text-xs text-muted">{u.email}</span></> },

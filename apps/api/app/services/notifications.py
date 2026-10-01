@@ -107,10 +107,10 @@ STAFF_ALERTS: dict[str, tuple[str, str, str, str]] = {
 }
 
 TEMPLATES.update({
-    "trial_ending": ("Your PPT Genie trial ends in {days} day{s}",
+    "trial_ending": ("Your Clastio trial ends in {days} day{s}",
                      "Hi {name},\n\nYour free {plan} trial ends in {days} day{s}. Choose a plan to keep everything "
                      "working; your lessons and designs are safe either way: {link}\n"),
-    "trial_ended": ("Your PPT Genie trial has ended",
+    "trial_ended": ("Your Clastio trial has ended",
                     "Hi {name},\n\nYour free trial has ended and your account is on the Free plan. Upgrade any time: "
                     "{link}\n"),
     "renewal_upcoming": ("Your {plan} plan renews on {date}",
@@ -122,7 +122,7 @@ TEMPLATES.update({
     "grant_expiring": ("Your {plan} access ends on {date}",
                        "Hi {name},\n\nThe {plan} access you were given ends on {date}. Choose a plan to continue: "
                        "{link}\n"),
-    "payment_reminder": ("Reminder: payment needed for your PPT Genie plan",
+    "payment_reminder": ("Reminder: payment needed for your Clastio plan",
                          "Hi {name},\n\nWe still couldn't take payment for your {plan} plan ({days} days ago). "
                          "Please update your payment method so your plan isn't cancelled: {link}\n"),
 })

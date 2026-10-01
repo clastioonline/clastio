@@ -47,7 +47,7 @@ export default function AdminOverview() {
 
   return (
     <div className="space-y-5">
-      <DashHeader title="Admin overview" subtitle="Revenue, teachers, generation health and AI spend across PPT Genie."
+      <DashHeader title="Admin overview" subtitle="Revenue, teachers, generation health and AI spend across Clastio."
         actions={<>
           <PillButton href="/admin/billing"><Wallet className="h-5 w-5" /> Payments</PillButton>
           <PillButton href="/admin/plans" variant="outline"><Users className="h-5 w-5" /> Plans & trial</PillButton>

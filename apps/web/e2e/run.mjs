@@ -63,7 +63,7 @@ try {
   assert(usage.trial?.active && usage.trial.days_left > 0, `new teacher starts a no-card trial (${usage.plan.name}, ${usage.trial?.days_left} days)`);
 
   step("Onboarding: basics");
-  await page.getByRole("heading", { name: /Welcome to PPT Genie/ }).waitFor();
+  await page.getByRole("heading", { name: /Welcome to Clastio/ }).waitFor();
   await shot("03-onboarding-basics");
   await page.getByRole("button", { name: "Continue" }).click();
 
@@ -80,7 +80,7 @@ try {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByText("Add your classes").waitFor();
   await page.getByRole("button", { name: "Finish setup" }).click();
-  await page.getByText("PPT Genie is ready").waitFor();
+  await page.getByText("Clastio is ready").waitFor();
   ok("onboarding complete");
 
   step("Create a course (Free plan: 2 lessons × 10 slides)");

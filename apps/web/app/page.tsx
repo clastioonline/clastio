@@ -139,7 +139,7 @@ export default function Landing() {
               <br />and Shine with
               <br />
               <span className="relative mt-2 inline-block rounded-md bg-[#fbcab8] px-3 text-[#141414]">
-                PPT Genie
+                Clastio
                 <span className="absolute -end-4 -top-4 rounded-md bg-[#e0440e] px-2 py-0.5 text-xs font-medium tracking-normal text-white sm:-end-10 sm:text-sm">AI slides</span>
                 <span className="absolute -end-1 top-1 bottom-1 w-1 rounded bg-[#e0440e]" aria-hidden />
               </span>

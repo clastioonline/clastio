@@ -182,7 +182,7 @@ export function ExportButton({ dataset, days = 30 }: { dataset: string; days?: n
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `pptgenie-${dataset}.${format}`;
+    a.download = `clastioenie-${dataset}.${format}`;
     a.click();
     notify({ tone: "info", title: "Export downloaded", body: "Exports are recorded in the audit log." });
   };

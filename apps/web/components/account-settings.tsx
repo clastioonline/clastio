@@ -30,7 +30,7 @@ export function SecurityCard() {
     mutate();
   };
   const logoutAll = async () => {
-    if (!confirm("Sign out of PPT Genie on every device, including this one?")) return;
+    if (!confirm("Sign out of Clastio on every device, including this one?")) return;
     await api("/auth/logout-all", { method: "POST" });
     window.location.href = "/login";
   };
@@ -133,7 +133,7 @@ export function ConsentsCard() {
               {["terms", "privacy", "acceptable_use"].map((k) => c[k] && (
                 <div key={k}>Accepted {k.replace("_", " ")} v{c[k].version} on {new Date(c[k].at).toLocaleDateString()}</div>
               ))}
-              <button className="mt-2 text-brand-600 underline" onClick={() => { try { localStorage.removeItem("pptg:cookie-consent"); } catch { /* ignore */ } window.location.reload(); }}>
+              <button className="mt-2 text-brand-600 underline" onClick={() => { try { localStorage.removeItem("clastio:cookie-consent"); } catch { /* ignore */ } window.location.reload(); }}>
                 Change cookie choices
               </button>
             </div>

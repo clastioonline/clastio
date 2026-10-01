@@ -1,6 +1,6 @@
 # Architecture
 
-How PPT Genie is put together, and why. For the product itself see [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
+How Clastio is put together, and why. For the product itself see [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
 
 ## Overview
 
