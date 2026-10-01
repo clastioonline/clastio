@@ -15,6 +15,7 @@ This review improves deployment safety and verifies local behavior. It does not 
 - Fixed an assistant crash caused by implicitly returning a browser scroll result from an effect; blocked chat switching during a stream and added conversation-load error feedback.
 - Fixed assistant stream callback failures being invoked twice, released stream readers, and corrected request handling for false JSON bodies.
 - Used ordinary links for signed file downloads to avoid framework prefetches.
+- Added an Activity center and background worker processing for long-running tasks, allowing the user to navigate away without interrupting generation.
 - Updated the deprecated upload proxy configuration, preserving the existing 100 MB setting. See [Next.js configuration](https://nextjs.org/docs/pages/api-reference/config/next-config-js/proxyClientMaxBodySize).
 - Added backend security regressions and frontend API tests, enabled frontend tests in CI, and guarded destructive database tests against non-test database names.
 
