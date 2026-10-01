@@ -1,5 +1,7 @@
 # Clastio
 
+[![Clastio: Your AI Teaching Assistant](https://repoclip.io/api/badge/174f257e-b32b-4df2-9634-a9473bf979c2)](https://repoclip.io/v/174f257e-b32b-4df2-9634-a9473bf979c2)
+
 An AI teaching assistant for teachers, starting in the UAE with India and international markets to follow.
 
 A teacher uploads a deck they have taught with. The assistant learns its design: slide master, colours, fonts, logo, header bands and layouts. It then plans connected lesson sequences and builds **editable PowerPoint files in that same design**, with speaker notes, activities, quizzes, worksheets, homework and answer keys. It keeps track of each class's timetable, calendar and progress, and can send the day's plan over the official WhatsApp Business Platform.
