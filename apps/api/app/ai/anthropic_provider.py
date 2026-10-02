@@ -17,8 +17,6 @@ from app.core.config import get_settings
 # Models that accept `output_config.effort` (Haiku 4.5 rejects it).
 _EFFORT_PREFIXES = ("claude-opus-5", "claude-sonnet-5", "claude-fable", "claude-opus-4-8", "claude-opus-4-7",
                     "claude-opus-4-6", "claude-sonnet-4-6")
-# Models where we opt into server-side refusal fallbacks.
-_FALLBACK_PREFIXES = ("claude-opus-5", "claude-fable-5-1")
 
 
 class AnthropicProvider:
@@ -27,7 +25,7 @@ class AnthropicProvider:
     def __init__(self) -> None:
         s = get_settings()
         self._client = (
-            anthropic.AsyncAnthropic(api_key=s.anthropic_api_key, timeout=s.ai_request_timeout_s, max_retries=2)
+            anthropic.AsyncAnthropic(api_key=s.anthropic_api_key, timeout=s.ai_request_timeout_s, max_retries=0)
             if s.anthropic_api_key
             else None
         )
@@ -73,16 +71,14 @@ class AnthropicProvider:
             output_config["format"] = output_format
         if output_config:
             params["output_config"] = output_config
-        if model.startswith(_FALLBACK_PREFIXES):
-            params["extra_headers"] = {"anthropic-beta": "server-side-fallback-2026-07-01"}
-            params["extra_body"] = {"fallbacks": "default"}
         return params
 
     @staticmethod
     def _usage(msg: Any) -> Usage:
         u = msg.usage
         return Usage(
-            input_tokens=(u.input_tokens or 0) + (getattr(u, "cache_creation_input_tokens", 0) or 0),
+            input_tokens=u.input_tokens or 0,
+            cache_write_tokens=getattr(u, "cache_creation_input_tokens", 0) or 0,
             output_tokens=u.output_tokens or 0,
             cached_tokens=getattr(u, "cache_read_input_tokens", 0) or 0,
         )
@@ -95,9 +91,9 @@ class AnthropicProvider:
         if msg.stop_reason == "refusal":
             details = getattr(msg, "stop_details", None)
             category = getattr(details, "category", None) if details else None
-            raise AIRefusal(f"Request declined by model safety system (category={category})", provider=self.name)
+            raise AIRefusal(f"Request declined by model safety system (category={category})", provider=self.name, usage=self._usage(msg))
         if msg.stop_reason == "max_tokens":
-            raise AIError("Response truncated at max_tokens", retryable=True, provider=self.name)
+            raise AIError("Response truncated at max_tokens", retryable=True, provider=self.name, usage=self._usage(msg))
 
     async def _call(self, params: dict[str, Any]) -> Any:
         assert self._client is not None
@@ -137,8 +133,8 @@ class AnthropicProvider:
         except anthropic.APIError as e:
             raise AIError(f"Anthropic stream error: {e}", retryable=False, provider=self.name) from e
         u = self._usage(final)
-        usage_out.input_tokens, usage_out.output_tokens, usage_out.cached_tokens = (
-            u.input_tokens, u.output_tokens, u.cached_tokens)
+        usage_out.__dict__.update(u.__dict__)
+        self._check_stop(final)
 
     async def generate_structured(self, model: str, req: AIRequest, schema: type[T]) -> StructuredResult:
         fmt = {"type": "json_schema", "schema": strict_schema(schema)}
@@ -148,7 +144,7 @@ class AnthropicProvider:
         try:
             data = schema.model_validate(extract_json(text))
         except (ValidationError, json.JSONDecodeError, ValueError) as e:
-            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name) from e
+            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name, usage=self._usage(msg)) from e
         return StructuredResult(data, self._usage(msg), model, self.name)
 
     async def generate_embedding(self, model: str, texts: list[str], dim: int):

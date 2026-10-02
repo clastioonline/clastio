@@ -86,9 +86,10 @@ try {
   step("Create a course (Free plan: 2 lessons × 10 slides)");
   await page.getByRole("link", { name: "Create my first lessons" }).click();
   await page.waitForURL("**/projects/new");
-  await page.getByPlaceholder("e.g. Photosynthesis").fill("Photosynthesis");
+  await page.getByPlaceholder("e.g. Photosynthesis").fill(process.env.TOPIC || "Photosynthesis");
   const field = (label) => page.locator(`label:has(> span:text-is("${label}")) select`);
-  await field("Grade").selectOption("8");
+  await field("Grade").selectOption(process.env.GRADE || "8");
+  if (process.env.SUBJECT) await field("Subject").selectOption(process.env.SUBJECT);
   await field("Number of lessons").selectOption("2");
   await field("Slides per lesson").selectOption("10");
   await shot("05-new-course");
@@ -120,6 +121,26 @@ try {
   await page.getByRole("button", { name: "Make simpler" }).click();
   await page.getByText("Slides updated").waitFor({ timeout: 90_000 });
   ok("slide regenerated and deck rebuilt");
+  if (process.env.REVIEW_EXPORTS === "true") {
+    const lessonId = new URL(page.url()).pathname.split("/").pop();
+    const response = await page.request.get(BASE + `/api/v1/lessons/${lessonId}`);
+    assert(response.ok(), "lesson review data is available");
+    const detail = await response.json();
+    assert(detail.lesson.qc.visual_status === "checked", "visual inspection actually completed");
+    const visualErrors = Object.values(detail.lesson.qc.visual || {}).flat().filter(issue => issue.severity === "error");
+    assert(visualErrors.length === 0, `no visual QC errors (${visualErrors.length})`);
+    assert(detail.slides.every(slide => slide.preview), "every slide has a preview");
+    for (const format of ["pptx", "pdf"]) {
+      const file = await page.request.get(new URL(detail.downloads[format], BASE).href);
+      assert(file.ok(), `${format.toUpperCase()} export downloads successfully`);
+      fs.writeFileSync(path.join(OUT, `lesson1-edited.${format}`), await file.body());
+    }
+    fs.writeFileSync(path.join(OUT, "review.json"), JSON.stringify({
+      source: path.basename(SAMPLE), lessonId, grade: process.env.GRADE, subject: process.env.SUBJECT,
+      qc: detail.lesson.qc, slideCount: detail.slides.length,
+    }, null, 2));
+    await shot("07b-edited-lesson");
+  }
 
   step("Create a worksheet for the lesson");
   await page.getByRole("tab", { name: /Documents/ }).click();

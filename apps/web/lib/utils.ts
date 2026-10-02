@@ -29,7 +29,7 @@ export const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Sa
 export const LAYOUT_LABELS: Record<string, string> = {
   cover: "Cover", section: "Section", objectives: "Objectives", concept: "Concept", image_text: "Image + text",
   two_column: "Two columns", comparison: "Comparison", process: "Process", cycle: "Cycle", timeline: "Timeline",
-  table: "Table", key_vocabulary: "Vocabulary", quiz: "Quiz", discussion: "Discussion", activity: "Activity",
+  table: "Table", chart: "Chart", key_vocabulary: "Vocabulary", quiz: "Quiz", discussion: "Discussion", activity: "Activity",
   worked_example: "Worked example", summary: "Summary", exit_ticket: "Exit ticket", homework: "Homework",
 };
 

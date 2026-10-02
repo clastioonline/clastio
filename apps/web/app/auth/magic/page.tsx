@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Alert, Button, Spinner } from "@/components/ui";
+import { safeInternalPath } from "@/lib/navigation";
 import { api } from "@/lib/api";
 import { useSWRConfig } from "swr";
 
@@ -20,7 +21,7 @@ function Magic() {
     api<{ redirect: string }>("/auth/magic", { body: { token } })
       .then(async (r) => {
         await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
-        router.replace(r.redirect || "/dashboard");
+        router.replace(safeInternalPath(r.redirect));
       })
       .catch((e) => setError(e.message));
   }, [params, router, mutate]);

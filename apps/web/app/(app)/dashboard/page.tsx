@@ -22,6 +22,7 @@ import { ActivityOverview } from "@/components/activity-center";
 import { ClassChip, StatusBadge } from "@/components/common";
 import { DashHeader, HalfDonut, KpiCard, Legend, Panel, PillButton, PillChart } from "@/components/dash";
 import { DocumentDialog } from "@/components/document-dialog";
+import { LoadError } from "@/components/load-error";
 import { errorMessage, useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Skeleton } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
@@ -339,8 +340,8 @@ function LessonTimer() {
 export default function Dashboard() {
   const { user } = useMe();
   const { notify } = useToast();
-  const { data, mutate } = useApi<any>("/me/dashboard");
-  const { data: day, mutate: refreshDay } = useApi<any>("/planner/day");
+  const { data, error: dashboardError, mutate } = useApi<any>("/me/dashboard");
+  const { data: day, error: dayError, mutate: refreshDay } = useApi<any>("/planner/day");
   const [busy, setBusy] = useState<string | null>(null);
   const [docKind, setDocKind] = useState<string | null>(null);
 
@@ -381,7 +382,7 @@ export default function Dashboard() {
         </>} />
       <ActivityOverview />
 
-      {!data ? <Skeleton className="h-40 rounded-3xl" /> : (
+      {dashboardError ? <LoadError retry={mutate} label="your dashboard" /> : !data ? <Skeleton className="h-40 rounded-3xl" /> : (
         <>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard hero label="Lessons prepared" value={k.total} trend={k.new_this_month || null} hint={k.new_this_month ? "new this month" : "Create your first unit"} href="/projects" />
@@ -414,7 +415,7 @@ export default function Dashboard() {
               <Link href="/calendar" className="inline-flex h-8 items-center text-sm font-semibold text-brand-600 hover:underline">Week view</Link>
             </div>
           </div>
-          <TodayClasses day={day?.days?.[0] ?? day} onRefresh={refreshDay} />
+          {dayError ? <div className="p-5"><LoadError retry={refreshDay} label="today’s classes" /></div> : <TodayClasses day={day?.days?.[0] ?? day} onRefresh={refreshDay} />}
         </section>
         <div className="space-y-5 xl:col-span-5">
           <ReflectionPrompts />

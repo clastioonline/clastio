@@ -103,7 +103,7 @@ function Assistant() {
             <div className="mx-auto max-w-2xl py-8 text-center">
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Sparkles className="h-7 w-7" /></div>
               <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink">How can I help, {user?.name?.split(" ")[0] || "teacher"}?</h1>
-              <p className="mt-1 text-muted">I know your classes, timetable, curriculum progress and preferences.</p>
+              <p className="mt-1 text-muted">Ask about teaching, classroom topics, lesson slides and assessments. Include a topic or grade for better results.</p>
               <div className="mt-6 grid gap-2 sm:grid-cols-2">
                 {SUGGESTIONS.map((s) => (
                   <button key={s} onClick={() => send(s)} className="focus-ring rounded-xl border border-line bg-surface px-4 py-3 text-start text-sm text-ink-2 hover:border-brand-200 hover:bg-surface-2">{s}</button>
@@ -133,7 +133,7 @@ function Assistant() {
         <form className="border-t border-line p-3 sm:p-4" onSubmit={(e) => { e.preventDefault(); send(); }}>
           <div className="flex items-end gap-2">
             <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={1} className="min-h-[48px] resize-none"
-              placeholder="Ask anything… e.g. “Create 2 lessons on magnets for grade 5”"
+              placeholder="Ask about teaching… e.g. “Create 2 lessons on magnets for grade 5”"
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} />
             <Button type="submit" size="lg" loading={submitting} disabled={!text.trim() || sending || (!!conversationId && !conversation)} aria-label="Send"><Send className="h-4 w-4 rtl:rotate-180" /></Button>
           </div>

@@ -331,6 +331,7 @@ async def test_routes_skip_open_breaker(monkeypatch):
     from app.ai.service import AIService
 
     svc = AIService()
+    monkeypatch.setattr(svc.settings, "ai_offline_mode", False)
     monkeypatch.setattr(AIService, "live_providers", property(lambda self: ["anthropic", "openai"]))
 
     async def no_overrides(self):
@@ -340,6 +341,8 @@ async def test_routes_skip_open_breaker(monkeypatch):
     assert [r.provider for r in await svc.routes("fast")][:2] == ["anthropic", "openai"]
     svc.breaker.open_until["anthropic"] = 10**12
     assert [r.provider for r in await svc.routes("fast")][0] == "openai"
+    svc.breaker.open_until["openai"] = 10**12
+    assert await svc.routes("fast") == []
 
 
 # --------------------------------------------------------------------------- health

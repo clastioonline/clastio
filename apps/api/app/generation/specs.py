@@ -6,13 +6,14 @@ Everything here is validated with Pydantic and stored as JSON, so any stage can 
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 SlideLayout = Literal[
     "cover", "section", "objectives", "concept", "image_text", "two_column", "comparison", "process",
-    "cycle", "timeline", "table", "key_vocabulary", "quiz", "discussion", "activity", "worked_example",
+    "cycle", "timeline", "table", "chart", "key_vocabulary", "quiz", "discussion", "activity", "worked_example",
     "summary", "exit_ticket", "homework",
 ]
 LAYOUT_KINDS: tuple[str, ...] = SlideLayout.__args__  # type: ignore[attr-defined]
@@ -132,6 +133,38 @@ class TableData(BaseModel):
     rows: list[list[str]]
 
 
+class ChartSeries(BaseModel):
+    name: str
+    values: list[float] = Field(min_length=1, max_length=12)
+
+
+    @field_validator("values")
+    @classmethod
+    def finite_values(cls, values):
+        if not all(math.isfinite(v) for v in values):
+            raise ValueError("Chart values must be finite")
+        return values
+
+
+class ChartData(BaseModel):
+    kind: Literal["bar", "line", "pie"] = "bar"
+    categories: list[str] = Field(min_length=1, max_length=12)
+    series: list[ChartSeries] = Field(min_length=1, max_length=4)
+    unit: str = ""
+    source: str = Field(min_length=1, description="Source of the data; label classroom/example data explicitly")
+
+    @field_validator("series")
+    @classmethod
+    def matching_lengths(cls, value, info):
+        categories = info.data.get("categories", [])
+        if any(len(s.values) != len(categories) for s in value):
+            raise ValueError("Each series must match the categories")
+        if info.data.get("kind") == "pie":
+            if len(value) != 1 or any(v < 0 for v in value[0].values) or sum(value[0].values) <= 0:
+                raise ValueError("Pie charts require one nonnegative series with a positive total")
+        return value
+
+
 class Term(BaseModel):
     term: str
     meaning: str
@@ -145,11 +178,22 @@ class QuizItem(BaseModel):
     explanation: str
 
 
+class CountingGroup(BaseModel):
+    count: int = Field(ge=0, le=20)
+    label: str
+    color: Literal["red", "green", "blue", "black", "white"]
+
+
 class Visual(BaseModel):
     kind: Literal["none", "image", "diagram"] = "none"
     description: str = ""
     image_query: str = Field("", description="2-5 plain keywords for a stock photo search")
     alt_text: str = ""
+    fit: Literal["contain", "cover"] = "contain"
+    source_image_key: str | None = Field(None, description="Exact image_key from the uploaded template's image catalog; null for a new visual")
+    counting_groups: list[CountingGroup] = Field(default_factory=list,
+        description="Two parts for an exact, editable counting diagram; use for early addition instead of a stock image")
+    show_total: bool = True
 
 
 class SlideDifferentiation(BaseModel):
@@ -162,11 +206,13 @@ class SlideSpec(BaseModel):
     layout: SlideLayout
     purpose: str
     title: str
+    teaching_stage: Literal["topic", "engage", "objective", "explore", "explain", "elaborate", "evaluate", "self_reflect"] | None = None
     subtitle: str | None = None
     bullets: list[Bullet] = Field(default_factory=list)
     columns: list[Column] = Field(default_factory=list)
     steps: list[Step] = Field(default_factory=list)
     table: TableData | None = None
+    chart: ChartData | None = None
     terms: list[Term] = Field(default_factory=list)
     quiz: QuizItem | None = None
     question: str | None = None

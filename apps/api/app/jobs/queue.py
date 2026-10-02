@@ -108,6 +108,9 @@ async def run_inline_if_configured(job_ids: list[uuid.UUID]) -> None:
 
 async def claim(queues: list[str] | None = None) -> uuid.UUID | None:
     async with get_sessionmaker()() as s:
+        # Serialize the short claiming transaction so two workers cannot both pass an owner's limit
+        # using different rows and the same stale count. Work itself remains concurrent.
+        await s.execute(text("SELECT pg_advisory_xact_lock(74190210)"))
         q = """
             UPDATE generation_jobs SET status='running', locked_by=:w, locked_at=now(), started_at=now(),
                    attempts=attempts+1, stage=COALESCE(NULLIF(stage,'Queued'),'Starting')
@@ -137,10 +140,28 @@ async def run_job(job_id: uuid.UUID) -> None:
             return
         if job.status == "queued":  # inline execution path
             job.status, job.started_at, job.attempts = "running", utcnow(), job.attempts + 1
+            job.locked_by, job.locked_at = WORKER_ID, utcnow()
             await s.commit()
         ctx = JobContext(job_id=job.id, owner_id=job.owner_id, payload=dict(job.payload))
         job_type, attempts, max_attempts = job.type, job.attempts, job.max_attempts
         origin_request = job.request_id
+    heartbeat_stop = asyncio.Event()
+
+    async def heartbeat():
+        while not heartbeat_stop.is_set():
+            try:
+                await asyncio.wait_for(heartbeat_stop.wait(), timeout=get_settings().job_heartbeat_s)
+            except TimeoutError:
+                try:
+                    async with get_sessionmaker()() as heartbeat_db:
+                        await heartbeat_db.execute(update(GenerationJob).where(
+                            GenerationJob.id == job_id, GenerationJob.status == "running",
+                            GenerationJob.locked_by == WORKER_ID).values(locked_at=utcnow()))
+                        await heartbeat_db.commit()
+                except Exception:
+                    logger.warning("Job heartbeat unavailable", exc_info=True)
+
+    heartbeat_task = asyncio.create_task(heartbeat())
     token = job_id_var.set(str(job_id))
     # AI calls, credits and events recorded by the job carry the id of the request that started it.
     rid_token = request_id_var.set(origin_request) if origin_request else None
@@ -185,6 +206,8 @@ async def run_job(job_id: uuid.UUID) -> None:
                 except Exception:  # noqa: BLE001
                     pass
     finally:
+        heartbeat_stop.set()
+        await heartbeat_task
         job_id_var.reset(token)
         if rid_token is not None:
             request_id_var.reset(rid_token)

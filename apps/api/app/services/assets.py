@@ -87,6 +87,9 @@ def placeholder_illustration(description: str, primary: str, secondary: str, siz
         ImageDraw.Draw(glyph).text((80, 80), emoji, font=font, embedded_color=True, anchor="mm")
         glyph = glyph.resize((int(r * 1.15), int(r * 1.15)), Image.LANCZOS)
         img.alpha_composite(glyph, (cx - glyph.width // 2, cy - glyph.height // 2))
+    d = ImageDraw.Draw(img)
+    d.text((w // 2, int(h * .85)), "Image placeholder - replace in editor",
+           fill=(45, 45, 45), font=ImageFont.load_default(size=28), anchor="mm")
     out = io.BytesIO()
     img.convert("RGB").save(out, "PNG", optimize=True)
     return out.getvalue()
@@ -135,21 +138,42 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
 
 async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[SlideSpec], colors: dict[str, str],
                          job_id: uuid.UUID | None = None, allow_ai_images: int = 0,
-                         openverse: bool = True) -> tuple[dict[str, bytes], dict[str, int]]:
+                         openverse: bool = True, source_images: dict | None = None,
+                         image_mode: str = "auto", teaching_context: str = "") -> tuple[dict[str, bytes], dict[str, int]]:
     """Attach an asset to every slide that wants a picture. Returns (asset_id -> bytes, counters)."""
     storage = get_storage()
     ai = get_ai()
     settings = get_settings()
+    from app.services.settings import get_setting
+    flags = await get_setting("feature_flags")
+    allow_ai_images = allow_ai_images if flags.get("ai_images", True) and image_mode != "reuse" else 0
+    openverse = openverse and flags.get("openverse", True) and image_mode != "ai"
     images: dict[str, bytes] = {}
     counters = {"reused": 0, "openverse": 0, "ai": 0, "placeholder": 0}
+    ai_attempts = 0
     wanted = [s for s in slides if s.visual.kind in ("image", "diagram") and s.layout in ("image_text", "concept")
-              and not s.asset_id]
+              and not s.asset_id and not s.visual.counting_groups]
     async with httpx.AsyncClient(headers={"User-Agent": "AI-Teacher-Assistant/1.0"}) as client:
         for s in wanted:
+            source_image = (source_images or {}).get(s.visual.source_image_key)
+            if source_image:
+                try:
+                    asset = await db.get(Asset, uuid.UUID(source_image["asset_id"]))
+                except (ValueError, KeyError):
+                    asset = None
+                if asset and asset.owner_id in (owner_id, None) and asset.source == "upload":
+                    s.asset_id = str(asset.id)
+                    images[s.asset_id] = await storage.get(asset.storage_key)
+                    counters["reused"] += 1
+                    if asset.attribution:
+                        s.sources.append({"type": "image", "attribution": asset.attribution})
+                    continue
+            s.visual.source_image_key = None
             query = normalize_query(s.visual.image_query or s.visual.description or s.title)
             existing = (await db.execute(select(Asset).where(
                 or_(Asset.owner_id == owner_id, Asset.owner_id.is_(None)), Asset.tags.any(query),
-                Asset.source != "placeholder").limit(1))).scalars().first()
+                Asset.source != "placeholder",
+                Asset.source.in_(["ai", "upload"]) if image_mode == "ai" or s.visual.kind == "diagram" else True).limit(1))).scalars().first()
             if existing:
                 s.asset_id = str(existing.id)
                 images[s.asset_id] = await storage.get(existing.storage_key)
@@ -157,14 +181,18 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 if existing.attribution:
                     s.sources.append({"type": "image", "attribution": existing.attribution})
                 continue
-            found = await search_openverse(query, client) if (openverse and settings.openverse_enabled and query) \
+            found = await search_openverse(query, client) if (openverse and settings.openverse_enabled and query and s.visual.kind != "diagram") \
                 else None
             source, lic, attribution, data = None, None, None, None
             if found:
                 source, lic, attribution, data = "openverse", found["license"], found["attribution"], found["data"]
-            elif allow_ai_images > counters["ai"]:
-                prompt = (f"Clean educational illustration for a school slide: {s.visual.description or s.title}. "
-                          "Simple, accurate, friendly flat style, plain light background, no text, no labels, "
+            elif allow_ai_images > ai_attempts:
+                ai_attempts += 1
+                prompt = (f"Educational illustration for {teaching_context or 'a school lesson'}. Slide: {s.title}. "
+                          f"Show exactly: {s.visual.description or s.title}. "
+                          "Show only the requested subject with scientifically accurate parts and proportions. "
+                          "Clear composition, distinct objects, plain light background, no decorative unrelated objects. "
+                          "No text, no labels, "
                           "no watermarks.")
                 try:
                     res = await ai.image(prompt, "1536x1024", owner_id=owner_id, job_id=job_id)
@@ -180,7 +208,21 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 counters["placeholder"] += 1
             else:
                 counters[source] += 1 if source == "openverse" else 0
-            data, w, h = await asyncio.to_thread(_normalise_image, data)
+            try:
+                data, w, h = await asyncio.to_thread(_normalise_image, data)
+            except (OSError, ValueError):
+                data = await asyncio.to_thread(placeholder_illustration, s.title,
+                    colors.get("primary", "#2563EB"), colors.get("secondary", "#F59E0B"))
+                data, w, h = await asyncio.to_thread(_normalise_image, data)
+                if source == "ai":
+                    counters["ai"] -= 1
+                elif source == "openverse":
+                    counters["openverse"] -= 1
+                source, lic = "placeholder", "Generated placeholder"
+                counters["placeholder"] += 1
+            if source == "placeholder":
+                s.speaker_notes += "\nImage placeholder: upload a suitable image in the manual editor. A real illustration was unavailable."
+            s.sources.append({"type": "image", "source": source, "description": s.visual.alt_text or s.visual.description})
             sha = hashlib.sha256(data).hexdigest()
             ext = "png" if data[:4] == b"\x89PNG" else "jpg"
             key = f"assets/{owner_id}/{sha}.{ext}"

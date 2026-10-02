@@ -53,7 +53,7 @@ async def scheduler(stop: asyncio.Event) -> None:
             pass
 
 
-async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool) -> None:
+async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool, scheduler_only: bool = False) -> None:
     settings = get_settings()
     settings.validate_production()
     configure_logging(settings.log_level, environment=settings.environment, version=settings.app_version)
@@ -69,8 +69,8 @@ async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool)
             loop.add_signal_handler(sig, stop.set)
         except NotImplementedError:  # pragma: no cover
             pass
-    tasks = [asyncio.create_task(worker_loop(concurrency, queues, stop))]
-    if with_scheduler:
+    tasks = [] if scheduler_only else [asyncio.create_task(worker_loop(concurrency, queues, stop))]
+    if with_scheduler or scheduler_only:
         tasks.append(asyncio.create_task(scheduler(stop)))
     await asyncio.gather(*tasks)
 
@@ -79,6 +79,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--queues", default="", help="comma-separated queues (default: all)")
+    ap.add_argument("--scheduler-only", action="store_true", help="Run one dedicated scheduler without claiming generation jobs")
     ap.add_argument("--no-scheduler", action="store_true")
     a = ap.parse_args()
-    asyncio.run(main(a.concurrency, [q for q in a.queues.split(",") if q] or None, not a.no_scheduler))
+    asyncio.run(main(a.concurrency, [q for q in a.queues.split(",") if q] or None, not a.no_scheduler, a.scheduler_only))

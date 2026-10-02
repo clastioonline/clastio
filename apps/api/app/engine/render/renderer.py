@@ -15,7 +15,9 @@ from typing import Any
 from lxml import etree
 from PIL import Image
 from pptx import Presentation
+from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
@@ -26,6 +28,7 @@ from app.engine.pptx_xml import (
     copy_background,
     copy_element_with_rels,
     delete_slide,
+    prune_unlisted_slide_links,
     set_bullet,
     set_cs_font,
     set_line_spacing,
@@ -132,6 +135,7 @@ class DeckRenderer:
     def __init__(self, base_pptx: bytes, spec: dict[str, Any], *, language: str = "en",
                  min_font_pt: float | None = None):
         self.prs = Presentation(io.BytesIO(base_pptx))
+        prune_unlisted_slide_links(self.prs)
         self.spec = spec
         self.W = self.prs.slide_width
         self.H = self.prs.slide_height
@@ -165,7 +169,8 @@ class DeckRenderer:
         ids = [int(el.get("id")) for el in slide._element.iter(qn("p:cNvPr")) if el.get("id", "").isdigit()]
         return max(ids or [1])
 
-    def _copy_items(self, slide, donor, ids: list[int], number: int | None = None, is_number: bool = False) -> None:
+    def _copy_items(self, slide, donor, ids: list[int], number: int | None = None, is_number: bool = False,
+                    clear_text_ids: list[int] | None = None) -> None:
         if donor is None or not ids:
             return
         tree = slide.shapes._spTree
@@ -176,6 +181,9 @@ class DeckRenderer:
             if c is None or not c.get("id", "").isdigit() or int(c.get("id")) not in ids:
                 continue
             new_el = copy_element_with_rels(el, donor.part, slide.part)
+            if int(c.get("id")) in (clear_text_ids or []):
+                for text in new_el.iter(qn("a:t")):
+                    text.text = ""
             for c2 in new_el.iter(qn("p:cNvPr")):
                 c2.set("id", str(next_id))
                 next_id += 1
@@ -202,7 +210,7 @@ class DeckRenderer:
         donor = self.donors[donor_idx] if donor_idx is not None and donor_idx < len(self.donors) else None
         if donor is not None and cfg.get("copy_background"):
             copy_background(donor, slide)
-        self._copy_items(slide, donor, cfg.get("item_ids", []))
+        self._copy_items(slide, donor, cfg.get("item_ids", []), clear_text_ids=cfg.get("clear_text_ids"))
         self._copy_items(slide, donor, cfg.get("slide_number_ids", []), number=number, is_number=True)
         return slide
 
@@ -349,11 +357,19 @@ class DeckRenderer:
         tail.set("len", "med")
         return conn
 
-    def picture(self, slide, box: Box, data: bytes, alt: str = "") -> None:
+    def picture(self, slide, box: Box, data: bytes, alt: str = "", contain: bool = False) -> None:
         with Image.open(io.BytesIO(data)) as im:
             iw, ih = im.size
-        pic = slide.shapes.add_picture(io.BytesIO(data), *box.emu())
         img_ratio, box_ratio = iw / ih, box.w / box.h
+        if contain:
+            width = min(box.w, int(box.h * img_ratio))
+            height = int(width / img_ratio)
+            box = Box(box.x + (box.w - width) // 2, box.y + (box.h - height) // 2, width, height)
+        pic = slide.shapes.add_picture(io.BytesIO(data), *box.emu())
+        if contain:
+            if alt:
+                set_shape_alt_text(pic, alt)
+            return
         if img_ratio > box_ratio:  # too wide -> crop left/right
             excess = 1 - box_ratio / img_ratio
             pic.crop_left = pic.crop_right = excess / 2
@@ -391,17 +407,19 @@ class DeckRenderer:
             if tb.right > self.W * 0.96:
                 tb.w = int(self.W * 0.96) - tb.x
             align = cz.get("align", "left")
-            self.text(slide, tb, [P(spec.title)], role="title", family=self.f["heading"],
+            self.text(slide, tb, [P(spec.title)], role="title", family=cz.get("title_font") or self.f["heading"],
                       max_pt=min(float(cz.get("title_pt") or 44), 54), min_pt=26,
                       color=cz.get("title_color") or self.c["title"], bold=True, align=align, anchor="bottom",
                       space_em=0)
             if spec.subtitle:
                 sz = cz.get("subtitle")
                 sb = Box(tb.x, tb.bottom + int(self.H * 0.02), tb.w, int(self.H * 0.1)) if not sz else \
-                    Box(int(sz[0] * self.W), max(int(sz[1] * self.H), tb.bottom + int(self.H * 0.015)),
+                    Box(int(sz[0] * self.W), int(sz[1] * self.H) if self.spec["mode"] == "native" else
+                        max(int(sz[1] * self.H), tb.bottom + int(self.H * 0.015)),
                         max(int(sz[2] * self.W), tb.w), max(int(sz[3] * self.H), int(self.H * 0.08)))
                 self.text(slide, sb, [P(spec.subtitle)], role="subtitle", max_pt=float(cz.get("subtitle_pt") or 22),
-                          min_pt=14, color=cz.get("subtitle_color") or self.c["secondary"], align=align, space_em=0)
+                          min_pt=14, color=cz.get("subtitle_color") or self.c["secondary"], align=align, space_em=0,
+                          family=cz.get("subtitle_font") or self.f["body"])
             return
         body = self.zone("body")
         tb = Box(body.x, body.y + int(body.h * 0.18), body.w, int(body.h * 0.4))
@@ -440,7 +458,7 @@ class DeckRenderer:
 
     def render_concept(self, slide, spec: SlideSpec, image: bytes | None) -> None:
         body = self.zone("body")
-        if image is not None or spec.visual.kind in ("image", "diagram"):
+        if image is not None or spec.visual.kind in ("image", "diagram") or spec.visual.counting_groups:
             return self.render_image_text(slide, spec, image)
         self._bullets(slide, body, spec)
 
@@ -454,11 +472,44 @@ class DeckRenderer:
         self.text(slide, text_box, [P(b.text, level=b.level) for b in spec.bullets] or [P(spec.purpose)],
                   role="body", bullets=True, bullet_color=self.c["primary"])
         img_box = Box(img_box.x, img_box.y + int(img_box.h * 0.04), img_box.w, int(img_box.h * 0.92))
-        if image is not None:
-            self.picture(slide, img_box, image, alt=spec.visual.alt_text or spec.visual.description)
+        if spec.visual.counting_groups:
+            self.render_counting_groups(slide, img_box, spec)
+        elif image is not None:
+            self.picture(slide, img_box, image, alt=spec.visual.alt_text or spec.visual.description,
+                         contain=bool(spec.visual.source_image_key) or spec.visual.fit == "contain")
         else:
             self.card_text(slide, img_box, [P(spec.visual.description or spec.title, scale=1.0)],
                            fill=self.c["card_bg"], role="visual", max_pt=18, align="center")
+
+    def render_counting_groups(self, slide, box: Box, spec: SlideSpec) -> None:
+        groups = spec.visual.counting_groups[:2]
+        palette = {"red": "#C34444", "green": "#408332", "blue": "#2469B2",
+                   "black": "#222222", "white": "#FFFFFF"}
+        part_height = int(box.h * .38)
+        cube_size = min(int(box.w * .12), int(part_height * .22))
+        gap = int(cube_size * .3)
+        for index, group in enumerate(groups):
+            y = box.y + index * int(box.h * .41)
+            self.text(slide, Box(box.x, y, box.w, int(part_height * .22)),
+                      [P(group.label, bold=True)], role="count-label", max_pt=20,
+                      min_pt=14, align="left", space_em=0)
+            columns = max(1, min(5, (box.w + gap) // (cube_size + gap)))
+            rows = max(1, math.ceil(group.count / columns))
+            cube_size = min(cube_size, int(part_height * .65 / rows) - gap)
+            cube_size = max(1, cube_size)
+            for count in range(group.count):
+                cube = Box(box.x + (count % columns) * (cube_size + gap),
+                           y + int(part_height * .28) + (count // columns) * (cube_size + gap),
+                           cube_size, cube_size)
+                shape = self.card(slide, cube, fill=palette[group.color], line="#666666",
+                                  shape_type=MSO_SHAPE.RECTANGLE)
+                shape.name = f"Counting group {index + 1} object {count + 1}"
+                set_shape_alt_text(shape, f"{group.label}: object {count + 1} of {group.count}")
+        equation = " + ".join(str(group.count) for group in groups)
+        equation += f" = {sum(group.count for group in groups)}" if spec.visual.show_total else " = ?"
+        self.text(slide, Box(box.x, box.y + int(box.h * .85), box.w, int(box.h * .15)),
+                  [P(equation, bold=True)], role="equation", max_pt=28, min_pt=18,
+                  align="center", space_em=0)
 
     def _remove_body_placeholder(self, slide) -> None:
         ph = self._placeholder(slide, "body")
@@ -634,6 +685,27 @@ class DeckRenderer:
         else:
             self.text(slide, body, paras, role="body", space_em=0.25)
 
+    def render_chart(self, slide, spec: SlideSpec) -> None:
+        if spec.chart is None:
+            self._bullets(slide, self.zone("body"), spec)
+            return
+        data = CategoryChartData()
+        data.categories = spec.chart.categories
+        for series in spec.chart.series:
+            data.add_series(series.name, series.values)
+        body = self.zone("body")
+        chart_box = Box(body.x, body.y, body.w, max(1, body.h - int(28 * EMU_PER_PT)))
+        types = {"bar": XL_CHART_TYPE.COLUMN_CLUSTERED, "line": XL_CHART_TYPE.LINE_MARKERS, "pie": XL_CHART_TYPE.PIE}
+        chart = slide.shapes.add_chart(types[spec.chart.kind], *chart_box.emu(), data).chart
+        chart.has_legend = len(spec.chart.series) > 1 or spec.chart.kind == "pie"
+        if chart.has_legend:
+            chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.has_title = bool(spec.chart.unit)
+        if chart.has_title:
+            chart.chart_title.text_frame.text = spec.chart.unit
+        self.text(slide, Box(body.x, body.y + body.h - int(24 * EMU_PER_PT), body.w, int(24 * EMU_PER_PT)),
+                  [P("Source: " + spec.chart.source)], max_pt=12, min_pt=10)
+
     def render_table(self, slide, spec: SlideSpec, rows: list[list[str]], headers: list[str]) -> None:
         self._remove_body_placeholder(slide)
         body = self.zone("body")
@@ -806,6 +878,25 @@ class DeckRenderer:
         return slide
 
     def render_slide(self, spec: SlideSpec, image: bytes | None, number: int) -> None:
+        stages = self.spec.get("stage_variants", {})
+        default_stage = {"cover": "topic", "objectives": "objective", "activity": "elaborate",
+                         "exit_ticket": "evaluate", "quiz": "evaluate", "summary": "self_reflect",
+                         "discussion": "engage", "worked_example": "explore"}.get(spec.layout, "explain")
+        variant = stages.get(spec.teaching_stage or default_stage)
+        saved = self.spec, self.c, self.f, self.t
+        if variant and spec.layout not in ("cover", "section"):
+            defaults = self.spec.get("extracted_style_defaults", {})
+            styles = {key: {**variant[key], **{name: value for name, value in self.spec[key].items()
+                       if value != defaults.get(key, self.spec[key]).get(name)}}
+                      for key in ("colors", "fonts", "typography")}
+            self.spec = {**self.spec, "content": variant, "zones": variant["zones"]}
+            self.c, self.f, self.t = styles["colors"], styles["fonts"], styles["typography"]
+        try:
+            self._render_slide(spec, image, number)
+        finally:
+            self.spec, self.c, self.f, self.t = saved
+
+    def _render_slide(self, spec: SlideSpec, image: bytes | None, number: int) -> None:
         self._report = SlideReport(number=number, layout=spec.layout)
         if spec.layout == "section":
             slide = self.render_section_slide(spec, number)
@@ -842,7 +933,7 @@ class DeckRenderer:
                 items = [b.text for b in spec.bullets]
                 if kind == "exit_ticket" and spec.question and spec.question not in items:
                     items = [spec.question] + items
-                if len(items) > 6 or sum(len(i) for i in items) > 420:
+                if self.spec.get("stage_variants") or len(items) > 6 or sum(len(i) for i in items) > 420:
                     self._bullets(slide, self.zone("body"), spec)
                 else:
                     self.render_numbered_cards(slide, spec, items)
@@ -858,6 +949,8 @@ class DeckRenderer:
                 self.render_cycle(slide, spec)
             elif kind == "timeline":
                 self.render_timeline(slide, spec)
+            elif kind == "chart":
+                self.render_chart(slide, spec)
             elif kind == "table":
                 t = spec.table
                 self.render_table(slide, spec, t.rows if t else [], t.headers if t else ["", ""])
@@ -874,7 +967,13 @@ class DeckRenderer:
             elif kind == "discussion":
                 self.render_discussion(slide, spec)
             elif kind == "activity":
-                self.render_activity(slide, spec)
+                if self.spec.get("stage_variants"):
+                    self._remove_body_placeholder(slide)
+                    items = [P(st.label + (f": {st.detail}" if st.detail else "")) for st in spec.steps]
+                    self.text(slide, self.zone("body"), items or [P(b.text) for b in spec.bullets],
+                              role="body", bullets=True)
+                else:
+                    self.render_activity(slide, spec)
             elif kind == "worked_example":
                 self.render_worked_example(slide, spec)
             else:

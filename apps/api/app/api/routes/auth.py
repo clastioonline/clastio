@@ -23,8 +23,8 @@ from app.core.security import (
     COOKIE_NAME,
     create_access_token,
     decode_token,
-    hash_password,
-    verify_password,
+    hash_password_async,
+    verify_password_async,
 )
 from app.models import OAuthAccount, TeacherProfile, TrialGrant, User, UserSession
 from app.services import legal, sessions
@@ -118,7 +118,7 @@ async def _create_user(db, email: str, name: str, password: str | None, *, sourc
                        signup_meta: dict | None = None, verified: bool = False) -> User:
     s = get_settings()
     staff = email.lower() in [e.lower() for e in s.admin_emails]
-    user = User(email=email.lower(), name=name.strip(), password_hash=hash_password(password) if password else None,
+    user = User(email=email.lower(), name=name.strip(), password_hash=await hash_password_async(password) if password else None,
                 role="admin" if staff else "teacher", admin_role="super_admin" if staff else None,
                 signup_source=source, signup_meta=signup_meta or {}, email_verified=verified,
                 email_verified_at=utcnow() if verified else None, referral_code=secrets.token_hex(4),
@@ -203,7 +203,7 @@ async def login(data: LoginIn, request: Request, response: Response, db: DB):
     # school IP doesn't lock out everyone else.
     await enforce(f"login-account:{data.email.lower()}", 10, 300)
     user = (await db.execute(select(User).where(User.email == data.email.lower()))).scalars().first()
-    if user is None or not verify_password(data.password, user.password_hash):
+    if user is None or not await verify_password_async(data.password, user.password_hash):
         security_event(db, "login_failed", user_id=user.id if user else None, request=request,
                        email_domain=data.email.split("@")[-1])
         await db.commit()
@@ -340,7 +340,7 @@ async def reset_password(data: ResetIn, request: Request, db: DB):
     if user is None or payload.get("pw") != _reset_fingerprint(user) or user.status != "active":
         raise AppError("link_expired", "This reset link has expired or was already used. Request a new one.", 400)
     check_password(data.password, user.email)
-    user.password_hash, user.password_changed_at = hash_password(data.password), utcnow()
+    user.password_hash, user.password_changed_at = await hash_password_async(data.password), utcnow()
     user.email_verified = True  # they proved they control the inbox
     user.email_verified_at = user.email_verified_at or utcnow()
     n = await sessions.revoke(db, user.id, reason="password_change")
@@ -357,12 +357,12 @@ class ChangePasswordIn(BaseModel):
 
 @router.post("/change-password", dependencies=[Depends(rate_limit("change_password", 5, 900))])
 async def change_password(data: ChangePasswordIn, user: CurrentUser, request: Request, db: DB):
-    if not verify_password(data.current_password, user.password_hash):
+    if not await verify_password_async(data.current_password, user.password_hash):
         security_event(db, "login_failed", user_id=user.id, request=request, reason="change_password_wrong_current")
         await db.commit()
         raise AppError("invalid_credentials", "Your current password is incorrect.", 400)
     check_password(data.new_password, user.email)
-    user.password_hash, user.password_changed_at = hash_password(data.new_password), utcnow()
+    user.password_hash, user.password_changed_at = await hash_password_async(data.new_password), utcnow()
     n = await sessions.revoke(db, user.id, except_id=request.state.session_id, reason="password_change")
     security_event(db, "password_changed", user_id=user.id, request=request, other_sessions_revoked=n)
     queue_email(db, user, "password_changed", link=f"{get_settings().public_web_url}/forgot-password")

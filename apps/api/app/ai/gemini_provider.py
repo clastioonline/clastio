@@ -23,8 +23,10 @@ class GeminiProvider:
         self._client = None
         if s.gemini_api_key:
             from google import genai
+            from google.genai import types
 
-            self._client = genai.Client(api_key=s.gemini_api_key)
+            self._client = genai.Client(api_key=s.gemini_api_key, http_options=types.HttpOptions(
+                retry_options=types.HttpRetryOptions(attempts=1)))
 
     def available(self) -> bool:
         return self._client is not None
@@ -52,12 +54,13 @@ class GeminiProvider:
     def _usage(resp: Any) -> Usage:
         u = getattr(resp, "usage_metadata", None)
         if not u:
-            return Usage()
+            return Usage(reported=False)
         cached = getattr(u, "cached_content_token_count", 0) or 0
         return Usage(
             input_tokens=(u.prompt_token_count or 0) - cached,
             output_tokens=(u.candidates_token_count or 0) + (getattr(u, "thoughts_token_count", 0) or 0),
             cached_tokens=cached,
+            reasoning_tokens=getattr(u, "thoughts_token_count", 0) or 0,
         )
 
     async def _generate(self, model: str, req: AIRequest, json_schema: dict | None = None) -> Any:
@@ -70,7 +73,7 @@ class GeminiProvider:
             code = getattr(e, "code", 500) or 500
             raise AIError(f"Gemini error: {e}", retryable=code >= 429, provider=self.name) from e
         if not resp.candidates:
-            raise AIError("Gemini returned no candidates (blocked)", retryable=False, provider=self.name)
+            raise AIError("Gemini returned no candidates (blocked)", retryable=False, provider=self.name, usage=self._usage(resp))
         return resp
 
     async def generate_text(self, model: str, req: AIRequest) -> TextResult:
@@ -88,7 +91,7 @@ class GeminiProvider:
                     yield chunk.text
                 if getattr(chunk, "usage_metadata", None):
                     u = self._usage(chunk)
-                    usage_out.input_tokens, usage_out.output_tokens = u.input_tokens, u.output_tokens
+                    usage_out.__dict__.update(u.__dict__)
         except Exception as e:
             raise AIError(f"Gemini stream error: {e}", retryable=False, provider=self.name) from e
 
@@ -97,7 +100,7 @@ class GeminiProvider:
         try:
             data = schema.model_validate(extract_json(resp.text or ""))
         except (ValidationError, json.JSONDecodeError, ValueError) as e:
-            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name) from e
+            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name, usage=self._usage(resp)) from e
         return StructuredResult(data, self._usage(resp), model, self.name)
 
     async def generate_embedding(self, model: str, texts: list[str], dim: int):
@@ -110,7 +113,7 @@ class GeminiProvider:
             )
         except Exception as e:
             raise AIError(f"Gemini embedding error: {e}", retryable=True, provider=self.name) from e
-        return [e.values for e in resp.embeddings], Usage(input_tokens=sum(len(t) // 4 for t in texts))
+        return [e.values for e in resp.embeddings], Usage(input_tokens=sum(len(t) // 4 for t in texts), reported=False)
 
     async def generate_image(self, model: str, prompt: str, size: str) -> ImageResult:
         from google.genai import types

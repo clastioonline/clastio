@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AiBudgetControls } from "@/components/ai-budget-controls";
 import { BarList, compact } from "@/components/charts";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Button, Card, CardHeader, Field, Input, PageHeader, Skeleton, Stat, Tabs } from "@/components/ui";
@@ -48,6 +49,7 @@ export default function AiCosts() {
   return (
     <div className="space-y-6">
       <PageHeader title="AI costs & model routing" subtitle="Cheaper models for routine work, stronger ones only for planning. Every call is metered." />
+      <AiBudgetControls />
       <Tabs value={days} onChange={setDays} tabs={[{ value: "7", label: "7 days" }, { value: "30", label: "30 days" }, { value: "90", label: "90 days" }]} />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Total AI cost" value={`$${total.toFixed(2)}`} />

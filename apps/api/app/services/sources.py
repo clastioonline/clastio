@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import re
 import uuid
@@ -16,6 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.service import get_ai
 from app.core.db import get_sessionmaker
 from app.core.storage import get_storage
+from app.engine.style.content import extract_content
+from app.jobs.queue import PermanentJobError
 from app.models import SourceChunk, UploadedFile
 
 CHUNK_CHARS = 900
@@ -29,14 +32,11 @@ def extract_pages(data: bytes, ext: str) -> list[tuple[int, str]]:
             pages.append((i, p.get_text("text")))
     elif ext == "pptx":
         prs = Presentation(io.BytesIO(data))
-        for i, s in enumerate(prs.slides, start=1):
-            texts = [sh.text_frame.text for sh in s.shapes if getattr(sh, "has_text_frame", False) and sh.has_text_frame]
-            if s.has_notes_slide:
-                texts.append(s.notes_slide.notes_text_frame.text)
-            pages.append((i, "\n".join(texts)))
+        content, _ = extract_content(prs)
+        pages = [(p["number"], "\n".join([p["text"], p["notes"]])) for p in content]
     elif ext == "docx":
         doc = DocxDocument(io.BytesIO(data))
-        text = "\n".join(p.text for p in doc.paragraphs)
+        text = "\n".join([p.text for p in doc.paragraphs] + [" | ".join(c.text for c in row.cells) for table in doc.tables for row in table.rows])
         pages = [(i + 1, text[i * 3000:(i + 1) * 3000]) for i in range(max(1, len(text) // 3000 + 1))]
     elif ext == "txt":
         text = data.decode("utf-8", "ignore")
@@ -56,7 +56,8 @@ def chunk(pages: list[tuple[int, str]]) -> list[tuple[int, str]]:
             buf += para + "\n"
         if buf.strip():
             out.append((page, buf.strip()))
-    return out
+    return [(page, text[start:start + CHUNK_CHARS]) for page, text in out
+            for start in range(0, len(text), CHUNK_CHARS)]
 
 
 async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
@@ -69,8 +70,16 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
         owner_id, key = f.owner_id, f.storage_key
     ext = key.rsplit(".", 1)[-1]
     data = await get_storage().get(key)
+    if ext == "ppt":
+        from app.services.styles import convert_ppt_to_pptx
+        data = await asyncio.to_thread(convert_ppt_to_pptx, data)
+        ext = "pptx"
     chunks = chunk(extract_pages(data, ext))
-    vectors = await get_ai().embed([c[1] for c in chunks], owner_id=owner_id) if chunks else []
+    if not chunks:
+        raise PermanentJobError("No readable text found. For a scanned book, upload an OCR/text PDF or typed notes.")
+    vectors = []
+    for offset in range(0, len(chunks), 32):
+        vectors.extend(await get_ai().embed([c[1] for c in chunks[offset:offset + 32]], owner_id=owner_id))
     async with get_sessionmaker()() as s:
         await s.execute(delete(SourceChunk).where(SourceChunk.file_id == file_id))
         for (page, text), vec in zip(chunks, vectors, strict=False):
@@ -81,13 +90,19 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
     return {"chunks": len(chunks)}
 
 
-async def retrieve(db: AsyncSession, owner_id: uuid.UUID, query: str, k: int = 6) -> list[dict[str, Any]]:
-    has_any = (await db.execute(select(SourceChunk.id).where(SourceChunk.owner_id == owner_id).limit(1))).first()
+async def retrieve(db: AsyncSession, owner_id: uuid.UUID, query: str, k: int = 6,
+                   file_ids: list[str] | None = None) -> list[dict[str, Any]]:
+    filters = [SourceChunk.owner_id == owner_id]
+    if file_ids is not None:
+        if not file_ids:
+            return []
+        filters.append(SourceChunk.file_id.in_([uuid.UUID(str(fid)) for fid in file_ids]))
+    has_any = (await db.execute(select(SourceChunk.id).where(*filters).limit(1))).first()
     if not has_any:
         return []
     vec = (await get_ai().embed([query], owner_id=owner_id))[0]
     rows = (await db.execute(
         select(SourceChunk, UploadedFile.filename).join(UploadedFile, UploadedFile.id == SourceChunk.file_id)
-        .where(SourceChunk.owner_id == owner_id, SourceChunk.embedding.is_not(None))
+        .where(*filters, SourceChunk.embedding.is_not(None), UploadedFile.status == "ready")
         .order_by(SourceChunk.embedding.cosine_distance(vec)).limit(k))).all()
     return [{"file_id": str(c.file_id), "file": fn, "page": c.page, "text": c.text} for c, fn in rows]

@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SlideThumb, StatusBadge } from "@/components/common";
 import { errorMessage, useToast } from "@/components/toast";
-import { Alert, Badge, Button, Card, CardHeader, Input, Modal, PageHeader, Progress, Skeleton, Textarea } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Field, Input, Modal, PageHeader, Progress, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
@@ -52,6 +52,11 @@ export default function ProjectPage() {
   const router = useRouter();
   const { notify } = useToast();
   const { data, mutate } = useApi<any>(`/projects/${id}`);
+  const [preparing, setPreparing] = useState<number[] | null>(null);
+  const [selectedParts, setSelectedParts] = useState<number[]>([]);
+  const [previousTaught, setPreviousTaught] = useState("");
+  const [revisionNeeded, setRevisionNeeded] = useState("");
+  const [preparationNotes, setPreparationNotes] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -69,13 +74,23 @@ export default function ProjectPage() {
   const generate = async (numbers?: number[]) => {
     setBusy("generate");
     try {
-      await api(`/courses/${course.id}/generate`, { body: { lessons: numbers } });
+      await api(`/courses/${course.id}/generate`, { body: { lessons: numbers, previous_taught: previousTaught, revision_needed: revisionNeeded, instructions: preparationNotes || null } });
       mutate();
+      setPreparing(null);
+      setSelectedParts([]);
     } catch (e) {
       notify({ tone: "error", title: "Couldn't start", body: errorMessage(e) });
     } finally {
       setBusy(null);
     }
+  };
+  const prepare = (numbers?: number[]) => {
+    const waiting = lessons.filter((lesson: any) => ["planned", "failed"].includes(lesson.status));
+    const targets = numbers || (course.options?.chapter_mode === "daily" ? waiting.slice(0, 1).map((lesson: any) => lesson.number) : selectedParts.length ? selectedParts : waiting.map((lesson: any) => lesson.number));
+    if (!targets.length) return;
+    setPreviousTaught(targets.includes(1) ? course.options?.previous_taught || "" : "");
+    setRevisionNeeded(targets.includes(1) ? course.options?.revision_needed || "" : "");
+    setPreparationNotes(""); setPreparing(targets);
   };
   const remove = async () => {
     if (!confirm("Delete this project and all its lessons?")) return;
@@ -86,6 +101,15 @@ export default function ProjectPage() {
 
   return (
     <div className="space-y-6">
+      <Modal open={!!preparing} onClose={() => setPreparing(null)} title={`Prepare lesson${(preparing?.length || 0) > 1 ? "s" : ""} ${preparing?.join(", ") || ""}`}
+        footer={<><Button variant="ghost" onClick={() => setPreparing(null)}>Cancel</Button><Button loading={busy === "generate"} onClick={() => generate(preparing || undefined)}>Build these lessons</Button></>}>
+        <div className="space-y-4">
+          <p className="text-sm text-muted">Recorded classroom reflections and unfinished work are included automatically. Add anything the assistant should know before this class.</p>
+          <Field label="What did you teach in the previous class?"><Textarea value={previousTaught} maxLength={2000} onChange={(e) => setPreviousTaught(e.target.value)} placeholder="We introduced sin, cos and tan and completed the first two examples." /></Field>
+          <Field label="What should be revised again?"><Textarea value={revisionNeeded} maxLength={2000} onChange={(e) => setRevisionNeeded(e.target.value)} placeholder="Revise identifying opposite and adjacent with a short diagnostic question." /></Field>
+          <Field label="Instructions for this part / day"><Textarea value={preparationNotes} maxLength={2000} onChange={(e) => setPreparationNotes(e.target.value)} placeholder="Start with 5 minutes of revision, then cover worked examples and finish with an exit ticket." /></Field>
+        </div>
+      </Modal>
       <PageHeader eyebrow={`Grade ${course.grade} · ${course.subject} · ${course.num_lectures} lessons × ${course.slides_per_lecture} slides`}
         title={course.topic}
         subtitle={plan?.overview}
@@ -93,12 +117,15 @@ export default function ProjectPage() {
           <>
             {plan && <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit sequence</Button>}
             {plan && lessons.some((l: any) => l.status === "planned" || l.status === "failed") && (
-              <Button onClick={() => generate()} loading={busy === "generate"}><WandSparkles className="h-4 w-4" /> Build slides</Button>
+              <Button onClick={() => prepare()} loading={busy === "generate"}><WandSparkles className="h-4 w-4" /> {course.options?.chapter_mode === "daily" ? "Prepare next day" : selectedParts.length ? "Build selected parts" : "Build remaining parts"}</Button>
             )}
             <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete project"><Trash className="h-4 w-4" /></Button>
           </>
         } />
 
+      {course.options?.chapter_mode === "daily" && <Alert tone="neutral" title="Prepare day by day">Teach the ready lesson, record how the class went, then prepare the next day. The chapter plan stays connected while each new lesson can respond to revision needs.</Alert>}
+      {course.options?.chapter_mode === "parts" && <Alert tone="neutral" title="Prepare selected parts">Select the lesson parts you want, then build them together. You can also build a single lesson below.</Alert>}
+      {(course.options?.source_file_ids?.length || 0) > 0 && <p className="text-sm text-muted">Grounded in {course.options.source_file_ids.length} selected book / notes file(s).</p>}
       {working && <Alert tone="brand" title="Keep teaching while we prepare">This work continues in the background. You can leave this page or close the browser. <Link href="/activity" className="font-medium underline">Follow progress in Activity</Link>.</Alert>}
       {course.status === "planning" && (
         <Card className="p-6">
@@ -130,6 +157,7 @@ export default function ProjectPage() {
                     <SlideThumb src={l.cover} alt={l.title} className="w-full shrink-0 sm:w-48" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
+                        {course.options?.chapter_mode === "parts" && l.status !== "generating" && <input type="checkbox" aria-label={`Select lesson ${l.number}`} checked={selectedParts.includes(l.number)} onChange={() => setSelectedParts(selectedParts.includes(l.number) ? selectedParts.filter((number) => number !== l.number) : [...selectedParts, l.number])} />}
                         <Badge tone="brand">Lesson {l.number}</Badge>
                         <StatusBadge status={l.status} />
                         {l.scheduled_date && <span className="text-xs text-muted">{l.scheduled_date}</span>}
@@ -153,10 +181,10 @@ export default function ProjectPage() {
                       {l.has_pptx ? (
                         <Button size="sm" href={`/lessons/${l.id}`}>Open <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
                       ) : l.status !== "generating" ? (
-                        <Button size="sm" variant="outline" onClick={() => generate([l.number])}>Build</Button>
+                        <Button size="sm" variant="outline" onClick={() => prepare([l.number])}>Build</Button>
                       ) : null}
                       {l.has_pptx && (
-                        <Button size="sm" variant="ghost" onClick={() => generate([l.number])}><RefreshCw className="h-4 w-4" /> Rebuild</Button>
+                        <Button size="sm" variant="ghost" onClick={() => prepare([l.number])}><RefreshCw className="h-4 w-4" /> Rebuild</Button>
                       )}
                     </div>
                   </div>

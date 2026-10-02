@@ -704,3 +704,23 @@ class WhatsAppMessage(Base):
     error: Mapped[str | None] = mapped_column(Text)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: _now())
+
+
+class AICallReservation(Base):
+    """Durable admission ledger; unresolved calls keep their full reservation."""
+    __tablename__ = "ai_call_reservations"
+    id: Mapped[uuid.UUID] = pk()
+    owner_id: Mapped[uuid.UUID | None] = fk("users.id", nullable=True, ondelete="SET NULL")
+    job_id: Mapped[uuid.UUID | None] = fk("generation_jobs.id", nullable=True, ondelete="SET NULL")
+    usage_id: Mapped[uuid.UUID | None] = fk("ai_usage.id", nullable=True, ondelete="SET NULL")
+    provider: Mapped[str] = mapped_column(String(30))
+    model: Mapped[str] = mapped_column(String(80))
+    task: Mapped[str] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    reserved_usd: Mapped[float] = mapped_column(Numeric(18, 8))
+    charged_usd: Mapped[float | None] = mapped_column(Numeric(18, 8))
+    rates: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    usage: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    success: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now().astimezone(), index=True)

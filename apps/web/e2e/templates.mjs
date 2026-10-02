@@ -62,7 +62,7 @@ try {
   }
   for (const width of [320, 768, 1024]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const route of ['/dashboard', '/lessons', '/projects', '/assistant', '/activity', '/settings', '/calendar', '/media']) {
+    for (const route of ['/dashboard', '/lessons', '/projects', '/assistant', '/activity', '/settings', '/calendar', '/media', '/projects/new', '/curriculum', '/teacher-memory', '/whatsapp', '/billing', '/notifications', '/support', '/tutorials']) {
       await page.goto(base + route);
       await page.locator('main h1').first().waitFor();
       await page.waitForTimeout(250);

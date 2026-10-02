@@ -9,6 +9,8 @@ import {
   LoaderCircle,
   RotateCcw,
   Save,
+  Pencil,
+  Upload,
   ShieldCheck,
   WandSparkles,
 } from "lucide-react";
@@ -48,6 +50,20 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
   const [options, setOptions] = useState(toLines(s.quiz?.options));
   const [answer, setAnswer] = useState(s.quiz?.answer_index ?? 0);
   const [notes, setNotes] = useState(s.speaker_notes || "");
+  const [layout, setLayout] = useState(s.layout);
+  const [timing, setTiming] = useState(s.timing_minutes);
+  const [columns, setColumns] = useState<any[]>(s.columns?.length ? s.columns : [{ heading: "", bullets: [] }, { heading: "", bullets: [] }]);
+  const [table, setTable] = useState<any>(s.table || { headers: ["Item", "Value"], rows: [["", ""]] });
+  const [terms, setTerms] = useState<any[]>(s.terms || []);
+  const [chartKind, setChartKind] = useState(s.chart?.kind || "bar");
+  const [categories, setCategories] = useState(toLines(s.chart?.categories));
+  const [series, setSeries] = useState<any[]>(s.chart?.series?.map((item: any) => ({ name: item.name, values: item.values.join(", ") })) || [{ name: "", values: "" }]);
+  const [chartSource, setChartSource] = useState(s.chart?.source || "");
+  const [chartUnit, setChartUnit] = useState(s.chart?.unit || "");
+  const [assetId, setAssetId] = useState<string | null>(s.asset_id || null);
+  const [imageFit, setImageFit] = useState(s.visual?.fit || "contain");
+  const [imageChanged, setImageChanged] = useState(false);
+  const [imageRemoved, setImageRemoved] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const { data: versions, mutate: refreshVersions } = useApi<any>(`/lessons/${lessonId}/slides/${slide.number}/versions`);
@@ -61,24 +77,45 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
     setOptions(toLines(s.quiz?.options));
     setAnswer(s.quiz?.answer_index ?? 0);
     setNotes(s.speaker_notes || "");
+    setLayout(s.layout); setTiming(s.timing_minutes);
+    setColumns(s.columns?.length ? s.columns : [{ heading: "", bullets: [] }, { heading: "", bullets: [] }]);
+    setTable(s.table || { headers: ["Item", "Value"], rows: [["", ""]] }); setTerms(s.terms || []);
+    setChartKind(s.chart?.kind || "bar"); setCategories(toLines(s.chart?.categories));
+    setSeries(s.chart?.series?.map((item: any) => ({ name: item.name, values: item.values.join(", ") })) || [{ name: "", values: "" }]);
+    setChartSource(s.chart?.source || ""); setChartUnit(s.chart?.unit || "");
+    setAssetId(s.asset_id || null); setImageFit(s.visual?.fit || "contain"); setImageChanged(false); setImageRemoved(false);
     refreshVersions();
   }, [slide.id, slide.version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     setBusy("save");
-    const patch: any = { title, speaker_notes: notes };
+    const patch: any = { title, speaker_notes: notes, layout, timing_minutes: Number(timing) };
     if (s.subtitle !== null || subtitle) patch.subtitle = subtitle || null;
-    if (s.bullets.length || ["concept", "summary", "objectives", "homework", "exit_ticket", "image_text", "discussion"].includes(s.layout)) {
+    if (s.bullets.length || ["concept", "summary", "objectives", "homework", "exit_ticket", "image_text", "discussion"].includes(layout)) {
       patch.bullets = bullets.split("\n").filter((l: string) => l.trim()).map((l: string) => ({ text: l.replace(/^\s*-\s*/, "").trim(), level: /^\s+-/.test(l) ? 1 : 0 }));
     }
-    if (s.steps.length) {
+    if (s.steps.length || ["process", "cycle", "timeline", "activity"].includes(layout)) {
       patch.steps = steps.split("\n").filter((l: string) => l.trim()).map((l: string) => {
         const [label, ...rest] = l.split(":");
         return { label: label.trim(), detail: rest.join(":").trim() };
       });
     }
-    if (s.quiz) patch.quiz = { ...s.quiz, question, options: options.split("\n").filter((o: string) => o.trim()), answer_index: Number(answer) };
+    if (s.quiz || layout === "quiz") patch.quiz = { explanation: "", ...s.quiz, question, options: options.split("\n").filter((o: string) => o.trim()), answer_index: Number(answer) };
     else if (s.question !== null && s.question !== undefined) patch.question = question;
+    if (["two_column", "comparison"].includes(layout)) patch.columns = columns;
+    if (layout === "table") patch.table = table;
+    if (layout === "key_vocabulary") patch.terms = terms;
+    if (layout === "chart") patch.chart = { kind: chartKind, categories: categories.split("\n").map((item) => item.trim()).filter(Boolean),
+      series: series.map((item) => ({ name: item.name, values: item.values.split(",").map((number: string) => Number(number.trim())) })), source: chartSource, unit: chartUnit };
+    if (imageFit !== (s.visual?.fit || "contain") && !imageChanged) {
+      patch.visual = { ...s.visual, fit: imageFit }; patch.asset_id = assetId;
+    }
+    if (imageChanged) {
+      patch.asset_id = assetId;
+      patch.visual = { ...s.visual, kind: imageRemoved ? "none" : "image", fit: imageFit, source_image_key: null, counting_groups: [], alt_text: s.visual?.alt_text || title };
+      patch.sources = (s.sources || []).filter((source: any) => source.type !== "image");
+      if (assetId) patch.sources.push({ type: "image", source: "upload", description: "Teacher supplied" });
+    }
     try {
       const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}`, { method: "PATCH", body: { spec: patch } });
       onJob(r.job_id);
@@ -87,6 +124,18 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
     } finally {
       setBusy(null);
     }
+  };
+  const uploadImage = async (file?: File) => {
+    if (!file) return;
+    setBusy("image");
+    try {
+      const form = new FormData(); form.append("file", file);
+      const result = await api<any>("/slide-images", { form });
+      setAssetId(result.asset_id); setImageChanged(true); setImageRemoved(false);
+      if (!["concept", "image_text"].includes(layout)) setLayout("image_text");
+      notify({ tone: "success", title: "Image ready", body: "Save & rebuild to place it on the slide." });
+    } catch (error) { notify({ tone: "error", title: "Couldn't upload image", body: errorMessage(error) }); }
+    finally { setBusy(null); }
   };
   const regenerate = async (action?: string) => {
     setBusy(action || "custom");
@@ -120,12 +169,16 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
         </div>
       </div>
       <div className="space-y-3 border-t border-line pt-5">
+        <div className="flex items-center gap-2 font-semibold"><Pencil className="h-4 w-4" /> Edit slide manually</div>
+        <p className="text-xs text-muted">Change the content yourself, then save to rebuild the PowerPoint without an AI rewrite. For free-positioning shapes, download and edit in PowerPoint.</p>
+        <Field label="Layout"><Select aria-label="Layout" value={layout} onChange={(e) => setLayout(e.target.value)}>{Object.entries(LAYOUT_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field>
+        <Field label="Teaching time (minutes)"><Input type="number" min={0} step={0.5} value={timing} onChange={(e) => setTiming(e.target.value)} /></Field>
         <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         {(s.layout === "cover" || s.layout === "section" || s.layout === "activity" || s.subtitle) && (
           <Field label="Subtitle"><Input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} /></Field>
         )}
-        {(s.quiz || s.question) && <Field label="Question"><Textarea className="min-h-[60px]" value={question} onChange={(e) => setQuestion(e.target.value)} /></Field>}
-        {s.quiz && (
+        {(s.quiz || s.question || layout === "quiz" || layout === "discussion") && <Field label="Question"><Textarea className="min-h-[60px]" value={question} onChange={(e) => setQuestion(e.target.value)} /></Field>}
+        {(s.quiz || layout === "quiz") && (
           <>
             <Field label="Options (one per line)"><Textarea className="min-h-[90px]" value={options} onChange={(e) => setOptions(e.target.value)} /></Field>
             <Field label="Correct answer">
@@ -135,11 +188,35 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
             </Field>
           </>
         )}
-        {(s.bullets.length > 0 || ["concept", "summary", "objectives", "homework", "exit_ticket", "image_text"].includes(s.layout)) && (
+        {(["concept", "summary", "objectives", "homework", "exit_ticket", "image_text", "discussion", "worked_example"].includes(layout)) && (
           <Field label="Bullets (one per line, start with ‘  - ’ to indent)"><Textarea className="min-h-[120px]" value={bullets} onChange={(e) => setBullets(e.target.value)} /></Field>
         )}
-        {s.steps.length > 0 && <Field label="Steps (Label: detail)"><Textarea className="min-h-[110px]" value={steps} onChange={(e) => setSteps(e.target.value)} /></Field>}
-        {s.columns.length > 0 && <Alert tone="neutral">Columns: {s.columns.map((c: any) => c.heading).join(" · ")} — use a quick change or an instruction to rewrite them.</Alert>}
+        {(s.steps.length > 0 || ["process", "cycle", "timeline", "activity"].includes(layout)) && <Field label="Steps (Label: detail)"><Textarea className="min-h-[110px]" value={steps} onChange={(e) => setSteps(e.target.value)} /></Field>}
+        {["two_column", "comparison"].includes(layout) && columns.map((column, index) => <div key={index} className="space-y-2 rounded-lg border border-line p-3">
+          <Field label={`Column ${index + 1} heading`}><Input value={column.heading} onChange={(e) => setColumns(columns.map((item, n) => n === index ? { ...item, heading: e.target.value } : item))} /></Field>
+          <Field label="Content (one point per line)"><Textarea value={toLines(column.bullets)} onChange={(e) => setColumns(columns.map((item, n) => n === index ? { ...item, bullets: e.target.value.split("\n") } : item))} /></Field>
+        </div>)}
+        {layout === "table" && <div className="space-y-2">
+          <div className="text-sm font-medium">Table headings and cells</div>
+          <div className="overflow-x-auto"><table><thead><tr>{table.headers.map((header: string, col: number) => <th key={col}><Input aria-label={`Heading ${col + 1}`} value={header} onChange={(e) => setTable({ ...table, headers: table.headers.map((h: string, i: number) => i === col ? e.target.value : h) })} /></th>)}</tr></thead>
+          <tbody>{table.rows.map((row: string[], index: number) => <tr key={index}>{table.headers.map((_: string, col: number) => <td key={col}><Input aria-label={`Row ${index + 1} column ${col + 1}`} value={row[col] || ""} onChange={(e) => setTable({ ...table, rows: table.rows.map((r: string[], i: number) => i === index ? table.headers.map((_: string, j: number) => j === col ? e.target.value : r[j] || "") : r) })} /></td>)}<td><Button size="sm" variant="ghost" onClick={() => setTable({ ...table, rows: table.rows.filter((_: any, i: number) => i !== index) })}>Remove</Button></td></tr>)}</tbody></table></div>
+          <Button size="sm" variant="outline" disabled={table.rows.length >= 5} onClick={() => setTable({ ...table, rows: [...table.rows, table.headers.map(() => "")] })}>Add row</Button>
+          <Button size="sm" variant="outline" disabled={table.headers.length >= 4} onClick={() => setTable({ headers: [...table.headers, ""], rows: table.rows.map((row: string[]) => [...row, ""]) })}>Add column</Button>
+        </div>}
+        {layout === "chart" && <div className="space-y-3">
+          <Field label="Chart type"><Select value={chartKind} onChange={(e) => setChartKind(e.target.value)}><option value="bar">Bar</option><option value="line">Line</option><option value="pie">Pie</option></Select></Field>
+          <Field label="Categories (one per line)"><Textarea value={categories} onChange={(e) => setCategories(e.target.value)} /></Field>
+          {series.map((item, index) => <div key={index} className="space-y-2"><Field label={`Series ${index + 1} name`}><Input value={item.name} onChange={(e) => setSeries(series.map((s, i) => i === index ? { ...s, name: e.target.value } : s))} /></Field><Field label="Values (comma separated, same order as categories)"><Input value={item.values} onChange={(e) => setSeries(series.map((s, i) => i === index ? { ...s, values: e.target.value } : s))} /></Field>{series.length > 1 && <Button size="sm" variant="ghost" onClick={() => setSeries(series.filter((_, i) => i !== index))}>Remove series</Button>}</div>)}
+          <Button size="sm" variant="outline" disabled={series.length >= 4 || chartKind === "pie"} onClick={() => setSeries([...series, { name: "", values: "" }])}>Add series</Button>
+          <Field label="Units"><Input value={chartUnit} onChange={(e) => setChartUnit(e.target.value)} /></Field>
+          <Field label="Data source"><Input value={chartSource} onChange={(e) => setChartSource(e.target.value)} placeholder="e.g. Class survey, 2 October" /></Field>
+        </div>}
+        {layout === "key_vocabulary" && <div className="space-y-2">{terms.map((term, index) => <div key={index} className="space-y-2"><Input aria-label={`Term ${index + 1}`} value={term.term} onChange={(e) => setTerms(terms.map((t, i) => i === index ? { ...t, term: e.target.value } : t))} /><Input aria-label={`Meaning ${index + 1}`} value={term.meaning} onChange={(e) => setTerms(terms.map((t, i) => i === index ? { ...t, meaning: e.target.value } : t))} /><Button variant="ghost" size="sm" onClick={() => setTerms(terms.filter((_, i) => i !== index))}>Remove term</Button></div>)}<Button variant="outline" size="sm" disabled={terms.length >= 6} onClick={() => setTerms([...terms, { term: "", meaning: "", translation: null }])}>Add term</Button></div>}
+        <Field label="Image fit"><Select value={imageFit} onChange={(e) => setImageFit(e.target.value)}><option value="contain">Show full image — preserve diagrams and labels</option><option value="cover">Fill image frame — crop edges</option></Select></Field>
+        <Field label="Slide image"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm"><Upload className="h-4 w-4" /> {busy === "image" ? "Uploading…" : "Upload / replace image"}<input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={!!busy} onChange={(e) => { uploadImage(e.target.files?.[0]); e.target.value = ""; }} /></span>
+          {assetId && <Button size="sm" variant="ghost" onClick={() => { setAssetId(null); setImageChanged(true); setImageRemoved(true); }}>Remove image</Button>}
+          {imageChanged && <p className="mt-1 text-xs text-muted">Image change will apply when you save.</p>}
+        </Field>
         <Field label="Speaker notes"><Textarea className="min-h-[100px]" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         <div className="flex items-center justify-between gap-2">
           {versions?.items?.length > 1 ? (
@@ -211,6 +288,9 @@ export default function LessonPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [docOpen, setDocOpen] = useState<string | null>(null);
   const [regenOpen, setRegenOpen] = useState(false);
+  const [reflectionNote, setReflectionNote] = useState("");
+  const [coveredSlide, setCoveredSlide] = useState("");
+  const [reflectionBusy, setReflectionBusy] = useState(false);
   const [regenText, setRegenText] = useState("");
   const job = useJob(jobId || (["queued", "running"].includes(data?.job?.status) ? data.job.id : null), (j) => {
     setJobId(null);
@@ -258,11 +338,16 @@ export default function LessonPage() {
     mutate();
   };
   const reflect = async (outcome: string) => {
-    const r = await api<any>(`/lessons/${id}/reflection`, { body: { outcome } });
-    notify({ tone: "success", title: "Reflection saved", body: r.effects?.join(" ") || undefined });
-    mutate();
+    setReflectionBusy(true);
+    try {
+      const result = await api<any>(`/lessons/${id}/reflection`, { body: { outcome, note: reflectionNote || null, covered_until_slide: coveredSlide ? Number(coveredSlide) : null } });
+      notify({ tone: "success", title: "Class notes saved", body: result.effects?.join(" ") || "These notes will inform the next lesson." });
+      setReflectionNote(""); setCoveredSlide(""); mutate();
+    } catch (error) { notify({ tone: "error", title: "Couldn't save class notes", body: errorMessage(error) }); }
+    finally { setReflectionBusy(false); }
   };
 
+  const visualUnavailable = lesson.qc?.visual_status === "unavailable" || slides.some((s: any) => !s.preview);
   const visualIssues = lesson.qc?.visual || {};
   const errors = Object.values(visualIssues).flat().filter((i: any) => i.severity === "error").length;
   const overflow = (lesson.qc?.render || []).filter((r: any) => r.overflow).length;
@@ -275,16 +360,18 @@ export default function LessonPage() {
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Lesson {lesson.number}: {lesson.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <StatusBadge status={lesson.status} />
-            <Badge tone={errors || overflow ? "warn" : "success"}><ShieldCheck className="h-3 w-3" /> {errors || overflow ? `${errors + overflow} QC notes` : "QC passed"}</Badge>
+            <Badge tone={visualUnavailable || errors || overflow ? "warn" : "success"}><ShieldCheck className="h-3 w-3" /> {visualUnavailable ? "Visual check unavailable" : errors || overflow ? `${errors + overflow} QC notes` : "QC passed"}</Badge>
             <span className="text-muted">v{lesson.version} · {slides.length} slides</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {downloads.pptx && <Button href={downloads.pptx}><Download className="h-4 w-4" /> PowerPoint</Button>}
+          {downloads.pptx && <Button href={downloads.pptx}><Download className="h-4 w-4" /> Download editable PPT</Button>}
           {downloads.pdf && <Button variant="outline" href={downloads.pdf}><FileText className="h-4 w-4" /> PDF</Button>}
           <Button variant="outline" onClick={() => setRegenOpen(true)}><WandSparkles className="h-4 w-4" /> Rebuild lesson</Button>
         </div>
       </div>
+
+      {Number(lesson.qc?.images?.placeholder || 0) > 0 && <Alert tone="warn" title="Some images need replacement">A real illustration was unavailable for {lesson.qc.images.placeholder} slide(s). Use Upload / replace image in the manual editor, or rebuild with live AI illustrations enabled.</Alert>}
 
       {lesson.carry_over?.text && <Alert tone="accent" title="Carried over from the last lesson">{lesson.carry_over.text}</Alert>}
       {(jobId || generating) && (
@@ -292,7 +379,7 @@ export default function LessonPage() {
       )}
 
       <Tabs value={tab} onChange={setTab} tabs={[
-        { value: "slides", label: "Slides" }, { value: "plan", label: "Lesson plan" },
+        { value: "slides", label: "Slides & manual editor" }, { value: "plan", label: "Lesson plan" },
         { value: "documents", label: `Documents (${documents.length})` }, { value: "qc", label: "Quality check" },
       ]} />
 
@@ -329,7 +416,7 @@ export default function LessonPage() {
               </Card>
             )}
           </div>
-          <Card className="order-3 p-5">{slide && <SlideEditor lessonId={id} slide={slide} onJob={setJobId} />}</Card>
+          <div data-tour="slide-editor" className="order-3"><Card className="p-5">{slide && <SlideEditor lessonId={id} slide={slide} onJob={setJobId} />}</Card></div>
         </div>
       ) : <EmptyState title="This lesson hasn't been built yet" description="Build it from the project page." />)}
 
@@ -365,6 +452,10 @@ export default function LessonPage() {
         </div>
       )}
 
+      {lesson.qc?.ai_mode === "offline" && <Alert tone="neutral">Offline demo content. Use this lesson to test the design and workflow; review or replace the sample teaching content before classroom use.</Alert>}
+
+      {visualUnavailable && <Alert tone="warn">Slide previews and visual checks could not be completed. The PowerPoint is available, but its layout has not been verified. Rebuild the lesson to try again.</Alert>}
+
       {tab === "qc" && (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-4">
@@ -399,15 +490,17 @@ export default function LessonPage() {
         </div>
       )}
 
-      {lesson.status === "generated" && (
-        <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-ink-2">Taught this lesson? Tell the assistant how it went.</div>
+      {["generated", "reflected", "taught"].includes(lesson.status) && (
+        <div data-tour="class-reflection"><Card className="space-y-4 p-5">
+          <div className="font-semibold">After class: what did you teach, and what needs revision?</div>
+          <Field label="Class notes"><Textarea value={reflectionNote} maxLength={2000} onChange={(e) => setReflectionNote(e.target.value)} placeholder="We taught ratios today. Students struggled to choose the correct ratio; revise this tomorrow with two examples." /></Field>
+          <Field label="Last slide completed (optional)"><Input type="number" min={1} max={slides.length} value={coveredSlide} onChange={(e) => setCoveredSlide(e.target.value)} /></Field>
           <div className="flex flex-wrap gap-2">
             {[["went_well", "✅ Went well"], ["ran_out_of_time", "⏱ Ran out of time"], ["struggled", "😕 Struggled"], ["skipped", "⏭ Skipped"]].map(([k, l]) => (
-              <Button key={k} size="sm" variant="outline" onClick={() => reflect(k)}>{l}</Button>
+              <Button key={k} size="sm" variant="outline" disabled={reflectionBusy} onClick={() => reflect(k)}>{l}</Button>
             ))}
           </div>
-        </Card>
+        </Card></div>
       )}
 
       <DocumentDialog open={!!docOpen} kind={docOpen || "worksheet"} lessonId={id} onClose={() => { setDocOpen(null); mutate(); }} />

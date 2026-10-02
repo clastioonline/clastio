@@ -91,6 +91,8 @@ cd apps/api && createdb teacher_assistant_test && python -m pytest -q
 cd apps/web && npm test && npm run typecheck && npm run build
 cd apps/web && BASE_URL=http://localhost:3000 node e2e/run.mjs          # needs a running, demo-seeded stack
 cd apps/web && BASE_URL=http://localhost:3000 npm run e2e:background   # navigation, reopening, notifications and mobile Activity
+cd apps/web && BASE_URL=http://localhost:3000 npm run e2e:templates    # templates and responsive teacher screens
+cd apps/web && BASE_URL=http://localhost:3000 npm run e2e:ux           # landing, offline feedback and failed-request recovery
 ```
 
 The API tests run against real Postgres, real LibreOffice rendering and the offline AI provider. They cover the north-star deck (50 slides, teacher decorations and fonts preserved, notes, previews, zero QC errors), style analysis of PPTX and PDF, the AI adapters (with mocked SDKs), billing webhooks, WhatsApp signatures and commands, planning, memory, the assistant and security. The browser E2E test signs up, uploads a deck, builds lessons, downloads the PPTX, edits a slide, creates a worksheet, chats with the assistant and visits every page on desktop and mobile. CI (`.github/workflows/ci.yml`) runs all three, including the E2E test against the Docker Compose stack.

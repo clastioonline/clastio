@@ -21,6 +21,8 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties, type ReactNode } from "react";
+import { ProductVideo } from "@/components/product-video";
+import { LandingDetails } from "@/components/landing-details";
 import { LandingFooter, LandingNav } from "@/components/marketing";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +109,7 @@ const CHECKS = [
 const STEPS = [
   { icon: Upload, title: "Upload an old deck", text: "PPTX or PDF. Your colours, fonts, layouts, logo and header bands are read straight from the file." },
   { icon: WandSparkles, title: "Ask for a topic", text: "“Photosynthesis, Grade 8, 5 lessons, 10 slides each.” You get a connected sequence, not five copies." },
-  { icon: ScanEye, title: "Quality-checked", text: "Every slide is measured with real font metrics and visually checked, so nothing overflows." },
+  { icon: ScanEye, title: "Quality-checked", text: "Slides are checked for layout issues, giving you a starting point to review before teaching." },
   { icon: CalendarCheck, title: "Teach and reflect", text: "One tap after class says how it went, and the next lesson adapts." },
 ];
 
@@ -263,13 +265,16 @@ export default function Landing() {
         </div>
       </section>
 
+      <ProductVideo />
+      <LandingDetails />
+
       {/* ------------------------------------------------------------------ schools */}
       <section id="schools" className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
         <div className="grid items-center gap-8 rounded-[2rem] bg-[#141414] p-8 text-white sm:p-12 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">For departments and schools</h2>
             <p className="mt-3 max-w-xl text-white/70">
-              Shared school templates, schemes of work and question banks, curriculum coverage and SSO, with a data-processing agreement aligned with UAE PDPL.
+              Explore reusable designs, connected lesson planning and classroom resources for your department. Confirm account access, enabled integrations and data-handling requirements before rolling out across your school.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">

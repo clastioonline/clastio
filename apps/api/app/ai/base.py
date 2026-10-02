@@ -19,15 +19,16 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class AIError(Exception):
-    def __init__(self, message: str, *, retryable: bool = True, provider: str | None = None):
+    def __init__(self, message: str, *, retryable: bool = True, provider: str | None = None, usage: Usage | None = None):
         super().__init__(message)
         self.retryable = retryable
         self.provider = provider
+        self.usage = usage
 
 
 class AIRefusal(AIError):
-    def __init__(self, message: str, provider: str | None = None):
-        super().__init__(message, retryable=False, provider=provider)
+    def __init__(self, message: str, provider: str | None = None, usage: Usage | None = None):
+        super().__init__(message, retryable=False, provider=provider, usage=usage)
 
 
 @dataclass
@@ -48,6 +49,9 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
     cached_tokens: int = 0
+    cache_write_tokens: int = 0
+    reasoning_tokens: int = 0
+    reported: bool = True
     images: int = 0
     video_seconds: int = 0
 

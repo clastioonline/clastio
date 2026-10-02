@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/common";
 import { DocumentDialog, DocumentFiles } from "@/components/document-dialog";
 import { Badge, Button, Card, EmptyState, Input, PageHeader, Skeleton, Tabs } from "@/components/ui";
 import { formatDate } from "@/lib/api";
+import { LoadError } from "@/components/load-error";
 import { useApi } from "@/lib/hooks";
 
 function Library() {
@@ -15,9 +16,9 @@ function Library() {
   const [tab, setTab] = useState<"lessons" | "documents" | "questions">((params.get("tab") as any) || "lessons");
   const [q, setQ] = useState("");
   const [docOpen, setDocOpen] = useState(false);
-  const { data: lessons } = useApi<any>(tab === "lessons" ? "/lessons?limit=200" : null);
-  const { data: docs, mutate: refreshDocs } = useApi<any>(tab === "documents" ? "/documents" : null, { refreshInterval: 4000 });
-  const { data: questions } = useApi<any>(tab === "questions" ? `/questions?limit=200${q ? `&q=${encodeURIComponent(q)}` : ""}` : null);
+  const { data: lessons, error: lessonError, mutate: refreshLessons } = useApi<any>(tab === "lessons" ? "/lessons?limit=200" : null);
+  const { data: docs, error: docError, mutate: refreshDocs } = useApi<any>(tab === "documents" ? "/documents" : null, { refreshInterval: 4000 });
+  const { data: questions, error: questionError, mutate: refreshQuestions } = useApi<any>(tab === "questions" ? `/questions?limit=200${q ? `&q=${encodeURIComponent(q)}` : ""}` : null);
   useEffect(() => {
     const next = params.get("tab");
     if (next === "lessons" || next === "documents" || next === "questions") setTab(next);
@@ -40,7 +41,7 @@ function Library() {
         </div>
       </div>
 
-      {tab === "lessons" && (!lessons ? <Skeleton className="h-64" /> : lessons.items.length ? (
+      {tab === "lessons" && (lessonError ? <LoadError retry={refreshLessons} label="your lessons" /> : !lessons ? <Skeleton className="h-64" /> : lessons.items.length ? (
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-surface-2 text-start text-xs uppercase tracking-wide text-muted">
@@ -60,7 +61,7 @@ function Library() {
         </Card>
       ) : <EmptyState icon={<NotebookPen className="h-6 w-6" />} title="No lessons yet" action={<Button href="/projects/new">Create lessons</Button>} />)}
 
-      {tab === "documents" && (!docs ? <Skeleton className="h-64" /> : docs.items.length ? (
+      {tab === "documents" && (docError ? <LoadError retry={refreshDocs} label="your documents" /> : !docs ? <Skeleton className="h-64" /> : docs.items.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {docs.items.filter((d: any) => filt(d.title)).map((d: any) => (
             <Card key={d.id} id={`document-${d.id}`} className={`p-4 ${params.get("document") === d.id ? "ring-2 ring-brand-400" : ""}`}>
@@ -78,7 +79,7 @@ function Library() {
         </div>
       ) : <EmptyState title="No documents yet" description="Worksheets, quizzes, tests and homework you create appear here." action={<Button onClick={() => setDocOpen(true)}>Create one</Button>} />)}
 
-      {tab === "questions" && (!questions ? <Skeleton className="h-64" /> : questions.items.length ? (
+      {tab === "questions" && (questionError ? <LoadError retry={refreshQuestions} label="your questions" /> : !questions ? <Skeleton className="h-64" /> : questions.items.length ? (
         <div className="space-y-3">
           {questions.items.map((x: any) => (
             <Card key={x.id} className="p-4 text-sm">

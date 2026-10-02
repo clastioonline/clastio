@@ -41,7 +41,7 @@ def _fmt_pref(key: str, value: Any) -> str:
 
 async def build_context(db: AsyncSession, user: User, *, topic: str | None = None,
                         class_section_id: uuid.UUID | None = None, subject: str | None = None,
-                        include_sources: bool = True) -> tuple[str, dict[str, Any]]:
+                        include_sources: bool = True, source_file_ids: list[str] | None = None) -> tuple[str, dict[str, Any]]:
     """Returns (context_text, context_meta)."""
     lines: list[str] = []
     meta: dict[str, Any] = {}
@@ -84,7 +84,7 @@ async def build_context(db: AsyncSession, user: User, *, topic: str | None = Non
         if related:
             lines.append("Relevant notes from teacher memory:\n" + "\n".join(f"- {m.content}" for m in related))
         if include_sources:
-            chunks = await source_svc.retrieve(db, user.id, f"{subject or ''} {topic}", k=5)
+            chunks = await source_svc.retrieve(db, user.id, f"{subject or ''} {topic}", k=5, file_ids=source_file_ids)
             if chunks:
                 meta["sources"] = [{"file": c["file"], "page": c["page"], "file_id": c["file_id"]} for c in chunks]
                 lines.append("Reference material from the teacher's uploaded sources (prefer these facts and wording):\n"

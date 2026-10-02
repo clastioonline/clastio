@@ -103,6 +103,9 @@ jobs:
       - name: Background tasks survive navigation and reopening
         working-directory: apps/web
         run: npm run e2e:background
+      - name: Templates, responsive layouts and request recovery
+        working-directory: apps/web
+        run: npm run e2e:templates && npm run e2e:ux && npm run e2e:admin-responsive && npm run e2e:video
       - name: Service logs
         if: failure()
         run: docker compose logs --no-color --tail 300

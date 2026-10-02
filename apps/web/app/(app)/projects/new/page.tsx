@@ -2,7 +2,8 @@
 
 import { Check, Sparkles, WandSparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { ChapterSources } from "@/components/chapter-sources";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, Chips, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -13,6 +14,7 @@ function NewCourse() {
   const router = useRouter();
   const params = useSearchParams();
   const { notify } = useToast();
+  const { data: creditInfo } = useApi<any>("/usage/estimates");
   const { data: profile } = useApi<any>("/me/profile");
   const { data: classes } = useApi<any>("/classes");
   const { data: templates } = useApi<any>("/templates");
@@ -29,8 +31,14 @@ function NewCourse() {
     instructions: "",
     auto_generate: true,
     homework: true,
+    chapter_mode: "complete",
+    source_file_ids: [] as string[],
+    previous_taught: "",
+    revision_needed: "",
+    image_mode: "auto",
   });
   const [selected, setSelected] = useState<any[]>([]);
+  const [sourcesBlocked, setSourcesBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +66,7 @@ function NewCourse() {
     const c = classes?.items?.find((x: any) => x.id === id);
     setForm((f) => ({ ...f, class_section_id: id, ...(c ? { grade: c.grade, subject: c.subject } : {}) }));
   };
-  const estimate = useMemo(() => form.num_lectures * form.slides_per_lecture + 2, [form.num_lectures, form.slides_per_lecture]);
+  const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? (form.chapter_mode === "daily" ? 1 : form.num_lectures) * form.slides_per_lecture * creditInfo.costs.slide : 0) : null;
 
   const submit = async () => {
     setBusy(true);
@@ -71,6 +79,8 @@ function NewCourse() {
           class_section_id: form.class_section_id || null,
           template_id: form.template_id || null,
           instructions: form.instructions || null,
+          previous_taught: form.previous_taught || null,
+          revision_needed: form.revision_needed || null,
           outcomes: selected.map((o) => ({ code: o.code, text: o.text })),
         },
       });
@@ -84,12 +94,13 @@ function NewCourse() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader eyebrow="New course" title="What are you teaching?" subtitle="The planner builds a connected sequence: each lesson introduces new ideas and revisits earlier ones." />
+      <PageHeader eyebrow="New chapter" title="What chapter are you teaching?" subtitle="The planner builds a connected sequence: each lesson introduces new ideas and revisits earlier ones." />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
+          <ChapterSources value={form.source_file_ids} onChange={(ids) => set("source_file_ids", ids)} onBlocked={setSourcesBlocked} />
           <Card className="p-5 sm:p-6">
             <div className="space-y-5">
-              <Field label="Topic">
+              <Field label="Chapter / topic">
                 <Input autoFocus value={form.topic} onChange={(e) => set("topic", e.target.value)} placeholder="e.g. Photosynthesis" className="h-12 text-base" />
               </Field>
               <div className="grid gap-4 sm:grid-cols-3">
@@ -100,24 +111,31 @@ function NewCourse() {
                   </Select>
                 </Field>
                 <Field label="Grade">
-                  <Select value={form.grade} onChange={(e) => set("grade", e.target.value)}>
+                  <Select aria-label="Grade" value={form.grade} onChange={(e) => set("grade", e.target.value)}>
                     {GRADES.map((g) => <option key={g} value={g}>{g === "KG" ? "KG" : `Grade ${g}`}</option>)}
                   </Select>
                 </Field>
                 <Field label="Subject">
-                  <Select value={form.subject} onChange={(e) => set("subject", e.target.value)}>
+                  <Select aria-label="Subject" value={form.subject} onChange={(e) => set("subject", e.target.value)}>
                     {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
                   </Select>
                 </Field>
               </div>
+              <Field label="How would you like to prepare this chapter?">
+                <Select data-tour="chapter-mode" aria-label="How would you like to prepare this chapter?" value={form.chapter_mode} onChange={(e) => set("chapter_mode", e.target.value)}>
+                  <option value="complete">Complete chapter — build all lesson parts together</option>
+                  <option value="parts">In parts — review the plan and choose lessons to build</option>
+                  <option value="daily">Day by day — build lesson 1 now, prepare the next after teaching</option>
+                </Select>
+              </Field>
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Number of lessons">
-                  <Select value={form.num_lectures} onChange={(e) => set("num_lectures", Number(e.target.value))}>
+                  <Select aria-label="Number of lessons" value={form.num_lectures} onChange={(e) => set("num_lectures", Number(e.target.value))}>
                     {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((n) => <option key={n} value={n}>{n} lesson{n > 1 ? "s" : ""}</option>)}
                   </Select>
                 </Field>
                 <Field label="Slides per lesson">
-                  <Select value={form.slides_per_lecture} onChange={(e) => set("slides_per_lecture", Number(e.target.value))}>
+                  <Select aria-label="Slides per lesson" value={form.slides_per_lecture} onChange={(e) => set("slides_per_lecture", Number(e.target.value))}>
                     {[6, 8, 10, 12, 15, 20].map((n) => <option key={n} value={n}>{n} slides</option>)}
                   </Select>
                 </Field>
@@ -130,11 +148,25 @@ function NewCourse() {
               <Field label="Slide language">
                 <Chips options={[{ value: "en", label: "English" }, { value: "ar", label: "العربية (Arabic, right-to-left)" }]} value={form.language} onChange={(v) => set("language", v)} />
               </Field>
+              <Field label="What have you already taught? (optional)" hint="Describe the previous class so the chapter starts at the right point.">
+                <Textarea data-tour="chapter-revision" value={form.previous_taught} maxLength={2000} onChange={(e) => set("previous_taught", e.target.value)} placeholder="Yesterday we covered opposite, adjacent and hypotenuse. Students practised identifying the sides." />
+              </Field>
+              <Field label="What needs revision? (optional)" hint="The next lesson will include a focused recap and a worked example.">
+                <Textarea value={form.revision_needed} maxLength={2000} onChange={(e) => set("revision_needed", e.target.value)} placeholder="Revise choosing sin, cos or tan. Students still confuse opposite and adjacent." />
+              </Field>
+              <Field label="Images">
+                <Select value={form.image_mode} onChange={(e) => set("image_mode", e.target.value)}>
+                  <option value="auto">Reuse suitable images, then find or generate missing visuals</option>
+                  <option value="ai">Prefer AI illustrations for missing images</option>
+                  <option value="reuse">Reuse / licensed images only — no paid image generation</option>
+                </Select>
+                <p className="mt-2 text-xs text-muted">Charts and counting diagrams stay editable. AI illustrations need live mode and image allowance; unavailable images are marked for replacement.</p>
+              </Field>
               <Field label="Anything specific? (optional)" hint="e.g. include a practical on leaf starch testing; students are mostly EAL learners">
                 <Textarea value={form.instructions} onChange={(e) => set("instructions", e.target.value)} />
               </Field>
               <div className="divide-y divide-line rounded-xl border border-line px-3">
-                <Toggle checked={form.auto_generate} onChange={(v) => set("auto_generate", v)} label="Build the slides straight after planning" description="Turn off to review and edit the lesson sequence first" />
+                <Toggle checked={form.auto_generate} onChange={(v) => set("auto_generate", v)} label={form.chapter_mode === "daily" ? "Build the first lesson after planning" : form.chapter_mode === "parts" ? "Review the plan before building selected parts" : "Build all chapter parts after planning"} description="Turn off to plan first. In parts mode, choose what to build from the chapter page." />
                 <Toggle checked={form.homework} onChange={(v) => set("homework", v)} label="End each lesson with homework" />
               </div>
             </div>
@@ -185,14 +217,15 @@ function NewCourse() {
             <div className="flex items-center gap-2 font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent-500" /> You'll get</div>
             <ul className="mt-3 space-y-2 text-sm text-ink-2">
               <li>• {form.num_lectures} connected lessons{cls ? ` for ${cls.name}` : ""}</li>
-              <li>• {form.num_lectures * form.slides_per_lecture} editable slides with teacher notes</li>
+              <li>• {!form.auto_generate || form.chapter_mode === "parts" ? "Review the plan, then build the parts you choose" : form.chapter_mode === "daily" ? `${form.slides_per_lecture} editable slides for day 1; prepare later parts after class` : `${form.num_lectures * form.slides_per_lecture} editable slides with teacher notes`}</li>
               <li>• Lesson plans with differentiation (EAL, SEND, stretch)</li>
               <li>• Activities, checks for understanding{form.homework ? " and homework" : ""}</li>
             </ul>
-            <div className="mt-3 text-xs text-muted">About {estimate} credits</div>
+            <div className="mt-3 text-xs text-muted">{estimate === null ? "Loading credit estimate…" : `About ${estimate} credits`}
+              {creditInfo && <p className="mt-1">{creditInfo.remaining === null ? "Unlimited plan credits" : `${creditInfo.remaining} credits available`} · Resets {new Date(creditInfo.reset_at).toLocaleDateString()}</p>}</div>
             {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
-            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2}>
-              <WandSparkles className="h-5 w-5" /> {form.auto_generate ? "Plan and build lessons" : "Plan lessons"}
+            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || sourcesBlocked}>
+              <WandSparkles className="h-5 w-5" /> {form.auto_generate && form.chapter_mode !== "parts" ? form.chapter_mode === "daily" ? "Plan chapter & build first lesson" : "Plan & build complete chapter" : "Plan chapter"}
             </Button>
           </Card>
         </div>

@@ -24,7 +24,7 @@ class OpenAIProvider:
         s = get_settings()
         self._client = (
             openai.AsyncOpenAI(api_key=s.openai_api_key, base_url=s.openai_base_url,
-                               timeout=s.ai_request_timeout_s, max_retries=2)
+                               timeout=s.ai_request_timeout_s, max_retries=0)
             if s.openai_api_key
             else None
         )
@@ -57,13 +57,14 @@ class OpenAIProvider:
     def _usage(resp: Any) -> Usage:
         u = getattr(resp, "usage", None)
         if not u:
-            return Usage()
+            return Usage(reported=False)
         cached = 0
         details = getattr(u, "prompt_tokens_details", None)
         if details is not None:
             cached = getattr(details, "cached_tokens", 0) or 0
         return Usage(input_tokens=(u.prompt_tokens or 0) - cached, output_tokens=u.completion_tokens or 0,
-                     cached_tokens=cached)
+                     cached_tokens=cached, reasoning_tokens=getattr(getattr(u, "completion_tokens_details", None),
+                                                                  "reasoning_tokens", 0) or 0)
 
     async def _call(self, **params: Any) -> Any:
         assert self._client is not None
@@ -84,9 +85,9 @@ class OpenAIProvider:
     def _check(self, resp: Any) -> str:
         choice = resp.choices[0]
         if getattr(choice.message, "refusal", None):
-            raise AIRefusal(choice.message.refusal, provider=self.name)
+            raise AIRefusal(choice.message.refusal, provider=self.name, usage=self._usage(resp))
         if choice.finish_reason == "length":
-            raise AIError("Response truncated", retryable=True, provider=self.name)
+            raise AIError("Response truncated", retryable=True, provider=self.name, usage=self._usage(resp))
         return choice.message.content or ""
 
     async def generate_text(self, model: str, req: AIRequest) -> TextResult:
@@ -96,17 +97,26 @@ class OpenAIProvider:
     async def stream_text(self, model: str, req: AIRequest, usage_out: Usage) -> AsyncIterator[str]:
         assert self._client is not None
         params = self._params(model, req) | {"stream": True, "stream_options": {"include_usage": True}}
+        finish_reason = None
+        refusal = None
         try:
             stream = await self._client.chat.completions.create(**params)
             async for chunk in stream:
+                if chunk.choices:
+                    finish_reason = chunk.choices[0].finish_reason or finish_reason
+                    refusal = getattr(chunk.choices[0].delta, "refusal", None) or refusal
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
                 if getattr(chunk, "usage", None):
                     u = self._usage(chunk)
-                    usage_out.input_tokens, usage_out.output_tokens, usage_out.cached_tokens = (
-                        u.input_tokens, u.output_tokens, u.cached_tokens)
+                    usage_out.__dict__.update(u.__dict__)
         except openai.APIError as e:
             raise AIError(f"OpenAI stream error: {e}", retryable=False, provider=self.name) from e
+
+        if refusal or finish_reason == "content_filter":
+            raise AIRefusal(refusal or "Response declined", provider=self.name, usage=usage_out)
+        if finish_reason == "length":
+            raise AIError("Response truncated", retryable=False, provider=self.name, usage=usage_out)
 
     async def generate_structured(self, model: str, req: AIRequest, schema: type[T]) -> StructuredResult:
         params = self._params(model, req)
@@ -119,7 +129,7 @@ class OpenAIProvider:
         try:
             data = schema.model_validate(extract_json(text))
         except (ValidationError, json.JSONDecodeError, ValueError) as e:
-            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name) from e
+            raise AIError(f"Structured output failed validation: {e}", retryable=True, provider=self.name, usage=self._usage(resp)) from e
         return StructuredResult(data, self._usage(resp), model, self.name)
 
     async def generate_embedding(self, model: str, texts: list[str], dim: int):
@@ -129,7 +139,7 @@ class OpenAIProvider:
         except openai.APIError as e:
             raise AIError(f"OpenAI embedding error: {e}", retryable=True, provider=self.name) from e
         vectors = [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
-        return vectors, Usage(input_tokens=resp.usage.prompt_tokens if resp.usage else 0)
+        return vectors, Usage(input_tokens=resp.usage.prompt_tokens if resp.usage else 0, reported=bool(resp.usage))
 
     async def generate_image(self, model: str, prompt: str, size: str) -> ImageResult:
         assert self._client is not None

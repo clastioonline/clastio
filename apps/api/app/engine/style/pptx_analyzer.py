@@ -6,6 +6,7 @@ all explicit in the file. The output feeds both the TeacherStyleProfile and the 
 
 from __future__ import annotations
 
+import colorsys
 import hashlib
 import statistics
 from collections import Counter, defaultdict
@@ -28,6 +29,7 @@ from app.engine.style.common import (
     is_neutral,
     luminance,
 )
+from app.engine.style.content import shape_image_bytes
 
 TITLE_TYPES = {PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE, PP_PLACEHOLDER.VERTICAL_TITLE}
 BODY_TYPES = {PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.VERTICAL_BODY, PP_PLACEHOLDER.SUBTITLE}
@@ -94,6 +96,41 @@ class PptxAnalyzer:
         self.theme_colors: dict[str, str] = self.theme["colors"]
         self.theme_fonts: dict[str, str] = self.theme["fonts"]
         self.layouts = all_slide_layouts(self.prs)
+        self._master = self.prs.slide_master
+
+    def _use_master(self, master) -> None:
+        self._master = master
+        theme = read_theme(self.prs, master)
+        self.theme_colors, self.theme_fonts = theme["colors"], theme["fonts"]
+
+    def _xml_color(self, node) -> str | None:
+        if node is None:
+            return None
+        if node.tag == qn("a:srgbClr"):
+            color = "#" + node.get("val", "000000")
+        elif node.tag == qn("a:schemeClr"):
+            slot = node.get("val")
+            cmap = self._master._element.find(qn("p:clrMap"))
+            if cmap is not None:
+                slot = cmap.get(slot, slot)
+            color = self.theme_colors.get(slot)
+        elif node.tag == qn("a:sysClr"):
+            color = "#" + node.get("lastClr", "000000")
+        else:
+            return None
+        if not color:
+            return None
+        rgb = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        for transform in node:
+            name = transform.tag.split("}")[-1]
+            value = int(transform.get("val", "0")) / 100000
+            if name in ("lumMod", "lumOff"):
+                h, light, sat = colorsys.rgb_to_hls(*rgb)
+                light = light * value if name == "lumMod" else light + value
+                rgb = colorsys.hls_to_rgb(h, max(0, min(1, light)), sat)
+            elif name in ("tint", "shade"):
+                rgb = tuple(c + (1 - c) * value if name == "tint" else c * value for c in rgb)
+        return "#" + "".join(f"{round(max(0, min(1, c)) * 255):02X}" for c in rgb)
 
     # ------------------------------------------------------------------ colour/font resolution
 
@@ -105,6 +142,9 @@ class PptxAnalyzer:
         if ctype == MSO_COLOR_TYPE.RGB:
             return "#" + str(color_format.rgb)
         if ctype == MSO_COLOR_TYPE.SCHEME:
+            xml = getattr(color_format, "_xClr", None)
+            if xml is not None:
+                return self._xml_color(xml)
             name = getattr(color_format.theme_color, "name", "")
             slot = THEME_COLOR_SLOTS.get(name)
             return self.theme_colors.get(slot) if slot else None
@@ -138,14 +178,18 @@ class PptxAnalyzer:
             style = "titleStyle" if ptype in TITLE_TYPES else "bodyStyle"
         else:
             style = "otherStyle"
-        master = self.prs.slide_master._element
+        master = self._master._element
         d = master.find(f".//p:txStyles/p:{style}/a:lvl1pPr/a:defRPr", NS)
         if d is not None and d.get("sz"):
             return int(d.get("sz")) / 100
         return 18.0
 
-    def _font_family(self, run, shape) -> str | None:
-        name = run.font.name
+    def _font_family(self, run, shape, paragraph=None) -> str | None:
+        name = run.font.name or (paragraph.font.name if paragraph is not None else None)
+        if not name and paragraph is not None:
+            end = paragraph._p.find(qn("a:endParaRPr") + "/" + qn("a:latin"))
+            if end is not None:
+                name = end.get("typeface")
         if name and not name.startswith("+"):
             return name
         is_title = shape.is_placeholder and shape.placeholder_format.type in TITLE_TYPES
@@ -161,7 +205,7 @@ class PptxAnalyzer:
             if shape.is_placeholder and (not width or not height):
                 # Broken/partial xfrm: fall back to the master placeholder of the same type.
                 ptype = shape.placeholder_format.type
-                for mph in self.prs.slide_master.placeholders:
+                for mph in self._master.placeholders:
                     if mph.placeholder_format.type == ptype or (
                             ptype in TITLE_TYPES and mph.placeholder_format.type in TITLE_TYPES) or (
                             ptype in BODY_TYPES and mph.placeholder_format.type in BODY_TYPES):
@@ -178,10 +222,11 @@ class PptxAnalyzer:
         st = shape.shape_type
         if shape.is_placeholder:
             info.placeholder_type = shape.placeholder_format.type
-        if st == MSO_SHAPE_TYPE.PICTURE or (shape.is_placeholder and hasattr(shape, "image")):
+        image_data = shape_image_bytes(shape)
+        if image_data is not None:
             info.kind = "picture"
             try:
-                info.image_hash = hashlib.sha1(shape.image.blob).hexdigest()
+                info.image_hash = hashlib.sha1(image_data).hexdigest()
             except Exception:
                 info.image_hash = None
             return info
@@ -217,7 +262,7 @@ class PptxAnalyzer:
                         continue
                     size = r.font.size.pt if r.font.size else (p.font.size.pt if p.font.size else default_size)
                     info.max_font_pt = max(info.max_font_pt, size)
-                    fam = self._font_family(r, shape)
+                    fam = self._font_family(r, shape, p)
                     if fam:
                         info.fonts[(fam, size)] += n
                     col = self._color_of(r.font.color) if r.font.color and r.font.color.type else None
@@ -225,7 +270,7 @@ class PptxAnalyzer:
                         col = self.theme_colors.get("dk1", "#000000")
                     info.text_colors[col] += n
                     total += n
-                    if r.font.bold:
+                    if r.font.bold if r.font.bold is not None else p.font.bold:
                         bold += n
             info.paragraphs = paras
             info.text = "\n".join(paras)
@@ -234,7 +279,7 @@ class PptxAnalyzer:
 
     def _background(self, slide) -> dict[str, Any]:
         for src, el in (("slide", slide._element), ("layout", slide.slide_layout._element),
-                        ("master", self.prs.slide_master._element)):
+                        ("master", slide.slide_layout.slide_master._element)):
             bg = el.find(qn("p:cSld") + "/" + qn("p:bg"))
             if bg is None:
                 continue
@@ -244,11 +289,8 @@ class PptxAnalyzer:
                 return {"kind": "image", "source": src}
             if solid is not None and len(solid):
                 c = solid[0]
-                if c.tag == qn("a:srgbClr"):
-                    return {"kind": "solid", "color": "#" + c.get("val").upper(), "source": src}
-                if c.tag == qn("a:schemeClr"):
-                    slot = {"bg1": "lt1", "bg2": "lt2", "tx1": "dk1", "tx2": "dk2"}.get(c.get("val"), c.get("val"))
-                    return {"kind": "solid", "color": self.theme_colors.get(slot, "#FFFFFF"), "source": src}
+                if color := self._xml_color(c):
+                    return {"kind": "solid", "color": color, "source": src}
             bgref = bg.find(qn("p:bgRef"))
             if bgref is not None:
                 return {"kind": "theme", "color": self.theme_colors.get("lt1", "#FFFFFF"), "source": src}
@@ -257,6 +299,7 @@ class PptxAnalyzer:
     def _slides(self) -> list[SlideInfo]:
         out = []
         for i, slide in enumerate(self.prs.slides):
+            self._use_master(slide.slide_layout.slide_master)
             shapes = []
             for sh in slide.shapes:
                 info = self._shape_info(sh)
@@ -266,6 +309,59 @@ class PptxAnalyzer:
             out.append(SlideInfo(index=i, layout_index=self.layouts.index(layout), layout_name=layout.name,
                                  shapes=shapes, background=self._background(slide)))
         return out
+
+    def _stage_variants(self) -> list[dict[str, Any]]:
+        """Match a layout's navigation pointer to its master label, not its arbitrary layout name."""
+        variants = []
+        seen = set()
+        for i, slide in enumerate(self.prs.slides):
+            layout = slide.slide_layout
+            if layout.part in seen:
+                continue
+            seen.add(layout.part)
+            self._use_master(layout.slide_master)
+            labels = [self._shape_info(sh) for sh in layout.slide_master.shapes
+                      if sh.has_text_frame and sh.text.strip() and self._norm_bbox(sh)[0] < .05
+                      and self._norm_bbox(sh)[2] < .2]
+            labels = [sh for sh in labels if sh is not None]
+            pointers = [self._norm_bbox(sh) for sh in layout.shapes if not sh.is_placeholder
+                        and .02 < self._norm_bbox(sh)[0] < .2 and self._norm_bbox(sh)[2] < .06
+                        and self._norm_bbox(sh)[3] < .06]
+            if len(labels) < 3 or not pointers:
+                continue
+            pointer = pointers[0]
+            label = min(labels, key=lambda sh: abs(sh.bbox[1] + sh.bbox[3] / 2 - pointer[1] - pointer[3] / 2))
+            stage = label.text.strip().lower().replace("-", "_").replace(" ", "_")
+            panels = [self._norm_bbox(sh) for sh in layout.shapes if not sh.is_placeholder
+                      and self._norm_bbox(sh)[2] > .65 and self._norm_bbox(sh)[3] > .8]
+            if not panels:
+                continue
+            panel = panels[0]
+            shapes = [self._shape_info(sh) for sh in slide.shapes]
+            bands = [sh for sh in shapes if sh and sh.kind == "autoshape" and sh.fill
+                     and sh.bbox[1] < .03 and sh.bbox[2] > .65 and .04 < sh.bbox[3] < .18]
+            band = bands[0] if bands else None
+            header_font = self.theme_fonts.get("minor", "Arial")
+            if band:
+                raw_band = next(sh for sh in slide.shapes if sh.shape_id == band.shape_id)
+                latin = raw_band._element.find(".//" + qn("a:endParaRPr") + "/" + qn("a:latin"))
+                if band.fonts:
+                    header_font = band.fonts.most_common(1)[0][0][0]
+                elif latin is not None:
+                    header_font = latin.get("typeface") or header_font
+            x, right = panel[0] + .025, min(.98, panel[0] + panel[2] - .025)
+            title = [x, .012, right - x, .09]
+            if band:
+                title = [x, max(0, band.bbox[1]) + .008, right - x, band.bbox[3] - .016]
+                if band.bbox[3] < .075:
+                    title = [x, max(0, band.bbox[1]) + band.bbox[3] + .008, right - x, .075]
+            body_top = max(.15, title[1] + title[3] + .025)
+            variants.append({"stage": stage, "layout_index": self.layouts.index(layout),
+                             "donor_slide": i, "header_id": band.shape_id if band else None,
+                             "header_color": band.fill if band else None,
+                             "zones": {"title": title, "body": [x, body_top, right - x, .95 - body_top]},
+                             "header_font": header_font, "background": self._background(slide)})
+        return variants
 
     # ------------------------------------------------------------------ analysis
 
@@ -284,6 +380,7 @@ class PptxAnalyzer:
 
     def analyze(self) -> dict[str, Any]:
         slides = self._slides()
+        stage_variants = self._stage_variants()
         n = len(slides)
         content_slides = slides[1:] if n > 1 else slides
 
@@ -433,10 +530,13 @@ class PptxAnalyzer:
                     "title": list(texts[0].bbox),
                     "title_pt": texts[0].max_font_pt,
                     "title_color": (texts[0].text_colors.most_common(1) or [[title_color]])[0][0],
+                    "title_font": (texts[0].fonts.most_common(1)[0][0][0] if texts[0].fonts else heading_font),
                     "subtitle": list(texts[1].bbox) if len(texts) > 1 else None,
                     "subtitle_pt": texts[1].max_font_pt if len(texts) > 1 else None,
                     "subtitle_color": (texts[1].text_colors.most_common(1) or [[secondary]])[0][0]
                     if len(texts) > 1 else None,
+                    "subtitle_font": (texts[1].fonts.most_common(1)[0][0][0]
+                                      if len(texts) > 1 and texts[1].fonts else body_font),
                     "align": texts[0].alignment or "left",
                 }
 
@@ -446,6 +546,7 @@ class PptxAnalyzer:
             layout_usage[s.layout_index][s.label] += 1
         layouts_meta = []
         for li, layout in enumerate(self.layouts):
+            self._use_master(layout.slide_master)
             phs = []
             for ph in layout.placeholders:
                 t = ph.placeholder_format.type
@@ -517,6 +618,7 @@ class PptxAnalyzer:
                                       if s.title_shape and s.title_shape.alignment), None) or "left"),
             },
             "stats": {"slides": n, "decoration_count": len(decoration_sigs)},
+            "stage_variants": stage_variants,
         }
 
 

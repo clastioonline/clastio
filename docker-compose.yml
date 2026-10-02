@@ -4,7 +4,8 @@
 #   docker compose up -d --build
 #   open http://localhost:3000   (demo: sara@example.com / teacher-demo-123)
 #
-# Without an AI key everything still runs in demo mode with built-in sample content.
+# For built-in demo content, explicitly set AI_OFFLINE_MODE=true.
+# Live generation requires provider keys, approved price cards and enabled spending controls.
 
 name: ai-teacher-assistant
 
@@ -15,7 +16,7 @@ x-backend: &backend
       BASE_IMAGE: ${API_BASE_IMAGE:-ubuntu:24.04}
   image: ai-teacher-assistant-api:local
   env_file:
-    - path: .env
+    - path: ${APP_ENV_FILE:-.env}
       required: false
   environment: &backend-env
     DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/teacher_assistant

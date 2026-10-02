@@ -1,0 +1,111 @@
+# Compose >= 2.24.4. Merge with docker-compose.yml; do not run this file alone.
+x-production-env: &production-env
+  ENVIRONMENT: production
+  SECRET_KEY: ${SECRET_KEY:?Set a random SECRET_KEY in the production environment}
+  COOKIE_SECURE: "true"
+  PUBLIC_WEB_URL: https://${APP_DOMAIN:?Set your public domain}
+  CORS_ORIGINS: '["https://${APP_DOMAIN}"]'
+  RUN_JOBS_INLINE: "false"
+  AI_OFFLINE_MODE: ${AI_OFFLINE_MODE:-false}
+  DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+  DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+  AI_MAX_CONCURRENCY: ${AI_MAX_CONCURRENCY:-4}
+  AI_GLOBAL_CONCURRENCY: ${AI_GLOBAL_CONCURRENCY:-8}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a strong PostgreSQL password}
+    shm_size: 256mb
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+
+  redis:
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    environment:
+      <<: *production-env
+      SEED_DEMO: "false"
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed --skip-embeddings"]
+
+  api:
+    ports: !reset []
+    environment:
+      <<: *production-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers", "--limit-concurrency", "200", "--timeout-graceful-shutdown", "30"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    stop_grace_period: 45s
+
+  worker:
+    environment:
+      <<: *production-env
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "2"
+    command: ["python", "-m", "app.worker", "--concurrency", "2", "--no-scheduler"]
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 3G
+    stop_grace_period: 5m
+
+  scheduler:
+    extends:
+      file: docker-compose.yml
+      service: worker
+    environment:
+      <<: *production-env
+      DB_POOL_SIZE: "3"
+      DB_MAX_OVERFLOW: "2"
+    command: ["python", "-m", "app.worker", "--scheduler-only"]
+    stop_grace_period: 30s
+
+  web:
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_SITE_URL: https://${APP_DOMAIN}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  edge:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redisdata:
+  caddydata:
+  caddyconfig:

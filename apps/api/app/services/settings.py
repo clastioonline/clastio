@@ -17,6 +17,10 @@ DEFAULTS: dict[str, Any] = {
     },
     "model_routing": {},
     "ai_pricing": {},
+    "ai_budget": {"live_enabled": False, "daily_usd": 10, "monthly_usd": 100,
+                  "user_monthly_usd": 5, "job_usd": 2, "call_usd": 1,
+                  "max_calls_per_job": 60, "max_input_bytes": 120000, "max_output_tokens": 24000},
+    "ai_rate_cards": {},
     "feature_flags": {"whatsapp": True, "ai_images": True, "openverse": True, "vision_qc": False},
     "qc": {"min_body_pt": 16, "min_title_pt": 24, "max_repair_attempts": 2, "max_words_per_slide": 70},
     # Which payment gateway checkout uses: "auto" picks Dodo Payments when its key is set, else Stripe.

@@ -77,7 +77,7 @@ def _question(doc: Document, i: int, q: Question, *, key: bool) -> None:
     marks.font.size = Pt(9)
     marks.font.color.rgb = _rgb("#6B7280")
     if q.qtype in ("mcq", "true_false") and q.options:
-        for j, opt in enumerate(q.options):
+        for j, opt in enumerate(option for option in q.options if option.strip()):
             op = doc.add_paragraph(f"      {LETTERS[j]})  {opt}")
             op.paragraph_format.space_after = Pt(0)
             if key and opt.strip().lower() == q.answer.strip().lower():

@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check, Clock, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
+import { startWalkthrough } from "@/components/app-walkthrough";
 import { DashHeader, PillButton } from "@/components/dash";
 import { Modal } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
@@ -45,6 +46,8 @@ export default function Tutorials() {
   return (
     <div className="space-y-6">
       <DashHeader title="Tutorials & help" subtitle="Short guides to get the most out of Clastio. Each takes two or three minutes." />
+
+      <PillButton onClick={startWalkthrough}>Start the complete app walkthrough <ArrowRight className="h-4 w-4" /></PillButton>
 
       <section className="ui-hero flex flex-col gap-5 overflow-hidden rounded-3xl bg-brand-800 p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
         <div>

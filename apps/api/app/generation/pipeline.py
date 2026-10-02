@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.ai.base import ImageInput
 from app.ai.service import AIService
 from app.core.logging import log
 from app.engine.render.renderer import DeckRenderer
@@ -50,11 +51,11 @@ def clip_words(text: str, n: int) -> str:
 
 
 async def plan_course(ai: AIService, req: dict[str, Any], context_text: str, *, owner_id: uuid.UUID | None = None,
-                      job_id: uuid.UUID | None = None) -> CoursePlan:
+                      job_id: uuid.UUID | None = None, reference_images: list[ImageInput] | None = None) -> CoursePlan:
     prompt = prompts.course_prompt(req, context_text)
     plan = await ai.structured(task="course_plan", tier="planning", system=prompts.COURSE_SYSTEM, prompt=prompt,
                                schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id,
-                               offline_context=req, prompt_version=prompts.PROMPT_VERSION)
+                               offline_context=req, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
     issues = await progression_issues(ai, plan)
     if issues and ai.mode == "live":
         feedback = "\n".join(f"- {i}" for i in issues)
@@ -63,7 +64,7 @@ async def plan_course(ai: AIService, req: dict[str, Any], context_text: str, *, 
             prompt=prompt + f"\n\nYour previous plan repeated content across lectures:\n{feedback}\n"
                             "Revise so each lecture introduces distinct concepts.",
             schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id, offline_context=req,
-            prompt_version=prompts.PROMPT_VERSION)
+            prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
     return fix_course_plan(plan, req)
 
 
@@ -109,7 +110,7 @@ async def progression_issues(ai: AIService, plan: CoursePlan) -> list[str]:
 async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str, course: CoursePlan,
                         lecture_number: int, budgets: dict[str, Any], carry_over: str | None = None,
                         homework: bool = True, owner_id: uuid.UUID | None = None,
-                        job_id: uuid.UUID | None = None) -> LessonDeck:
+                        job_id: uuid.UUID | None = None, reference_images: list[ImageInput] | None = None) -> LessonDeck:
     lecture = course.lectures[lecture_number - 1]
     previous = [lec.model_dump() for lec in course.lectures[: lecture_number - 1]]
     prompt = prompts.deck_prompt(req=req, context_text=context_text, course=course.model_dump(),
@@ -119,7 +120,8 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
                    "total_lectures": len(course.lectures), "homework": homework, "budgets": budgets}
     deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM, prompt=prompt,
                                schema=LessonDeck, effort="low", max_tokens=24000, owner_id=owner_id, job_id=job_id,
-                               offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION)
+                               offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION,
+                               images=reference_images, cache=True)
     return normalize_deck(deck, req=req, lecture_number=lecture_number, total=len(course.lectures),
                           lecture_title=lecture.title)
 
@@ -156,8 +158,17 @@ def normalize_deck(deck: LessonDeck, *, req: dict[str, Any], lecture_number: int
             if not 0 <= s.quiz.answer_index < len(opts):
                 s.quiz.answer_index = 0
     deck.slides = slides
+    duration = int(req["lecture_minutes"])
+    weights = [max(0, s.timing_minutes) if math.isfinite(s.timing_minutes) else 0 for s in slides]
+    if sum(weights) <= 0:
+        weights = [1] * len(slides)
+    total_weight = sum(weights)
+    for s, weight in zip(slides, weights, strict=True):
+        s.timing_minutes = round(duration * weight / total_weight, 2)
+    largest = slides[weights.index(max(weights))]
+    largest.timing_minutes = round(largest.timing_minutes + duration - sum(s.timing_minutes for s in slides), 2)
     deck.lesson_plan.lecture_number = lecture_number
-    deck.lesson_plan.duration_minutes = int(req["lecture_minutes"])
+    deck.lesson_plan.duration_minutes = duration
     return deck
 
 

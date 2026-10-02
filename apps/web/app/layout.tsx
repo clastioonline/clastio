@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: { default: "Clastio — lessons and slides in your own design", template: "%s · Clastio" },
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
-  icons: { icon: "/icon.svg" },
+  icons: { icon: "/brand/clastio-original.png" },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   openGraph: {
     type: "website",

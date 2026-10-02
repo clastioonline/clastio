@@ -22,8 +22,9 @@ from pptx.util import Emu, Pt
 
 from app.engine.pptx_xml import delete_all_slides_except, write_theme
 from app.engine.style.common import contrast_ratio, luminance, mix, readable_text_on
+from app.engine.style.content import extract_content
 
-SPEC_VERSION = 2
+SPEC_VERSION = 3
 DEFAULT_TITLE = [0.05, 0.05, 0.9, 0.13]
 
 
@@ -152,8 +153,11 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
     cover = deco.get("cover")
     content_items = (content or {}).get("items", [])
     spec = _base_spec(analysis, "native", content_items)
+    spec["extracted_style_defaults"] = {key: dict(spec[key]) for key in ("colors", "fonts", "typography")}
 
-    donors = sorted({d["donor_slide"] for d in (content, cover) if d})
+    variants = analysis.get("stage_variants") or []
+    spec["source_content"], _ = extract_content(prs)
+    donors = sorted({d["donor_slide"] for d in (content, cover, *variants) if d})
     delete_all_slides_except(prs, donors)
     new_index = {old: i for i, old in enumerate(donors)}
     spec["donor_count"] = len(donors)
@@ -194,6 +198,19 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
     spec["section"] = {"layout_index": lm.get("section_layout_index")}
     spec["layouts"] = [{"index": m["index"], "name": m["name"],
                         "placeholder_types": [p["type"] for p in m["placeholders"]]} for m in layouts]
+    spec["stage_variants"] = {}
+    for variant in variants:
+        ids = [variant["header_id"]] if variant.get("header_id") is not None else []
+        spec["stage_variants"].setdefault(variant["stage"], {
+            "layout_index": variant["layout_index"], "donor_index": new_index[variant["donor_slide"]],
+            "item_ids": ids, "clear_text_ids": ids, "use_placeholders": False,
+            "copy_background": variant["background"].get("source") == "slide",
+            "zones": {**spec["zones"], **variant["zones"]},
+            "colors": {**spec["colors"], "title": "#000000"},
+            "typography": {**spec["typography"], "title_align": "left", "title_bold": True,
+                           "title_pt": 28},
+            "fonts": {**spec["fonts"], "heading": variant["header_font"]},
+        })
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue(), spec

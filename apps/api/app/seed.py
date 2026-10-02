@@ -89,7 +89,7 @@ CALENDAR = [
 ]
 
 
-async def seed_core() -> None:
+async def seed_core(*, embed: bool = True) -> None:
     async with get_sessionmaker()() as db:
         await seed_plans(db)
         for code, name, country in FRAMEWORKS:
@@ -113,7 +113,8 @@ async def seed_core() -> None:
         await ensure_builtin_templates(db)
         await legal.seed_documents(db)
         await db.commit()
-    await embed_outcomes()
+    if embed:
+        await embed_outcomes()
 
 
 async def embed_outcomes() -> None:
@@ -170,8 +171,8 @@ async def seed_demo() -> dict[str, str]:
     return {"admin": "admin@example.com / admin-demo-123", "teacher": "sara@example.com / teacher-demo-123"}
 
 
-async def main(demo: bool) -> None:
-    await seed_core()
+async def main(demo: bool, embed: bool = True) -> None:
+    await seed_core(embed=embed)
     if demo and get_settings().is_production:
         # Demo accounts have published passwords; never create them on a production deployment.
         print("Skipping demo accounts: ENVIRONMENT=production.")
@@ -185,4 +186,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--demo", action="store_true",
                     default=os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes"))
-    asyncio.run(main(ap.parse_args().demo))
+    ap.add_argument("--skip-embeddings", action="store_true", help="Seed without calling an AI provider")
+    args = ap.parse_args()
+    asyncio.run(main(args.demo, not args.skip_embeddings))

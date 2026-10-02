@@ -8,9 +8,11 @@ import uuid
 from datetime import date
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.base import ImageInput
 from app.ai.service import get_ai
 from app.core.db import get_sessionmaker, utcnow
 from app.core.errors import AppError, NotFound
@@ -22,14 +24,17 @@ from app.generation.budgets import compute_budgets
 from app.generation.specs import CoursePlan, LessonDeck, LessonPlan, SlideSpec
 from app.jobs.queue import JobContext, PermanentJobError, enqueue, run_inline_if_configured
 from app.models import (
+    Asset,
     ClassSection,
     Course,
     Lesson,
+    LessonReflection,
     Project,
     Slide,
     SlideVersion,
     TeacherProfile,
     Template,
+    UploadedFile,
     User,
 )
 from app.services import assets as asset_svc
@@ -87,6 +92,10 @@ async def resolve_template(db: AsyncSession, user_id: uuid.UUID, template_id: uu
 
         await ensure_builtin_templates(db)
         tpl = (await db.execute(select(Template).where(Template.owner_id.is_(None)))).scalars().first()
+    if tpl and tpl.owner_id == user_id:
+        from app.services.styles import refresh_native_template
+
+        await refresh_native_template(db, tpl)
     return tpl
 
 
@@ -100,10 +109,30 @@ def course_request(course: Course, extra: dict[str, Any] | None = None) -> dict[
     return req
 
 
+def chapter_teaching_context(course: Course, preparation: dict | None = None) -> str:
+    preparation = preparation or {}
+    taught = preparation.get("previous_taught") if preparation.get("previous_taught") is not None else course.options.get("previous_taught")
+    revise = preparation.get("revision_needed") if preparation.get("revision_needed") is not None else course.options.get("revision_needed")
+    lines = ["\nCHAPTER PREPARATION: " + course.options.get("chapter_mode", "complete")]
+    if taught:
+        lines.append("Teacher reports already taught: " + taught)
+    if revise:
+        lines.append("Teacher asks to revise again: " + revise)
+    lines.append("Use a short diagnostic recap and worked example for revision. Continue with new concepts; do not repeat the whole chapter. Generated lesson files are plans, not proof that they were taught.")
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------------------- create / plan
 
 
 async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> tuple[Course, uuid.UUID]:
+    selected_sources = list(dict.fromkeys(str(fid) for fid in data.get("source_file_ids", [])))
+    for file_id in selected_sources:
+        source = await db.get(UploadedFile, uuid.UUID(file_id))
+        if source is None or source.owner_id != user.id or source.kind != "source":
+            raise NotFound("Source")
+        if source.status != "ready":
+            raise AppError("source_not_ready", f"Wait until {source.filename} finishes processing before creating the chapter.", 409)
     plan, _ = await usage.get_plan(db, user)
     max_lectures = int(plan.limits.get("max_lectures", 30))
     if data["num_lectures"] > max_lectures and user.role != "admin":
@@ -126,7 +155,10 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
                     outcome_codes=[o.get("code") for o in data.get("outcomes", []) if o.get("code")],
                     options={"outcomes": data.get("outcomes", []), "instructions": data.get("instructions"),
                              "auto_generate": bool(data.get("auto_generate")),
-                             "homework": data.get("homework", True), "start_date": data.get("start_date")},
+                             "homework": data.get("homework", True), "start_date": data.get("start_date"),
+                             "source_file_ids": selected_sources, "chapter_mode": data.get("chapter_mode", "complete"),
+                             "previous_taught": data.get("previous_taught"), "revision_needed": data.get("revision_needed"),
+                             "image_mode": data.get("image_mode", "auto")},
                     status="planning")
     db.add(course)
     await db.flush()
@@ -147,10 +179,20 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
         user = await db.get(User, course.owner_id)
         await ctx.progress(10, "Reading your teaching context")
         context_text, meta = await build_context(db, user, topic=course.topic, class_section_id=course.class_section_id,
-                                                 subject=course.subject)
+                                                 subject=course.subject, source_file_ids=course.options.get("source_file_ids"))
+        template = await resolve_template(db, user.id, course.template_id)
+        from app.services.styles import source_context
+
+        context_text += source_context(template.spec, course.topic) if template else ""
+        context_text += chapter_teaching_context(course)
+        reference_images = []
+        if template and template.spec.get("source_reference_key"):
+            reference_images = [ImageInput(data=await get_storage().get(template.spec["source_reference_key"]),
+                                           media_type="image/jpeg")]
         req = course_request(course, {"country": meta.get("country", "AE")})
     await ctx.progress(30, "Planning the lesson sequence")
-    plan = await pipeline.plan_course(get_ai(), req, context_text, owner_id=course.owner_id, job_id=ctx.job_id)
+    plan = await pipeline.plan_course(get_ai(), req, context_text, owner_id=course.owner_id, job_id=ctx.job_id,
+                                      reference_images=reference_images)
     async with get_sessionmaker()() as db:
         course = await db.get(Course, course_id)
         course.plan = plan.model_dump()
@@ -172,7 +214,9 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
     if auto:
         async with get_sessionmaker()() as db:
             user = await db.get(User, course.owner_id)
-            await start_generation(db, user, course_id)
+            mode = course.options.get("chapter_mode", "complete")
+            if mode != "parts":
+                await start_generation(db, user, course_id, [1] if mode == "daily" else None)
     return {"course_id": str(course_id), "lectures": len(plan.lectures)}
 
 
@@ -196,20 +240,24 @@ async def update_plan(db: AsyncSession, user: User, course_id: uuid.UUID, plan: 
 
 
 async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
-                           lesson_numbers: list[int] | None = None, instructions: str | None = None) -> list[uuid.UUID]:
+                           lesson_numbers: list[int] | None = None, instructions: str | None = None, *,
+                           previous_taught: str | None = None, revision_needed: str | None = None) -> list[uuid.UUID]:
     course = await get_owned(db, Course, course_id, user)
     if not course.plan:
         raise AppError("not_planned", "Plan the course before generating lessons.", 409)
     lessons = (await db.execute(select(Lesson).where(Lesson.course_id == course_id).order_by(Lesson.number))
                ).scalars().all()
     targets = [lesson for lesson in lessons if not lesson_numbers or lesson.number in lesson_numbers]
+    if lesson_numbers and set(lesson_numbers) - {lesson.number for lesson in lessons}:
+        raise AppError("bad_request", "Choose lesson numbers from this chapter.", 400)
     per_lesson = await usage.credit_cost("slide", course.slides_per_lecture)
     await usage.check(db, user, "credits", per_lesson * len(targets), jobs=len(targets))
     job_ids = []
     for lesson in targets:
         lesson.status = "generating"
         lesson.error = None
-        job = await enqueue(db, "lesson_generation", {"lesson_id": str(lesson.id), "instructions": instructions},
+        job = await enqueue(db, "lesson_generation", {"lesson_id": str(lesson.id), "instructions": instructions,
+                                                   "previous_taught": previous_taught, "revision_needed": revision_needed},
                             owner_id=user.id, dedupe=True, credits_reserved=per_lesson)
         job_ids.append(job.id)
     course.status = "generating"
@@ -247,15 +295,31 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
             raise PermanentJobError("No template available")
         await ctx.progress(5, "Reading your teaching context")
         context_text, meta = await build_context(db, user, topic=f"{course.topic}: {lesson.title}",
-                                                 class_section_id=course.class_section_id, subject=course.subject)
+                                                 class_section_id=course.class_section_id, subject=course.subject, source_file_ids=course.options.get("source_file_ids"))
         prefs = meta.get("preferences", {})
         homework = bool(prefs.get("homework_last", course.options.get("homework", True)))
         req = course_request(course, {"instructions": ctx.payload.get("instructions") or
                                       course.options.get("instructions")})
         plan = CoursePlan.model_validate(course.plan)
         carry = lesson.carry_over.get("text") if lesson.carry_over else None
+        context_text += chapter_teaching_context(course, ctx.payload)
+        previous = (await db.execute(select(Lesson).where(Lesson.course_id == course.id,
+                                      Lesson.number < lesson.number, Lesson.taught_at.is_not(None))
+                                      .order_by(Lesson.number.desc()).limit(1))).scalars().first()
+        if previous:
+            reflection = (await db.execute(select(LessonReflection).where(LessonReflection.lesson_id == previous.id)
+                                          .order_by(LessonReflection.created_at.desc()).limit(1))).scalars().first()
+            context_text += f"\nLast recorded taught lesson: {previous.number} — {previous.title}."
+            if reflection:
+                context_text += f" Outcome: {reflection.outcome}. Teacher notes: {reflection.note or 'none'}."
         base = await storage.get(template.base_storage_key)
         spec = template.spec
+        from app.services.styles import source_context
+
+        context_text += source_context(spec, course.topic)
+        reference_images = []
+        if spec.get("source_reference_key"):
+            reference_images = [ImageInput(data=await storage.get(spec["source_reference_key"]), media_type="image/jpeg")]
         budgets = compute_budgets(spec)
         if prefs.get("words_per_bullet"):
             try:
@@ -270,7 +334,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
     await ctx.progress(15, f"Writing lesson {lesson.number}: plan and slides")
     deck = await pipeline.generate_deck(ai, req=req, context_text=context_text, course=plan,
                                         lecture_number=lesson.number, budgets=budgets, carry_over=carry,
-                                        homework=homework, owner_id=user.id, job_id=ctx.job_id)
+                                        homework=homework, owner_id=user.id, job_id=ctx.job_id,
+                                        reference_images=reference_images)
     if meta.get("sources"):
         for s in deck.slides:
             if s.layout not in ("cover", "section"):
@@ -283,7 +348,9 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         used_images = await usage.used(db, user.id, "ai_images", usage.period_start(None))
         images, img_counts = await asset_svc.resolve_images(
             db, owner_id=user.id, slides=deck.slides, colors=spec["colors"], job_id=ctx.job_id,
-            allow_ai_images=max(0, min(4, ai_image_allowance - used_images)))
+            allow_ai_images=max(0, min(4, ai_image_allowance - used_images)),
+            source_images=spec.get("source_images"), image_mode=course.options.get("image_mode", "auto"),
+            teaching_context=f"Grade {course.grade} {course.subject}; topic {course.topic}; slide {lesson.title}")
         if img_counts["ai"]:
             await usage.consume(db, user.id, img_counts["ai"], "ai_image", str(lesson_id), resource="ai_images")
         await db.commit()
@@ -337,6 +404,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
 async def save_lesson_output(lesson_id: uuid.UUID, deck: LessonDeck, pptx: bytes, visual, qc: dict[str, Any],
                              reason: str = "generated") -> dict[str, Any]:
     storage = get_storage()
+    qc = {**qc, "visual_status": "checked" if visual is not None else "unavailable"}
     async with get_sessionmaker()() as db:
         lesson = await db.get(Lesson, lesson_id)
         lesson.version += 1
@@ -344,6 +412,7 @@ async def save_lesson_output(lesson_id: uuid.UUID, deck: LessonDeck, pptx: bytes
         pptx_key = f"lessons/{lesson_id}/v{v}/lesson.pptx"
         await storage.put(pptx_key, pptx)
         lesson.pptx_key = pptx_key
+        lesson.pdf_key = None  # Never serve a PDF from an older version if rendering failed.
         if visual is not None:
             pdf_key = f"lessons/{lesson_id}/v{v}/lesson.pdf"
             await storage.put(pdf_key, visual.pdf, "application/pdf")
@@ -393,6 +462,8 @@ async def _refresh_course_status(db: AsyncSession, course_id: uuid.UUID) -> None
         course.status = "generating"
     elif any(s == "failed" for s in statuses):
         course.status = "partial"
+    else:
+        course.status = "planned"
     project = await db.get(Project, course.project_id)
     project.status = course.status
 
@@ -441,7 +512,7 @@ async def rerender_lesson(lesson_id: uuid.UUID, deck: LessonDeck, *, reason: str
     budgets = compute_budgets(spec)
     outcome = await pipeline.render_with_qc(ai, base_pptx=base, template_spec=spec, deck=deck, budgets=budgets,
                                             images=images, language=course.language, core_props=core_props,
-                                            context_text="", grade=course.grade, owner_id=owner_id, job_id=job_id)
+                                            context_text="", grade=course.grade, owner_id=owner_id, job_id=job_id, max_rounds=0)
     try:
         visual = await asyncio.to_thread(inspect, outcome.pptx)
     except RenderError:
@@ -502,7 +573,19 @@ async def edit_slide(db: AsyncSession, user: User, lesson_id: uuid.UUID, number:
         raise NotFound("Slide")
     before = dict(row.spec)
     merged = {**row.spec, **spec_data, "number": number}
-    spec = SlideSpec.model_validate(merged)
+    if "visual" in spec_data and "asset_id" not in spec_data and spec_data["visual"] != row.spec.get("visual"):
+        merged["asset_id"] = None
+    if merged.get("asset_id"):
+        try:
+            asset = await db.get(Asset, uuid.UUID(merged["asset_id"]))
+        except ValueError:
+            asset = None
+        if asset is None or asset.owner_id not in (user.id, None):
+            raise NotFound("Image")
+    try:
+        spec = SlideSpec.model_validate(merged)
+    except ValidationError as exc:
+        raise AppError("invalid_slide", "Check the slide fields: " + str(exc)[:600], 400) from exc
     row.spec = spec.model_dump()
     row.version += 1
     db.add(SlideVersion(slide_id=row.id, version=row.version, spec=row.spec, reason="teacher edit"))

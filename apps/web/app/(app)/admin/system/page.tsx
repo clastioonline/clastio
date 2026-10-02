@@ -38,22 +38,22 @@ function Health() {
     <div className="grid gap-5 lg:grid-cols-2">
       <Panel title="Readiness">
         <ul className="space-y-2 text-sm">
-          <li className="flex justify-between"><span>Overall</span><StatusPill value={r.status === "ready" ? "operational" : "degraded"} /></li>
-          <li className="flex justify-between"><span>Database</span><span>{r.checks.database?.ok ? `ok · ${r.checks.database.ms} ms` : "down"}</span></li>
-          {r.checks.redis && <li className="flex justify-between"><span>Redis</span><span>{r.checks.redis.ok ? "ok" : "down"}</span></li>}
-          <li className="flex justify-between"><span>Migration</span><Mono>{r.checks.migration || "n/a"}</Mono></li>
-          <li className="flex justify-between"><span>Version</span><Mono>{r.version}</Mono></li>
-          <li className="flex justify-between"><span>AI mode</span><span>{r.checks.ai.mode} · {r.checks.ai.providers.join(", ") || "none configured"}</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Overall</span><StatusPill value={r.status === "ready" ? "operational" : "degraded"} /></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Database</span><span>{r.checks.database?.ok ? `ok · ${r.checks.database.ms} ms` : "down"}</span></li>
+          {r.checks.redis && <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Redis</span><span>{r.checks.redis.ok ? "ok" : "down"}</span></li>}
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Migration</span><Mono>{r.checks.migration || "n/a"}</Mono></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Version</span><Mono>{r.version}</Mono></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>AI mode</span><span>{r.checks.ai.mode} · {r.checks.ai.providers.join(", ") || "none configured"}</span></li>
         </ul>
       </Panel>
       <Panel title="Last hour & queue">
         <ul className="space-y-2 text-sm">
-          <li className="flex justify-between"><span>API requests</span><span>{data.api_last_hour.requests} · {(data.api_last_hour.error_rate * 100).toFixed(2)}% errors</span></li>
-          <li className="flex justify-between"><span>Queued jobs now</span><span>{data.queue.queued_now}{data.queue.oldest_queued_minutes > 10 && <b className="text-warn-600"> · oldest {data.queue.oldest_queued_minutes} min</b>}</span></li>
-          <li className="flex justify-between"><span>Jobs (24 h)</span><span>{Object.entries(data.queue.last_24h).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
-          <li className="flex justify-between"><span>Emails (7 d)</span><span>{Object.entries(data.emails_7d).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
-          <li className="flex justify-between"><span>Webhooks (7 d)</span><span>{Object.entries(data.webhooks_7d).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
-          <li className="flex justify-between"><span>Critical security events (24 h)</span><Link href="/admin/security?severity=critical" className={data.critical_security_events_24h ? "font-semibold text-danger-700" : ""}>{data.critical_security_events_24h}</Link></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>API requests</span><span>{data.api_last_hour.requests} · {(data.api_last_hour.error_rate * 100).toFixed(2)}% errors</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Queued jobs now</span><span>{data.queue.queued_now}{data.queue.oldest_queued_minutes > 10 && <b className="text-warn-600"> · oldest {data.queue.oldest_queued_minutes} min</b>}</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Jobs (24 h)</span><span>{Object.entries(data.queue.last_24h).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Emails (7 d)</span><span>{Object.entries(data.emails_7d).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Webhooks (7 d)</span><span>{Object.entries(data.webhooks_7d).map(([k, v]) => `${k} ${v}`).join(" · ") || "none"}</span></li>
+          <li className="flex flex-wrap justify-between gap-x-3 gap-y-1 break-words"><span>Critical security events (24 h)</span><Link href="/admin/security?severity=critical" className={data.critical_security_events_24h ? "font-semibold text-danger-700" : ""}>{data.critical_security_events_24h}</Link></li>
         </ul>
       </Panel>
       <Panel title="AI providers" className="lg:col-span-2">

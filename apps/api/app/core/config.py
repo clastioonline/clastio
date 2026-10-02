@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # --- database / cache ---
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/teacher_assistant"
     redis_url: str | None = None
+    db_pool_size: int = Field(10, ge=1, le=100)
+    db_max_overflow: int = Field(20, ge=0, le=100)
+    db_pool_timeout_s: float = Field(30, gt=0, le=120)
+    job_heartbeat_s: float = Field(30, ge=1, le=300)
 
     # --- storage ---
     storage_backend: Literal["local", "s3"] = "local"
@@ -67,7 +71,8 @@ class Settings(BaseSettings):
     model_video: str = "openai:sora-2"
     embedding_dim: int = 1536
     ai_request_timeout_s: float = 180.0
-    ai_max_concurrency: int = 6
+    ai_max_concurrency: int = Field(6, ge=1, le=100)
+    ai_global_concurrency: int = Field(8, ge=1, le=100)
 
     # Optional free stock image search (Openverse, CC-licensed)
     openverse_enabled: bool = True
@@ -137,6 +142,8 @@ class Settings(BaseSettings):
             errors.append("PUBLIC_WEB_URL must be your public HTTPS origin")
         if url.username or url.password or url.query or url.fragment or url.path not in ("", "/"):
             errors.append("PUBLIC_WEB_URL must contain only an origin")
+        if not self.redis_url:
+            errors.append("REDIS_URL is required for shared rate limits and AI capacity")
         if self.run_jobs_inline:
             errors.append("RUN_JOBS_INLINE must be false; run a separate worker")
         if errors:

@@ -25,3 +25,6 @@ test-results/
 playwright-report/
 e2e/screenshots/
 apps/web/e2e/screenshots/
+
+# Re-renderable intermediate product-film audio
+assets/product-video/soundtrack.wav

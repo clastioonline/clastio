@@ -37,6 +37,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { AppWalkthrough } from "@/components/app-walkthrough";
 import { ActivityButton } from "@/components/activity-center";
 import { Logo } from "@/components/brand";
 import { LegalGate } from "@/components/legal-gate";
@@ -268,6 +269,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
             <MessageCircle className="h-5 w-5" />
           </Link>
         )}
+        <AppWalkthrough user={user} />
         <ActivityButton />
         <NotificationBell />
         <Link href="/settings" className="focus-ring flex items-center gap-3 rounded-full py-1 pe-2 ps-1 hover:bg-surface">

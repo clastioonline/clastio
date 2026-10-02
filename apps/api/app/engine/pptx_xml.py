@@ -38,13 +38,13 @@ def pt_to_emu(v: float) -> Emu:
 # --------------------------------------------------------------------------- theme
 
 
-def theme_part(prs: PresentationT):
-    return prs.slide_master.part.part_related_by(RT.THEME)
+def theme_part(prs: PresentationT, master=None):
+    return (master or prs.slide_master).part.part_related_by(RT.THEME)
 
 
-def read_theme(prs: PresentationT) -> dict[str, Any]:
+def read_theme(prs: PresentationT, master=None) -> dict[str, Any]:
     """Return {'colors': {slot: '#RRGGBB'}, 'fonts': {'major': str, 'minor': str, 'major_cs', 'minor_cs'}}."""
-    root = etree.fromstring(theme_part(prs).blob)
+    root = etree.fromstring(theme_part(prs, master).blob)
     colors: dict[str, str] = {}
     scheme = root.find(".//a:clrScheme", NS)
     if scheme is not None:
@@ -108,8 +108,41 @@ def delete_slide(prs: PresentationT, index: int) -> None:
     sld_id_lst = prs.slides._sldIdLst
     sld_id = sld_id_lst[index]
     rid = sld_id.get(qn("r:id"))
-    prs.part.drop_rel(rid)
+    removed_part = prs.part.related_part(rid)
     sld_id_lst.remove(sld_id)
+    _drop_slide_references(prs, removed_part)
+
+
+def _drop_slide_references(prs, removed_part) -> None:
+    # Masters can contain navigation links to slides. A dangling relationship keeps a
+    # deleted slide in the package, colliding with the names of newly generated slides.
+    parts = list(prs.part.package.iter_parts())
+    for part in parts:
+        for rel in list(part.rels.values()):
+            if rel.is_external or rel.target_part is not removed_part:
+                continue
+            root = getattr(part, "_element", None)
+            if root is not None:
+                for node in list(root.iter()):
+                    for attr in R_ATTRS:
+                        if node.get(attr) != rel.rId:
+                            continue
+                        if node.tag in (qn("a:hlinkClick"), qn("a:hlinkHover"), qn("p:sld")):
+                            parent = node.getparent()
+                            if parent is not None:
+                                parent.remove(node)
+                        else:
+                            node.attrib.pop(attr, None)
+            part.drop_rel(rel.rId)
+
+
+def prune_unlisted_slide_links(prs: PresentationT) -> None:
+    """Repair older cached templates with slides retained only by master navigation."""
+    active = {slide.part for slide in prs.slides}
+    targets = {rel.target_part for part in prs.part.package.iter_parts() for rel in part.rels.values()
+               if not rel.is_external and rel.reltype == RT.SLIDE and rel.target_part not in active}
+    for target in targets:
+        _drop_slide_references(prs, target)
 
 
 def delete_all_slides_except(prs: PresentationT, keep: list[int]) -> None:

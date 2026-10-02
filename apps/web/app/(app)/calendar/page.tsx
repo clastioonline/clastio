@@ -8,6 +8,7 @@ import { ClassChip, StatusBadge } from "@/components/common";
 import { errorMessage, useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Skeleton, Tabs } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
+import { LoadError } from "@/components/load-error";
 import { useApi } from "@/lib/hooks";
 import { DAYS } from "@/lib/utils";
 
@@ -20,7 +21,7 @@ function addDays(iso: string, n: number) {
 function WeekView() {
   const { notify } = useToast();
   const [start, setStart] = useState(() => new Date().toISOString().slice(0, 10));
-  const { data, mutate } = useApi<any>(`/planner/week?start=${start}`);
+  const { data, error, mutate } = useApi<any>(`/planner/week?start=${start}`);
   const [busy, setBusy] = useState(false);
   const generating = data?.days?.some((d: any) => d.classes.some((c: any) => c.lesson?.status === "generating"));
   useEffect(() => {
@@ -40,6 +41,7 @@ function WeekView() {
       setBusy(false);
     }
   };
+  if (error) return <LoadError retry={mutate} label="your calendar" />;
   if (!data) return <Skeleton className="h-96" />;
   const first = data.days[0]?.date;
   return (
@@ -91,7 +93,7 @@ function WeekView() {
 function TimetableEditor() {
   const { notify } = useToast();
   const { data: classes } = useApi<any>("/classes");
-  const { data, mutate } = useApi<any>("/timetable");
+  const { data, error, mutate } = useApi<any>("/timetable");
   const [slots, setSlots] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -165,7 +167,7 @@ function TimetableEditor() {
 
 function SchoolCalendar() {
   const { notify } = useToast();
-  const { data, mutate } = useApi<any>("/calendar/events");
+  const { data, error, mutate } = useApi<any>("/calendar/events");
   const [form, setForm] = useState({ kind: "holiday", title: "", start_date: "", end_date: "", duration_factor: 1 });
   const add = async () => {
     try {

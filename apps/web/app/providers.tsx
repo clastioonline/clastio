@@ -1,6 +1,7 @@
 "use client";
 
 import { SWRConfig } from "swr";
+import { ConnectionStatus } from "@/components/connection-status";
 import { ActivityProvider } from "@/components/activity-center";
 import { CookieBanner } from "@/components/cookie-banner";
 import { ToastProvider } from "@/components/toast";
@@ -13,7 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SWRConfig value={{ fetcher, revalidateOnFocus: false }}>
       <ThemeProvider>
         <I18nProvider>
-          <ToastProvider><ActivityProvider>{children}<CookieBanner /></ActivityProvider></ToastProvider>
+          <ToastProvider><ActivityProvider><ConnectionStatus />{children}<CookieBanner /></ActivityProvider></ToastProvider>
         </I18nProvider>
       </ThemeProvider>
     </SWRConfig>

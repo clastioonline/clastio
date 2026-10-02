@@ -7,7 +7,7 @@ from app.core.config import Settings
 
 def production_settings(**overrides):
     values = dict(environment="production", secret_key="a" * 48, cookie_secure=True,
-                  public_web_url="https://lessons.example.com", run_jobs_inline=False)
+                  public_web_url="https://lessons.example.com", run_jobs_inline=False, redis_url="redis://localhost:6379/0")
     return Settings(_env_file=None, **(values | overrides))
 
 
@@ -17,6 +17,7 @@ def production_settings(**overrides):
     ({"public_web_url": "http://lessons.example.com"}, "PUBLIC_WEB_URL"),
     ({"public_web_url": "https://localhost"}, "PUBLIC_WEB_URL"),
     ({"public_web_url": "https://lessons.example.com/path"}, "PUBLIC_WEB_URL"),
+    ({"redis_url": None}, "REDIS_URL"),
     ({"run_jobs_inline": True}, "RUN_JOBS_INLINE"),
 ])
 def test_unsafe_production_settings(overrides, field):

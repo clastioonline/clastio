@@ -41,7 +41,7 @@ function PlanEditor({ plan, onSaved }: { plan: any; onSaved: () => void }) {
   };
   const free = p.code === "free";
   return (
-    <Panel title={<span className="flex items-baseline gap-2 whitespace-nowrap">{p.name}<span className="text-sm font-normal text-muted">{p.code}</span></span>}
+    <Panel title={<span className="flex flex-wrap items-baseline gap-2">{p.name}<span className="text-sm font-normal text-muted">{p.code}</span></span>}
       action={!free && (
         <label className="flex shrink-0 items-center gap-2 text-sm text-ink-2">
           <input type="checkbox" className="h-4 w-4 accent-[var(--color-brand-600)]" checked={p.active !== false} onChange={(e) => setP({ ...p, active: e.target.checked })} />On sale

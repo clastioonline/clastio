@@ -11,7 +11,7 @@ from pptx import Presentation
 from app.ai.base import AIError, AIRequest, ChatMessage, Usage
 from app.ai.pricing import cost_usd
 from app.ai.schema_utils import extract_json, strict_schema
-from app.ai.service import AIService, Route
+from app.ai.service import AIService
 from app.engine.render.renderer import DeckRenderer
 from app.engine.render.textfit import Para, fit
 from app.engine.style.pdf_analyzer import analyze_pdf
@@ -121,15 +121,27 @@ def test_strict_schema_is_provider_safe():
         if isinstance(node, dict):
             if node.get("type") == "object":
                 assert node["additionalProperties"] is False
+                assert "properties" in node
                 assert set(node["required"]) == set(node.get("properties", {}))
             assert "minimum" not in node and "title" not in node
-            for v in node.values():
-                walk(v)
+            for k, v in node.items():
+                if k == "properties":
+                    for prop in v.values():
+                        walk(prop)
+                else:
+                    walk(v)
         elif isinstance(node, list):
             for v in node:
                 walk(v)
 
     walk(s)
+
+
+def test_strict_schema_preserves_title_fields():
+    s = strict_schema(CoursePlan)
+    assert "title" in s["properties"] and "title" in s["required"]
+    lecture = s["properties"]["lectures"]["items"]
+    assert "title" in lecture["properties"] and "title" in lecture["required"]
 
 
 def test_extract_json_tolerates_fences():
@@ -182,7 +194,7 @@ async def test_anthropic_adapter_structured_output(monkeypatch):
     assert res.usage.cached_tokens == 800
     assert captured["output_config"]["format"]["type"] == "json_schema"
     assert captured["output_config"]["effort"] == "medium"
-    assert captured["extra_body"] == {"fallbacks": "default"}
+    assert "extra_body" not in captured  # No unmetered server-side fallback
     assert captured["system"][0]["cache_control"] == {"type": "ephemeral"}
     # Haiku 4.5 does not accept effort; the adapter must omit it
     captured.clear()
@@ -208,30 +220,13 @@ async def test_anthropic_refusal_raises(monkeypatch):
                                                                    messages=[ChatMessage("user", "x")]))
 
 
-async def test_router_falls_back_to_next_provider(monkeypatch):
-    import app.generation.offline  # noqa: F401
-
+async def test_live_router_never_silently_falls_back_offline(monkeypatch):
     svc = AIService()
-
-    class Broken:
-        name = "anthropic"
-
-        def available(self):
-            return True
-
-        async def generate_structured(self, model, req, schema):
-            raise AIError("boom", retryable=False, provider="anthropic")
-
-    svc.providers["anthropic"] = Broken()
-    monkeypatch.setattr(type(svc), "live_providers", property(lambda self: ["anthropic"]))
-
-    async def routes(tier):
-        return [Route("anthropic", "claude-sonnet-5"), Route("offline", "offline")]
-
-    monkeypatch.setattr(svc, "routes", routes)
-    plan = await svc.structured(task="course_plan", tier="planning", system="s", prompt="p", schema=CoursePlan,
-                                offline_context={"topic": "volcanoes", "num_lectures": 2})
-    assert len(plan.lectures) == 2
+    monkeypatch.setattr(svc.settings, "ai_offline_mode", False)
+    monkeypatch.setattr(type(svc), "live_providers", property(lambda self: []))
+    assert await svc.routes("content") == []
+    with pytest.raises(AIError, match="unavailable"):
+        await svc.structured(task="course_plan", tier="planning", system="s", prompt="p", schema=CoursePlan)
 
 
 async def test_openverse_search_records_license():
@@ -316,3 +311,50 @@ def test_multiple_slide_masters_analyze_and_render(tmp_path):
     result = Presentation(io.BytesIO(data))
     assert len(result.slides) == 1
     assert result.slides[0].slide_layout == all_slide_layouts(result)[spec["content"]["layout_index"]]
+
+
+def test_removed_slides_cannot_survive_master_navigation_links():
+    import zipfile
+
+    from pptx.opc.constants import RELATIONSHIP_TYPE as RT
+    from pptx.oxml.xmlchemy import OxmlElement
+
+    from app.engine.pptx_xml import delete_slide
+
+    prs = Presentation()
+    prs.slides.add_slide(prs.slide_layouts[6])
+    removed = prs.slides.add_slide(prs.slide_layouts[6])
+    master = prs.slide_master.part
+    rid = master.relate_to(removed.part, RT.SLIDE)
+    link = OxmlElement("a:hlinkClick")
+    from pptx.oxml.ns import qn
+
+    link.set(qn("r:id"), rid)
+    master._element.append(link)
+    delete_slide(prs, 1)
+    prs.slides.add_slide(prs.slide_layouts[6])
+    output = io.BytesIO()
+    prs.save(output)
+    with zipfile.ZipFile(io.BytesIO(output.getvalue())) as archive:
+        assert len(archive.namelist()) == len(set(archive.namelist()))
+    assert link.getparent() is None
+    assert len(Presentation(io.BytesIO(output.getvalue())).slides) == 2
+
+
+def test_visual_qc_accounts_for_inherited_master_text():
+    import copy
+
+    from pptx.util import Inches
+
+    from app.engine.qc.visual import _text_boxes
+
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    box = slide.shapes.add_textbox(Inches(.1), Inches(.2), Inches(1), Inches(.4))
+    box.text = "Navigation"
+    slide.slide_layout.slide_master.shapes._spTree.insert_element_before(copy.deepcopy(box._element), "p:extLst")
+    slide.shapes._spTree.remove(box._element)
+    output = io.BytesIO()
+    prs.save(output)
+    boxes = _text_boxes(output.getvalue())[0]
+    assert any(abs(x - 7.2) < .1 and abs(y - 14.4) < .1 for x, y, _, _ in boxes)

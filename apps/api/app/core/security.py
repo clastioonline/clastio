@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import secrets
@@ -16,6 +17,7 @@ from app.core.db import utcnow
 
 _hasher = PasswordHasher()
 COOKIE_NAME = "ata_session"
+_password_slots = asyncio.Semaphore(4)
 
 
 def hash_password(password: str) -> str:
@@ -29,6 +31,16 @@ def verify_password(password: str, password_hash: str | None) -> bool:
         return _hasher.verify(password_hash, password)
     except (VerificationError, InvalidHashError):
         return False
+
+
+async def hash_password_async(password: str) -> str:
+    async with _password_slots:
+        return await asyncio.to_thread(hash_password, password)
+
+
+async def verify_password_async(password: str, password_hash: str | None) -> bool:
+    async with _password_slots:
+        return await asyncio.to_thread(verify_password, password, password_hash)
 
 
 def create_access_token(user_id: uuid.UUID, *, minutes: int | None = None, extra: dict | None = None) -> str:

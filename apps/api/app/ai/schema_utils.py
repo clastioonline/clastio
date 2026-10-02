@@ -33,10 +33,14 @@ def strict_schema(model: type[BaseModel]) -> dict[str, Any]:
                 extra = {k: v for k, v in node.items() if k != "$ref"}
                 target.update(extra)
                 return resolve(target)
-            out = {k: resolve(v) for k, v in node.items() if k not in _DROP}
+            out = {
+                k: ({name: resolve(prop) for name, prop in v.items()} if k == "properties" else resolve(v))
+                for k, v in node.items() if k not in _DROP
+            }
             if out.get("type") == "object" or "properties" in out:
                 props = out.get("properties", {})
                 out["type"] = "object"
+                out["properties"] = props
                 out["additionalProperties"] = False
                 out["required"] = list(props.keys())
             return out

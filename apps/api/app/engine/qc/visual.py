@@ -81,7 +81,12 @@ def _text_boxes(pptx: bytes) -> list[list[tuple[float, float, float, float]]]:
     out = []
     for slide in prs.slides:
         boxes = []
-        for sh in slide.shapes:
+        inherited = []
+        if slide._element.get("showMasterSp", "1") not in ("0", "false"):
+            inherited.extend(sh for sh in slide.slide_layout.shapes if not sh.is_placeholder)
+            if slide.slide_layout._element.get("showMasterSp", "1") not in ("0", "false"):
+                inherited.extend(sh for sh in slide.slide_layout.slide_master.shapes if not sh.is_placeholder)
+        for sh in [*slide.shapes, *inherited]:
             if sh.left is None or sh.width is None:
                 continue
             holds_text = (getattr(sh, "has_text_frame", False) and sh.has_text_frame) or \

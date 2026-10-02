@@ -403,7 +403,25 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
     def bad(msg: str) -> AppError:
         return AppError("invalid_setting", msg, 422)
 
-    if key == "billing":
+    if key in ("ai_budget", "ai_rate_cards"):
+        from pydantic import ValidationError
+
+        from app.ai.budget import BudgetPolicy, RateCard
+
+        try:
+            if key == "ai_budget":
+                BudgetPolicy.model_validate(value)
+            else:
+                for name, card in value.items():
+                    if ":" not in name or name.split(":", 1)[0] not in ("openai", "anthropic", "gemini"):
+                        raise bad("Price cards must be keyed by provider:model.")
+                    RateCard.model_validate(card)
+        except ValidationError as exc:
+            raise bad(str(exc)) from exc
+    elif key == "credit_costs":
+        if any(type(v) is not int or v < 0 or v > 100000 for v in value.values()):
+            raise bad("Credit costs must be whole numbers between 0 and 100000.")
+    elif key == "billing":
         if value.get("provider", "auto") not in ("auto", "dodo", "stripe"):
             raise bad("Payment provider must be auto, dodo or stripe.")
         if not all(isinstance(k, str) and isinstance(v, str) for k, v in (value.get("dodo_products") or {}).items()):
@@ -508,3 +526,77 @@ async def admin_subscriptions(_: Staff("billing.view"), db: DB):
     return {"items": [{"email": e, "plan": s.plan_code, "status": s.status, "interval": s.interval,
                        "provider": s.provider, "period_end": s.current_period_end.isoformat()
                        if s.current_period_end else None} for s, e in rows]}
+
+
+@router.get("/admin/ai-budget", tags=["admin"])
+async def ai_budget_status(_: Staff("api_usage.view"), db: DB):
+    from app.ai.budget import dashboard
+
+    return await dashboard(db)
+
+
+class AIReconciliation(BaseModel):
+    amount_usd: float = Field(ge=0, le=100000, allow_inf_nan=False)
+    reference: str = Field(min_length=10, max_length=500)
+
+
+@router.post("/admin/ai-budget/{call_id}/reconcile", tags=["admin"])
+async def reconcile_ai_call(call_id: uuid.UUID, data: AIReconciliation, admin: Staff("settings.modify"),
+                            request: Request, db: DB):
+    from datetime import UTC, datetime, timedelta
+    from decimal import Decimal
+
+    from app.ai.budget import lock
+    from app.models import AICallReservation, AIUsage
+
+    await lock(db)
+    row = await db.get(AICallReservation, call_id, with_for_update=True)
+    if row is None:
+        raise NotFound("AI call")
+    if row.status not in ("pending", "uncertain"):
+        raise AppError("already_reconciled", "This call has already been settled.", 409)
+    if row.job_id:
+        job = await db.get(GenerationJob, row.job_id, with_for_update=True)
+        if job and job.status in ("queued", "running"):
+            raise AppError("active_job", "Wait until this job has stopped before reconciling its charge.", 409)
+    if row.status == "pending" and datetime.now(UTC) - row.created_at < timedelta(hours=24):
+        raise AppError("active_call", "Unfinished calls must be at least 24 hours old before reconciliation.", 409)
+    before = {"status": row.status, "reserved_usd": float(row.reserved_usd)}
+    row.status = "reconciled"
+    row.charged_usd = Decimal(str(data.amount_usd))
+    row.note = data.reference
+    if row.usage_id:
+        entry = await db.get(AIUsage, row.usage_id, with_for_update=True)
+        if entry:
+            delta = data.amount_usd - entry.cost_usd
+            entry.cost_usd = data.amount_usd
+            if row.job_id:
+                job = await db.get(GenerationJob, row.job_id, with_for_update=True)
+                if job:
+                    job.cost_usd = max(0, job.cost_usd + delta)
+    audit(db, admin.id, "ai_call.reconciled", request=request, target_type="ai_call", target_id=str(row.id),
+          before=before, after=data.model_dump())
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/usage/estimates", tags=["usage"])
+async def credit_estimates(user: CurrentUser, db: DB):
+    from datetime import UTC, datetime
+
+    from app.services.usage import get_plan, period_start, reserved, used
+
+    plan, sub = await get_plan(db, user)
+    since = period_start(sub)
+    consumed = await used(db, user.id, "credits", since)
+    held = await reserved(db, user.id)
+    now = datetime.now(UTC)
+    reset = now.replace(year=now.year + (now.month == 12), month=now.month % 12 + 1,
+                        day=1, hour=0, minute=0, second=0, microsecond=0)
+    if sub and sub.current_period_end and sub.current_period_end > now:
+        reset = sub.current_period_end
+    limit = plan.limits.get("credits")
+    settings = await get_app_settings(["credit_costs"])
+    return {"costs": settings["credit_costs"], "used": consumed, "reserved": held,
+            "remaining": None if user.role == "admin" or limit is None or limit < 0 else max(0, limit - consumed - held),
+            "reset_at": reset.isoformat(), "message": "Final credits depend on what you generate. Saved resources remain accessible."}

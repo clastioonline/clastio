@@ -48,7 +48,7 @@ try {
   await page.goto(`${base}/activity`);
   await page.getByRole('heading', { name: 'Activity', exact: true }).waitFor();
   await page.reload();
-  await page.getByRole('heading', { name: document.document.title, exact: true }).waitFor();
+  await page.locator('main article').first().waitFor();
   let feed = await context.request.get(`${base}/api/v1/activity`).then((r) => r.json());
   assert.ok(feed.items.some((j) => j.id === document.job_id));
   assert.ok(feed.items.some((j) => j.id === reply.job_id));

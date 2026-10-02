@@ -4,7 +4,7 @@ import asyncio
 import json
 import uuid
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -106,6 +106,41 @@ async def upload(user: CurrentUser, db: DB, file: UploadFile = File(...), kind: 
         await run_inline_if_configured([job_id])
         await db.refresh(row)
     return {"file": upload_out(row), "job_id": str(job_id) if job_id else None, "duplicate": not is_new}
+
+
+@router.post("/slide-images", dependencies=[Depends(rate_limit("slide_image", 20, 3600))])
+async def upload_slide_image(user: CurrentUser, db: DB, file: UploadFile = File(...)):
+    import hashlib
+    import io
+
+    from PIL import Image, UnidentifiedImageError
+
+    from app.models import Asset
+    from app.services.assets import _normalise_image
+
+    data = await read_limited(file, min(10, await upload_limit_mb(db, user)))
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            if image.format not in ("PNG", "JPEG", "WEBP") or image.width * image.height > 25_000_000:
+                raise AppError("bad_image", "Use a PNG, JPEG or WebP image up to 25 megapixels.", 400)
+            image.verify()
+        data, width, height = await asyncio.to_thread(_normalise_image, data)
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise AppError("bad_image", "This image could not be read. Use PNG, JPEG or WebP.", 400) from exc
+    digest = hashlib.sha256(data).hexdigest()
+    existing = (await db.execute(select(Asset).where(Asset.owner_id == user.id, Asset.sha256 == digest,
+                                                     Asset.source == "upload"))).scalars().first()
+    if existing:
+        return {"asset_id": str(existing.id)}
+    await usage.check_storage(db, user, len(data))
+    ext = "png" if data.startswith(b"\x89PNG") else "jpg"
+    key = f"assets/{user.id}/{digest}.{ext}"
+    await get_storage().put(key, data)
+    asset = Asset(owner_id=user.id, kind="image", source="upload", license="Teacher supplied",
+                  storage_key=key, sha256=digest, width=width, height=height, tags=[])
+    db.add(asset)
+    await db.commit()
+    return {"asset_id": str(asset.id)}
 
 
 @router.get("/uploads")
@@ -282,6 +317,11 @@ class CourseIn(BaseModel):
     class_section_id: uuid.UUID | None = None
     outcomes: list[dict[str, Any]] = []
     instructions: str | None = Field(None, max_length=2000)
+    source_file_ids: list[uuid.UUID] = Field(default_factory=list, max_length=10)
+    chapter_mode: Literal["complete", "parts", "daily"] = "complete"
+    previous_taught: str | None = Field(None, max_length=2000)
+    revision_needed: str | None = Field(None, max_length=2000)
+    image_mode: Literal["auto", "ai", "reuse"] = "auto"
     auto_generate: bool = False
     homework: bool = True
     start_date: date | None = None
@@ -375,13 +415,16 @@ async def update_plan(course_id: uuid.UUID, plan: CoursePlan, user: CurrentUser,
 
 
 class GenerateIn(BaseModel):
-    lessons: list[int] | None = None
+    lessons: list[int] | None = Field(None, min_length=1, max_length=30)
+    previous_taught: str | None = Field(None, max_length=2000)
+    revision_needed: str | None = Field(None, max_length=2000)
     instructions: str | None = Field(None, max_length=2000)
 
 
 @router.post("/courses/{course_id}/generate", dependencies=[Depends(rate_limit("generate", 30, 3600))])
 async def generate(course_id: uuid.UUID, data: GenerateIn, user: CurrentUser, db: DB):
-    job_ids = await course_svc.start_generation(db, user, course_id, data.lessons, data.instructions)
+    job_ids = await course_svc.start_generation(db, user, course_id, data.lessons, data.instructions,
+                                                 previous_taught=data.previous_taught, revision_needed=data.revision_needed)
     return {"job_ids": [str(j) for j in job_ids]}
 
 
@@ -472,7 +515,7 @@ async def regenerate_lesson(lesson_id: uuid.UUID, data: RegenerateLessonIn, user
 class ReflectionIn(BaseModel):
     outcome: str = Field(pattern="^(went_well|ran_out_of_time|struggled|skipped)$")
     note: str | None = Field(None, max_length=2000)
-    covered_until_slide: int | None = None
+    covered_until_slide: int | None = Field(None, ge=1, le=30)
 
 
 @router.post("/lessons/{lesson_id}/reflection")

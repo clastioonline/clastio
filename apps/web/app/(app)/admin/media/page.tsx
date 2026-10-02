@@ -10,7 +10,7 @@ import { useApi } from "@/lib/hooks";
 
 function Check({ ok, label, env }: { ok: boolean; label: string; env: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5 text-sm">
+    <div className="flex flex-wrap items-center justify-between gap-3 py-1.5 text-sm">
       <span className="flex items-center gap-2 text-ink-2">
         {ok ? <CircleCheck className="h-4 w-4 text-success-500" /> : <TriangleAlert className="h-4 w-4 text-accent-500" />}{label}
       </span>
@@ -86,7 +86,7 @@ export default function AdminMedia() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader icon={<CreditCard className="h-5 w-5" />} title="Payment gateway"
             subtitle={data.billing.active ? `Checkout currently uses ${data.billing.active === "dodo" ? "Dodo Payments" : "Stripe"}.` : "No gateway is configured, so plans can only be assigned manually."} />
           <div className="space-y-5 p-5">
@@ -109,7 +109,7 @@ export default function AdminMedia() {
               <p className="mb-3 text-xs text-muted">Create a subscription product per plan and interval in the Dodo dashboard and paste its id (pdt_…).</p>
               <div className="space-y-2">
                 {PLANS.map((p: any) => (
-                  <div key={p.code} className="grid grid-cols-[8rem_1fr_1fr] items-center gap-2 text-sm">
+                  <div key={p.code} className="grid grid-cols-1 sm:grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 text-sm">
                     <span className="truncate text-ink-2">{p.name}</span>
                     {(["month", "year"] as const).map((iv) => (
                       <Input key={iv} aria-label={`${p.name} ${iv}ly product id`} placeholder={iv === "month" ? "Monthly pdt_…" : "Yearly pdt_…"}
@@ -125,7 +125,7 @@ export default function AdminMedia() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader icon={<ImagePlay className="h-5 w-5" />} title="Media studio" subtitle="AI images and videos, paid with media credits (separate from lesson credits)." />
           <div className="space-y-4 p-5">
             <Toggle checked={!!media.enabled} onChange={(v) => setMedia({ ...media, enabled: v })} label="Media studio is on" description="When off, teachers can see their media but can't create more." />
@@ -147,12 +147,12 @@ export default function AdminMedia() {
               <div className="space-y-2">
                 {media.packs.map((p: any, i: number) => (
                   <div key={i} className="space-y-2 rounded-xl border border-line p-3">
-                    <div className="grid grid-cols-[1fr_6rem_6rem] gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_6rem_6rem] gap-2">
                       <Field label="Pack name"><Input value={p.name} onChange={(e) => setPack(i, { name: e.target.value })} /></Field>
                       <Field label="Credits"><Input type="number" value={p.credits} onChange={(e) => setPack(i, { credits: Number(e.target.value) })} /></Field>
                       <Field label="AED"><Input type="number" value={p.price_aed} onChange={(e) => setPack(i, { price_aed: Number(e.target.value) })} /></Field>
                     </div>
-                    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
                       <Input aria-label="Dodo product id" placeholder="Dodo one-time product id (pdt_…)" value={p.dodo_product_id || ""} onChange={(e) => setPack(i, { dodo_product_id: e.target.value.trim() })} />
                       <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted"><input type="checkbox" checked={p.active !== false} onChange={(e) => setPack(i, { active: e.target.checked })} />On sale</label>
                       <Button size="icon" variant="ghost" aria-label="Remove pack" onClick={() => setMedia({ ...media, packs: media.packs.filter((_: any, j: number) => j !== i) })}><Trash className="h-4 w-4" /></Button>
@@ -169,18 +169,18 @@ export default function AdminMedia() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
         <div className="space-y-6">
-          <Card>
+          <Card className="min-w-0">
             <CardHeader icon={<Gift className="h-5 w-5" />} title="Give or remove media credits" subtitle="For schools, refunds and promotions. Every change is audit-logged." />
             <div className="space-y-3 p-5">
               <Field label="Teacher's email"><Input type="email" value={grant.email} onChange={(e) => setGrant({ ...grant, email: e.target.value })} /></Field>
-              <div className="grid grid-cols-[7rem_1fr] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[7rem_minmax(0,1fr)] gap-3">
                 <Field label="Credits" hint="negative removes"><Input type="number" value={grant.amount} onChange={(e) => setGrant({ ...grant, amount: Number(e.target.value) })} /></Field>
                 <Field label="Note"><Input value={grant.note} onChange={(e) => setGrant({ ...grant, note: e.target.value })} placeholder="e.g. Al Noor pilot" /></Field>
               </div>
               <div className="flex justify-end"><Button loading={busy === "grant"} disabled={!grant.email || !grant.amount} onClick={doGrant}>Update credits</Button></div>
             </div>
           </Card>
-          <Card>
+          <Card className="min-w-0">
             <CardHeader icon={<Palette className="h-5 w-5" />} title="Default look" subtitle="Used by teachers who haven't picked a theme in Settings." />
             <div className="flex items-end gap-3 p-5">
               <Field label="Theme" className="flex-1">
@@ -193,7 +193,7 @@ export default function AdminMedia() {
             </div>
           </Card>
         </div>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader title="Recent media" />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

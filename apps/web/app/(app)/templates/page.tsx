@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert, Badge, Button, Card, CardHeader, PageHeader, Skeleton } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Input, PageHeader, Select, Skeleton } from "@/components/ui";
 import { TemplatePreview } from "@/components/template-preview";
 import { UploadDropzone } from "@/components/upload";
 import { useApi } from "@/lib/hooks";
@@ -10,8 +11,12 @@ import { useApi } from "@/lib/hooks";
 export default function Templates() {
   const router = useRouter();
   const { data, error, mutate } = useApi<any>("/templates");
-  const mine = (data?.items || []).filter((t: any) => !t.builtin);
-  const builtin = (data?.items || []).filter((t: any) => t.builtin);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const filtered = (data?.items || []).filter((t: any) => t.name.toLowerCase().includes(query.trim().toLowerCase()) &&
+    (filter === "all" || (filter === "default" ? t.is_default : filter === "builtin" ? t.builtin : !t.builtin)));
+  const mine = filtered.filter((t: any) => !t.builtin);
+  const builtin = filtered.filter((t: any) => t.builtin);
   const Grid = ({ items }: { items: any[] }) => (
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {items.map((t) => (
@@ -35,10 +40,12 @@ export default function Templates() {
         <CardHeader title="Add your style" subtitle="PowerPoint files give an exact match. PDFs are reconstructed as closely as possible." />
         <div className="p-5"><UploadDropzone onReady={({ templateId }) => { mutate(); if (templateId) router.push(`/templates/${templateId}`); }} /></div>
       </Card>
+      <div className="flex flex-col gap-3 sm:flex-row"><Input aria-label="Search designs" placeholder="Search your designs…" value={query} onChange={e => setQuery(e.target.value)} /><Select aria-label="Filter designs" className="sm:max-w-52" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All designs</option><option value="mine">Uploaded and shared</option><option value="builtin">Built-in styles</option><option value="default">Default design</option></Select></div>
+      {data && !filtered.length && (query || filter !== "all") && <p role="status" className="text-sm text-muted">No matching designs. Try another search or filter.</p>}
       {error ? <Alert tone="danger">Couldn’t load your designs. <Button variant="outline" size="sm" onClick={() => mutate()}>Try again</Button></Alert> : !data ? <Skeleton className="h-64" /> : (
         <>
-          {mine.length > 0 ? <section><h2 className="mb-3 font-semibold text-ink">Your templates</h2><Grid items={mine} /></section> : <section className="rounded-2xl border border-dashed border-line-strong p-6 text-center"><h2 className="font-semibold">Your templates</h2><p className="mt-2 text-sm text-muted">Your uploaded designs will appear here. Start with a built-in style or upload your own presentation above.</p></section>}
-          <section><h2 className="mb-3 font-semibold text-ink">Built-in styles</h2><Grid items={builtin} /></section>
+          {filter !== "builtin" && (mine.length > 0 ? <section><h2 className="mb-3 font-semibold text-ink">Your templates</h2><Grid items={mine} /></section> : <section className="rounded-2xl border border-dashed border-line-strong p-6 text-center"><h2 className="font-semibold">Your templates</h2><p className="mt-2 text-sm text-muted">Your uploaded designs will appear here. Start with a built-in style or upload your own presentation above.</p></section>)}
+          {builtin.length > 0 && <section><h2 className="mb-3 font-semibold text-ink">Built-in styles</h2><Grid items={builtin} /></section>}
         </>
       )}
     </div>

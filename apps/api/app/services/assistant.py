@@ -33,6 +33,7 @@ IntentName = Literal["plan_today", "plan_tomorrow", "plan_week", "create_course"
 
 class Intent(BaseModel):
     intent: IntentName
+    relevance: Literal["teaching", "out_of_scope", "needs_context"] = "needs_context"
     topic: str | None = None
     grade: str | None = None
     subject: str | None = None
@@ -106,22 +107,38 @@ def rule_intent(text: str) -> Intent | None:
     return None
 
 
+TEACHING = re.compile(r"\b(teach|teaching|students?|classroom|lessons?|worksheets?|homework|curriculum|grade|quiz|exam|assessment|slides?|ppt|photosynthesis|fractions?|algebra|science|mathematics|pedagogy|timetable)\b", re.I)
+PERSONAL = re.compile(r"\b(my (?:holiday|vacation|date|girlfriend|boyfriend)|book (?:me )?(?:a )?(?:flight|hotel)|buy (?:me )?(?:a )?(?:phone|laptop)|stock tips|dating advice|act (?:as|like) (?:normal )?chatgpt|ignore (?:all |previous |your )?instructions)\b", re.I)
+REDIRECT = "I help with teaching, lesson slides, assessments and classroom planning. Please share the topic, grade or classroom task you want help with."
+
+
+def local_relevance(text: str) -> str | None:
+    if re.fullmatch(r"\s*(hi|hello|hey|thanks|thank you)[!. ]*", text, re.I):
+        return "needs_context"
+    if PERSONAL.search(text) and not re.search(r"\b(students?|classroom|curriculum|lesson|worksheet)\b", text, re.I):
+        return "out_of_scope"
+    # Keywords alone never approve a request; the classifier checks its actual purpose.
+    return None
+
+
 @register_structured("intent")
 def _offline_intent(ctx: dict[str, Any], schema) -> Intent:
-    return rule_intent(ctx.get("text", "")) or Intent(intent="general")
+    text = ctx.get("text", "")
+    result = rule_intent(text) or Intent(intent="general")
+    result.relevance = local_relevance(text) or ("teaching" if TEACHING.search(text) or result.intent in ("plan_today", "plan_week", "history", "next_topic", "reflection", "adapt", "cover_lesson", "remedial") else "needs_context")
+    return result
 
 
 async def classify(text: str, owner_id: uuid.UUID) -> Intent:
-    fast = rule_intent(text)
-    if fast and fast.intent not in ("create_course", "general"):
-        return fast
+    if relevance := local_relevance(text):
+        return Intent(intent="general", relevance=relevance)
     ai = get_ai()
     try:
         return await ai.structured(task="intent", tier="fast", system=prompts.INTENT_SYSTEM, prompt=text,
                                    schema=Intent, effort="low", max_tokens=800, owner_id=owner_id,
                                    offline_context={"text": text}, cache=True)
     except Exception:
-        return fast or Intent(intent="general")
+        return Intent(intent="general", relevance="needs_context")
 
 
 async def _find_class(db: AsyncSession, user: User, name: str | None) -> ClassSection | None:
@@ -305,7 +322,9 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
     intent = await classify(text, user.id)
     yield {"event": "status", "data": {"intent": intent.intent}}
     reply, actions = "", []
-    if intent.intent != "general":
+    if intent.relevance != "teaching":
+        reply = REDIRECT
+    elif intent.intent != "general":
         try:
             reply, actions = await run_action(db, user, intent, text)
         except AppError as e:
@@ -322,7 +341,7 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
             history.append(ChatMessage("user", text))
         history[0] = ChatMessage("user", f"TEACHING CONTEXT\n{context_text}\n\nTEACHER: {history[0].content}")
         async for chunk in get_ai().stream(task="assistant_chat", tier="content", system=prompts.ASSISTANT_SYSTEM,
-                                           messages=history, owner_id=user.id):
+                                           messages=history, owner_id=user.id, max_tokens=1500):
             reply += chunk
             yield {"event": "token", "data": {"text": chunk}}
     else:

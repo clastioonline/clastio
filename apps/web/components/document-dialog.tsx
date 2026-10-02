@@ -34,6 +34,7 @@ export function DocumentFiles({ files }: { files: Record<string, string> }) {
 
 export function DocumentDialog({ open, onClose, kind: initialKind = "worksheet", lessonId }: { open: boolean; onClose: () => void; kind?: string; lessonId?: string }) {
   const { notify } = useToast();
+  const { data: creditInfo } = useApi<any>(open ? "/usage/estimates" : null);
   const { data: lessons } = useApi<any>(open && !lessonId ? "/lessons?limit=60" : null);
   const [kind, setKind] = useState(initialKind);
   const [source, setSource] = useState<"lesson" | "month" | "topic">("lesson");
@@ -94,6 +95,7 @@ export function DocumentDialog({ open, onClose, kind: initialKind = "worksheet",
         <Button onClick={onClose}>{job?.status === "failed" ? "Close" : "Continue in background"}</Button>
       ) : (
         <>
+          {creditInfo && <span className="text-xs text-muted">{creditInfo.costs[kind]} credits · {creditInfo.remaining === null ? "Unlimited plan" : `${creditInfo.remaining} available`}</span>}
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={create} loading={busy || (!!jobId && !doc)} disabled={(source === "lesson" && !lesson) || (source === "topic" && !topic)}>Create</Button>
         </>

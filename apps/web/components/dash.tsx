@@ -25,9 +25,9 @@ export function DashHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Panel({ title, action, children, className }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-3xl bg-surface p-5 sm:p-6", className)}>
+    <section className={cn("min-w-0 rounded-3xl bg-surface p-5 sm:p-6", className)}>
       {(title || action) && (
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           {title && <h2 className="text-lg font-semibold text-ink sm:text-xl">{title}</h2>}
           {action}
         </div>
