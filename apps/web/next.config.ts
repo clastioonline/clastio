@@ -5,8 +5,9 @@ const DEV = process.env.NODE_ENV !== "production";
 
 // Next.js injects small inline scripts (and we inline the theme boot script), so scripts need 'unsafe-inline';
 // Allow Turnstile and configured Clerk authentication resources alongside first-party assets.
-const clerkSources = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-  ? " https://clerk.clastio.online https://*.clerk.accounts.dev https://*.protect.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com" : "";
+// Headers are baked into the build. Keep the allowed authentication domains stable
+// even when the publishable key is supplied only to the running service.
+const clerkSources = " https://clerk.clastio.online https://*.clerk.accounts.dev https://*.protect.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com";
 const CSP = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com${clerkSources}`,
