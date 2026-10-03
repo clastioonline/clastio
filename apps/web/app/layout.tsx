@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
@@ -31,7 +32,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body className="min-h-screen antialiased">
-        <Providers>{children}</Providers>
+        {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
+          <ClerkProvider signInUrl="/login" signUpUrl="/signup" signInForceRedirectUrl="/auth/clerk" signUpForceRedirectUrl="/auth/clerk">
+            <Providers>{children}</Providers>
+          </ClerkProvider>
+        ) : <Providers>{children}</Providers>}
       </body>
     </html>
   );

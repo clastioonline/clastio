@@ -1,7 +1,7 @@
 """In-app notifications and queued transactional email.
 
 Emails are written to email_outbox inside the caller's transaction and sent by the worker with retries, so a slow
-or failing mail server never blocks a request. Without SMTP_URL the worker logs the email instead of sending it.
+or failing mail server never blocks a request. Without RESEND_API_KEY or SMTP_URL the worker logs the email instead of sending it.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from datetime import timedelta
 from email.message import EmailMessage
 from urllib.parse import urlparse
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,15 +114,28 @@ async def send_pending_emails(limit: int = 20) -> int:
                 ).scalars().all()
         for row in rows:
             row.attempts += 1
-            if not s.smtp_url:
-                row.status, row.sent_at, row.last_error = "logged", utcnow(), "SMTP_URL not set; email not sent"
+            if not s.smtp_url and not s.resend_api_key:
+                row.status, row.sent_at, row.last_error = "logged", utcnow(), "Email provider not configured; email not sent"
                 log(logger, logging.INFO, "email_logged", template=row.template, to_domain=row.to_email.split("@")[-1])
                 continue
             msg = EmailMessage()
             msg["From"], msg["To"], msg["Subject"] = s.email_from, row.to_email, row.subject
             msg.set_content(row.body_text)
             try:
-                await asyncio.to_thread(_smtp_send, msg)
+                if s.resend_api_key:
+                    async with httpx.AsyncClient(timeout=20) as client:
+                        result = await client.post(
+                            "https://api.resend.com/emails",
+                            headers={"Authorization": f"Bearer {s.resend_api_key}",
+                                     "Idempotency-Key": f"outbox/{row.id}"},
+                            json={"from": s.email_from, "to": [row.to_email],
+                                  "subject": row.subject, "text": row.body_text},
+                        )
+                        if not result.is_success:
+                            # Never persist request headers / API keys in outbox errors.
+                            raise RuntimeError(f"Resend delivery failed (HTTP {result.status_code})")
+                else:
+                    await asyncio.to_thread(_smtp_send, msg)
                 row.status, row.sent_at, row.last_error = "sent", utcnow(), None
                 sent += 1
             except Exception as e:  # noqa: BLE001 - any SMTP failure is retried

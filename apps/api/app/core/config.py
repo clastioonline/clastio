@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     whatsapp_graph_version: str = "v21.0"
 
     # --- email ---
+    clerk_secret_key: str | None = None
+    clerk_issuer: str | None = None
+    clerk_jwt_key: str | None = None  # PEM public key from Clerk dashboard
+    resend_api_key: str | None = None
     smtp_url: str | None = None
     email_from: str = "Clastio <no-reply@example.com>"
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClerkAuth } from "@/components/clerk-auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -10,6 +11,9 @@ import { useSWRConfig } from "swr";
 import { useApi } from "@/lib/hooks";
 
 export default function SignupPage() {
+  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? <ClerkAuth signup /> : <LegacySignupPage />;
+}
+function LegacySignupPage() {
   const router = useRouter();
   const { mutate } = useSWRConfig();
   const [form, setForm] = useState({ name: "", email: "", password: "" });

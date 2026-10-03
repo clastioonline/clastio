@@ -4,16 +4,19 @@ const API_URL = process.env.API_URL || "http://localhost:8000";
 const DEV = process.env.NODE_ENV !== "production";
 
 // Next.js injects small inline scripts (and we inline the theme boot script), so scripts need 'unsafe-inline';
-// everything else is locked to this origin. Turnstile (optional CAPTCHA) is the only third-party script/frame.
+// Allow Turnstile and configured Clerk authentication resources alongside first-party assets.
+const clerkSources = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+  ? " https://clerk.clastio.online https://*.clerk.accounts.dev https://*.protect.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com" : "";
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com`,
+  `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com${clerkSources}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self'${DEV ? " ws:" : ""}`,
-  "frame-src https://challenges.cloudflare.com",
+  `connect-src 'self'${DEV ? " ws:" : ""}${clerkSources}${clerkSources ? " https://*.protect.clerk.com:*" : ""}`,
+  `frame-src https://challenges.cloudflare.com${clerkSources}`,
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

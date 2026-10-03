@@ -1,5 +1,6 @@
 "use client";
 
+import { ClerkAuth } from "@/components/clerk-auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -8,6 +9,11 @@ import { Alert, Button, Field, Input } from "@/components/ui";
 import { safeInternalPath } from "@/lib/navigation";
 import { api } from "@/lib/api";
 import { useSWRConfig } from "swr";
+
+function LoginChoice() {
+  const params = useSearchParams();
+  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && params.get("legacy") !== "1" ? <ClerkAuth /> : <LoginForm />;
+}
 
 function LoginForm() {
   const router = useRouter();
@@ -25,6 +31,10 @@ function LoginForm() {
     try {
       const res = await api<{ user: { onboarding_completed: boolean; role: string } }>("/auth/login", { body: { email, password } });
       await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
+      if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && params.get("legacy") === "1") {
+        router.replace("/login");
+        return;
+      }
       const next = params.get("next");
       router.replace(!res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next, res.user.role === "admin" ? "/admin" : "/dashboard"));
     } catch (err: any) {
@@ -54,7 +64,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense>
-      <LoginForm />
+      <LoginChoice />
     </Suspense>
   );
 }

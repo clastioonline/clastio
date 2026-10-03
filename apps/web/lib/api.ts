@@ -69,6 +69,10 @@ export async function api<T = any>(path: string, opts: Options = {}): Promise<T>
   if (init.method !== "GET" && typeof window !== "undefined") {
     window.dispatchEvent(new Event("clastio:work-started"));
   }
+  if ((path === "/auth/logout" || path === "/auth/logout-all") && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && typeof window !== "undefined") {
+    const clerk = (window as unknown as { Clerk?: { signOut: () => Promise<void> } }).Clerk;
+    await clerk?.signOut();
+  }
   return data as T;
 }
 

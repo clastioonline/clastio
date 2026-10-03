@@ -469,3 +469,80 @@ async def oauth_callback(provider: str, request: Request, db: DB, code: str = ""
     await db.commit()
     resp.delete_cookie("oauth_state")
     return resp
+
+
+class ClerkLoginIn(BaseModel):
+    token: str = Field(min_length=1, max_length=16000)
+    accept_terms: bool = False
+
+
+@router.post("/clerk", dependencies=[Depends(rate_limit("clerk_login", 30, 3600, by_user=False))])
+async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, db: DB):
+    """Verify Clerk, then establish a revocable application session for existing API clients."""
+    import re
+
+    import jwt
+
+    from app.services.settings import get_setting
+
+    s = get_settings()
+    if not (s.clerk_secret_key and s.clerk_issuer and s.clerk_jwt_key):
+        raise AppError("clerk_not_configured", "Clerk sign-in is not configured.", 503)
+    try:
+        claims = jwt.decode(data.token, s.clerk_jwt_key.replace("\\n", "\n"), algorithms=["RS256"],
+                            issuer=s.clerk_issuer, options={"require": ["exp", "iat", "nbf", "sub", "iss"],
+                                                           "verify_aud": False})
+        if claims.get("azp") != s.public_web_url.rstrip("/") or claims.get("sts") == "pending":
+            raise ValueError("Invalid session origin or status")
+        subject = claims["sub"]
+        if not isinstance(subject, str) or not re.fullmatch(r"user_[A-Za-z0-9]+", subject):
+            raise ValueError("Invalid subject")
+    except (jwt.PyJWTError, ValueError):
+        raise AppError("clerk_invalid", "Sign-in expired. Please sign in again.", 401) from None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            result = await client.get(f"https://api.clerk.com/v1/users/{subject}",
+                                      headers={"Authorization": f"Bearer {s.clerk_secret_key}"})
+    except httpx.HTTPError:
+        raise AppError("clerk_unavailable", "Could not verify your account. Please try again.", 503) from None
+    if not result.is_success:
+        raise AppError("clerk_unavailable", "Could not verify your account. Please try again.", 503)
+    info = result.json()
+    primary = next((e for e in info.get("email_addresses", [])
+                    if e["id"] == info.get("primary_email_address_id")), None)
+    if not primary or primary.get("verification", {}).get("status") != "verified":
+        raise AppError("clerk_unverified", "Please verify your email in Clerk first.", 403)
+    email = str(primary["email_address"]).lower()
+    # Serialize provisioning of the same identity/email across API instances.
+    from sqlalchemy import text
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:email, 0))"), {"email": email})
+    link = (await db.execute(select(OAuthAccount).where(OAuthAccount.provider == "clerk",
+                                                        OAuthAccount.subject == subject))).scalars().first()
+    if link:
+        user = await db.get(User, link.user_id)
+    else:
+        user = (await db.execute(select(User).where(User.email == email))).scalars().first()
+        if user is not None:
+            # Existing ownership/staff privileges require proof of the original app session.
+            existing = decode_token(request.cookies.get(COOKIE_NAME, ""))
+            active = await sessions.load_active(db, existing.get("sid"), user.id) if existing and existing.get("sub") == str(user.id) else None
+            if active is None:
+                raise AppError("clerk_link_required", "Sign in with your existing password first, then connect Clerk from /login?legacy=1.", 409)
+        else:
+            if not (await get_setting("system")).get("registration_enabled", True):
+                raise AppError("registration_closed", "New sign-ups are paused.", 403)
+            if not data.accept_terms:
+                raise AppError("terms_required", "Please accept the Terms and Acceptable Use Policy to continue.", 422)
+            name = " ".join(filter(None, [info.get("first_name"), info.get("last_name")])) or email.split("@")[0]
+            user = await _create_user(db, email, name, None, source="clerk", request=request, verified=True)
+            queue_email(db, user, "welcome", link=f"{s.public_web_url}/dashboard")
+        db.add(OAuthAccount(user_id=user.id, provider="clerk", subject=subject))
+    if user is None:
+        raise AppError("clerk_invalid", "Account unavailable.", 401)
+    if (err := _login_block(user)) is not None:
+        raise err
+    user.last_login_at = utcnow()
+    await sessions.start_session(db, user, request, response, method="clerk")
+    security_event(db, "login_success", user_id=user.id, request=request, method="clerk")
+    await db.commit()
+    return {"user": user_out(await _load(db, user.id))}
