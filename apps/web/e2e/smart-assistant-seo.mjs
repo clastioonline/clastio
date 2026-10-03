@@ -4,11 +4,15 @@ const base = process.env.BASE_URL || 'http://localhost:3100';
 const browser = await chromium.launch({executablePath: process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 const page = await browser.newPage();
 const errors = []; page.on('pageerror', e => errors.push({url:page.url(),message:e.message}));
-let phase = 0, confirmBody, startBody, authRequests = 0;
+let phase = 0, confirmBody, startBody, authRequests = 0, pricingUnavailable = false;
 const action = {type:'image_brief', message_id:'brief-1', slide_version:1, lesson_id:'lesson-1', slide_number:4, brief:{change:'Show four leaves',preserve:'Keep the plant and plain background',source:'ai',style:'illustration'}};
 await page.route('**/api/v1/**', async route => {
   const path = new URL(route.request().url()).pathname.replace('/api/v1','');
   let data = {items:[],unread:0,total:0};
+  if (path === '/billing/plans') {
+    if (pricingUnavailable) return route.fulfill({status:503, json:{error:{message:'Pricing unavailable'}}});
+    data={items:[{code:'free',name:'Free',price_monthly_aed:0,price_annual_aed:0,limits:{credits:60,max_lectures:3},features:[]}, ...[['teacher','Teacher',149],['pro','Teacher Pro',249],['assistant','Genie Assistant',399]].map(([code,name,price])=>({code,name,price_monthly_aed:price,price_annual_aed:price*10,features:['Editable PowerPoints'],limits:{credits:800,max_lectures:10}}))],vat_rate:0.05,online_payments:true,payment_provider:'stripe',trial:{enabled:true,plan:'pro',days:7,credits:50}};
+  }
   if (path === '/auth/me') authRequests++;
   if (path === '/auth/me') data = {user:{id:'review',email:'teacher@example.com',name:'Test Teacher',role:'teacher',permissions:[],status:'active',email_verified:true,locale:'en',timezone:'Asia/Dubai',onboarding_completed:true},pending_legal:[]};
   if (path === '/me/usage') data={plan:{code:'pro',name:'Pro'},usage:{credits:{used:0,limit:50}},trial:{active:false}};
@@ -21,7 +25,7 @@ await page.route('**/api/v1/**', async route => {
   await route.fulfill({status:200,json:data});
 });
 try {
-  const guides=['ai-ppt-maker-for-teachers-uae','lesson-planning-for-uae-teachers','eal-lessons-uae','british-curriculum-lesson-planning','cbse-lesson-planning-uae','edit-ppt-without-regenerating','personal-ai-teaching-assistant'];
+  const guides=['ai-ppt-maker-for-teachers-uae','lesson-planning-for-uae-teachers','eal-lessons-uae','british-curriculum-lesson-planning','cbse-lesson-planning-uae','edit-ppt-without-regenerating','personal-ai-teaching-assistant','worksheet-maker-for-uae-teachers','quiz-and-exit-ticket-maker','differentiated-lesson-presentations','turn-teaching-notes-into-powerpoint','reuse-school-powerpoint-design','stock-images-for-teaching-presentations'];
   for (const slug of guides) {
     const response=await page.goto(`${base}/solutions/${slug}`, {waitUntil: "networkidle"});assert.equal(response.status(),200);
     await page.getByRole('heading', {name: 'Example teacher prompt'}).waitFor();
@@ -32,6 +36,23 @@ try {
     assert.ok((await response.text()).includes('Example teacher prompt'));
     for (const width of [390,1440]) {await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${slug} fits ${width}`);}
   }
+  for (const path of ['/how-it-works','/for-schools','/faq']) {
+    const response=await page.goto(`${base}${path}`, {waitUntil:'networkidle'}); assert.equal(response.status(),200);
+    assert.equal(await page.locator('h1').count(),1);
+    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`https://clastio.online${path}`);
+    assert.ok((await response.text()).includes('Explore next'));
+    for (const width of [390,1440]) {await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${path} fits ${width}`);}
+  }
+  await page.goto(`${base}/pricing`);
+  for(const price of [149,249,399]) await page.getByText(`AED ${price}`,{exact:true}).waitFor();
+  await page.getByRole('tab',{name:'Yearly',exact:true}).click();
+  await page.getByText('AED 1490 billed yearly · +5% VAT',{exact:true}).waitFor();
+  pricingUnavailable=true;
+  await page.goto(`${base}/pricing`);
+  await page.getByRole('button',{name:'Retry pricing',exact:true}).waitFor();
+  pricingUnavailable=false;
+  await page.getByRole('button',{name:'Retry pricing',exact:true}).click();
+  await page.getByText('AED 149',{exact:true}).waitFor();
   const sitemap=await(await page.request.get(`${base}/sitemap.xml`)).text();assert.ok(guides.every(slug=>sitemap.includes(`/solutions/${slug}`)));assert.ok(!sitemap.includes('/login')&&!sitemap.includes('/assistant'));
   const robots=await(await page.request.get(`${base}/robots.txt`)).text();assert.ok(robots.includes('Disallow: /teacher-memory')&&robots.includes('https://clastio.online/sitemap.xml'));
   assert.ok((await(await page.request.get(`${base}/llms.txt`)).text()).includes('## Public resources'));
@@ -57,5 +78,5 @@ try {
   assert.ok(await dialog.isVisible(), 'clicking inside a dialog keeps it open');
   await dialog.getByRole('button', {name: 'Keep exploring'}).click();
   assert.deepEqual(errors,[]);
-  console.log('Seven guides, server HTML, canonical/structured data, sitemap, robots, 404, responsive layouts and clarify/confirm/remember flow passed.');
+  console.log('13 guides, three product pages, launch prices, pricing retry, server HTML, canonical/structured data, sitemap, robots, 404, responsive layouts and clarify/confirm/remember flow passed.');
 } finally {await browser.close();}

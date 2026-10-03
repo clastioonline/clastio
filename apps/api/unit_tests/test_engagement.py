@@ -105,7 +105,7 @@ async def test_dodo_coupon_forwarded_to_gateway():
     provider = billing.DodoProvider.__new__(billing.DodoProvider)
     provider.settings = SimpleNamespace(public_web_url='https://clastio.online')
     provider.products = {'pro_month': 'pdt_pro'}
-    provider.client = SimpleNamespace(checkout_sessions=SimpleNamespace(create=AsyncMock(return_value=SimpleNamespace(checkout_url='https://checkout.example'))))
+    provider.client = SimpleNamespace(products=SimpleNamespace(retrieve=AsyncMock(return_value=SimpleNamespace(price=SimpleNamespace(price=24900, currency='AED', type='recurring_price', payment_frequency_interval='month', payment_frequency_count=1)))), checkout_sessions=SimpleNamespace(create=AsyncMock(return_value=SimpleNamespace(checkout_url='https://checkout.example'))))
     await provider.checkout(SimpleNamespace(id=uuid.uuid4(), email='teacher@example.com', name='Teacher'),
-                            SimpleNamespace(code='pro', name='Pro'), 'month', None, 'SAVE20')
+                            SimpleNamespace(code='pro', name='Pro', price_monthly_aed=249), 'month', None, 'SAVE20')
     assert provider.client.checkout_sessions.create.call_args.kwargs['discount_codes'] == ['SAVE20']

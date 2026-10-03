@@ -5,7 +5,7 @@ export const metadata = { title: "Pricing" };
 
 const faqs = [
   { q: "How does the free trial work?", a: "Every new account starts with a free trial of a paid plan, with no card needed. When it ends you move to the Free plan automatically, and everything you made stays yours. Upgrade from inside the app whenever you're ready." },
-  { q: "What is a credit?", a: "Credits measure what you generate. One slide is 1 credit and a worksheet is 4, for example. A full 10-slide lesson with its quiz uses about 13 credits." },
+  { q: "What is a credit?", a: "Credits measure what you generate. One slide is 1 credit and a worksheet is 4, for example. At the default rates, ten slides plus a quiz use 13 credits; chapter planning and other resources add to that. The app shows current rates before generation." },
   { q: "Can I cancel any time?", a: "Yes. Cancelling keeps your plan until the end of the billing period, and your lessons and files stay yours." },
   { q: "How do I pay?", a: "By card and local payment methods through our payment partner, which handles VAT invoices for you. Schools can ask for an invoice instead." },
   { q: "Is my data safe?", a: "Your uploads are stored privately and never modified. We don't need student personal data, and you can export or delete everything." },
@@ -19,12 +19,12 @@ export default function PricingPage() {
         <LandingNav />
         <div className="mx-auto max-w-3xl px-4 pt-14 text-center sm:px-6">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Simple plans for busy teachers</h1>
-          <p className="mx-auto mt-4 max-w-xl text-[var(--l-muted)]">Try everything free, then pick the plan that fits how much you teach. Prices in AED, plus 5% VAT.</p>
+          <p className="mx-auto mt-4 max-w-xl text-[var(--l-muted)]">Start a seven-day trial with limited allowances, then choose the plan that fits how much you teach. Prices are in AED; checkout confirms taxes and discounts.</p>
         </div>
       </div>
       <section className="mx-auto -mt-8 max-w-6xl px-4 sm:px-6">
         <PricingTable mode="public" />
-        <p className="mt-8 text-center text-sm text-[var(--l-muted)]">Schools and departments: per-seat yearly pricing with shared templates, SSO and invoicing. Contact us for a quote.</p>
+        <p className="mt-8 text-center text-sm text-[var(--l-muted)]">Planning a department rollout? Explore a small teacher-led pilot and confirm the account, billing and integration requirements your school needs.</p>
       </section>
       <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
         <h2 className="mb-6 text-center text-3xl font-bold tracking-tight">Questions</h2>

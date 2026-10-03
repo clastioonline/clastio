@@ -110,6 +110,14 @@ class FakeDodo:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.checkout_sessions = FakeCheckoutSessions()
+        self.products = self
+
+    async def retrieve(self, product_id):
+        from types import SimpleNamespace
+        from app.services.usage import DEFAULT_PLANS
+        amount = next(p["price_monthly_aed"] for p in DEFAULT_PLANS if p["code"] == "pro")
+        return SimpleNamespace(price=SimpleNamespace(price=amount * 100, currency="AED", type="recurring_price",
+                                                     payment_frequency_interval="month", payment_frequency_count=1))
 
 
 async def test_dodo_checkout_uses_admin_product_ids(client, monkeypatch):

@@ -20,7 +20,7 @@ Teachers can manage image source and style in **Teacher memory**, explicitly say
 
 ## Public pages and search
 
-`/solutions` links seven distinct, server-rendered guides:
+`/solutions` links thirteen distinct, server-rendered guides:
 
 - `/solutions/ai-ppt-maker-for-teachers-uae`
 - `/solutions/lesson-planning-for-uae-teachers`
@@ -29,6 +29,12 @@ Teachers can manage image source and style in **Teacher memory**, explicitly say
 - `/solutions/cbse-lesson-planning-uae`
 - `/solutions/edit-ppt-without-regenerating`
 - `/solutions/personal-ai-teaching-assistant`
+- `/solutions/worksheet-maker-for-uae-teachers`
+- `/solutions/quiz-and-exit-ticket-maker`
+- `/solutions/differentiated-lesson-presentations`
+- `/solutions/turn-teaching-notes-into-powerpoint`
+- `/solutions/reuse-school-powerpoint-design`
+- `/solutions/stock-images-for-teaching-presentations`
 
 Each includes a direct answer, practical steps, an example teacher prompt, common questions, related guides, a canonical URL, Open Graph/Twitter metadata, Article and Breadcrumb JSON-LD. The homepage links the guides and includes Organization, WebSite and SoftwareApplication JSON-LD. The content avoids invented endorsements, review counts, school affiliations or curriculum certification. Unknown/malformed guide slugs return 404 using a bounded regex plus an exact allowlist; JSON-LD escapes `<` to prevent script termination.
 
@@ -38,6 +44,8 @@ SEO, GEO, AIO and LLM discoverability are supported by clear public text, meanin
 
 ## Deployment and measurement
 
+Follow [the complete Render/Railway launch guide](RENDER_RAILWAY_LAUNCH_GUIDE.md) for database, storage, authentication, email, workers, payments and production verification.
+
 Deploy the Render frontend and restart/redeploy Railway API and AI workers so the new handler is registered. Set `NEXT_PUBLIC_SITE_URL=https://clastio.online`, keep Openverse enabled on API/workers and configure live text/vision and image providers within the existing AI budgets. No database migration is needed.
 
 After deployment, test an image discussion, corrected requirements, confirmation, provider availability, missing allowance, stale-slide rejection, style memory and manual upload. External AI/Openverse retrieval and database concurrency are mocked in local tests; production smoke tests remain necessary. Verify public pages, canonical origins, sitemap and robots at the live domain.
@@ -46,8 +54,14 @@ To measure actual discovery, verify site ownership in Google Search Console and 
 
 ## Validation
 
-- API: `cd apps/api && ./.venv312/bin/python -m pytest unit_tests/test_smart_assistant.py unit_tests/test_efficient_edits.py unit_tests/test_teacher_images.py unit_tests/test_stock_presentations.py unit_tests/test_playground.py -q`
+- API: `cd apps/api && ./.venv312/bin/python -m pytest unit_tests/test_launch_pricing.py unit_tests/test_engagement.py unit_tests/test_smart_assistant.py unit_tests/test_efficient_edits.py unit_tests/test_teacher_images.py unit_tests/test_stock_presentations.py unit_tests/test_playground.py -q`
 - Web: `cd apps/web && npm run typecheck && npm run build`
 - Browser against a local server on port 3100: `cd apps/web && node e2e/smart-assistant-seo.mjs`. Uses mocked authenticated API responses and Chrome; checks public server HTML, metadata/schema, sitemap, robots, invalid routes, responsive layouts and clarify/confirm/remember UI. It does not invoke live AI or payments.
 
-Current local results: 42 targeted API tests and four web unit tests pass; the production build passes. The browser regression completes its functional, responsive and metadata assertions, but its final console-error assertion intermittently fails with React error 418 on public guide pages. This hydration warning remains unresolved and should be investigated before production rollout. Browser checks use mocked API responses; live database/provider concurrency and production AI retrieval have not been verified.
+Current local results: 63 targeted API tests and four web unit tests pass; the production build passes. Two consecutive production browser regressions pass across 13 guides, three product pages, monthly/annual prices, pricing retries and the image clarification flow with no page errors. The inline theme boot script now comes from a server-safe module instead of being a reference to an export in a client-only module; the previously observed hydration warning did not recur in these checks. Browser and gateway checks use mocks; live database concurrency, payment checkout, production AI retrieval and deployment still require a production smoke test.
+
+## Expanded public pages
+
+Six additional guides cover worksheet generation, quizzes/exit tickets, differentiated presentations, teaching-note sources, school design references and stock/uploaded images. Dedicated `/how-it-works`, `/for-schools` and `/faq` pages describe the actual workflow, a school pilot and product limits. Navigation, footer, homepage, sitemap and the optional public resource index link these pages. They do not invent school customers, reviews, endorsements or guaranteed outcomes. The FAQ describes credits rather than a fixed unlimited PPT count.
+
+Launch price defaults and the explicit existing-database rollout command are documented in `ENGAGEMENT_AND_BILLING.md`. Changing source defaults does not silently rewrite existing catalogue rows or payment subscriptions.

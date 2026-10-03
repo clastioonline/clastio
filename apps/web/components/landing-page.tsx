@@ -271,7 +271,7 @@ export default function Landing() {
       <section className="mx-auto max-w-6xl px-5 py-14" aria-labelledby="teacher-guides-heading">
         <h2 id="teacher-guides-heading" className="text-3xl font-semibold">Practical answers for your next lesson</h2>
         <p className="mt-3 text-[var(--l-muted)]">Explore UAE lesson planning, EAL support, curriculum workflows and ways to edit a PPT without rebuilding everything.</p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{teacherGuides.slice(0, 6).map((guide) => <Link key={guide.slug} href={`/solutions/${guide.slug}`} className="focus-ring rounded-2xl bg-[var(--l-card)] p-5 ring-1 ring-black/10 hover:ring-brand-600"><h3 className="font-semibold">{guide.title}</h3><p className="mt-2 text-sm text-[var(--l-muted)]">{guide.description}</p></Link>)}</div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{teacherGuides.filter((_, i) => [0, 1, 6, 7, 8, 12].includes(i)).map((guide) => <Link key={guide.slug} href={`/solutions/${guide.slug}`} className="focus-ring rounded-2xl bg-[var(--l-card)] p-5 ring-1 ring-black/10 hover:ring-brand-600"><h3 className="font-semibold">{guide.title}</h3><p className="mt-2 text-sm text-[var(--l-muted)]">{guide.description}</p></Link>)}</div>
         <Link href="/solutions" className="mt-6 inline-flex font-semibold text-brand-700">All teacher guides →</Link>
       </section>
 
@@ -286,7 +286,7 @@ export default function Landing() {
           </div>
           <div className="flex flex-wrap gap-3 lg:justify-end">
             <Link href="/signup" className="rounded-full bg-white px-6 py-3 font-medium text-[#141414] hover:bg-white/90">Try it yourself</Link>
-            <Link href="/pricing" className="rounded-full border border-white/30 px-6 py-3 font-medium text-white hover:bg-white/10">School pricing</Link>
+            <Link href="/for-schools" className="rounded-full border border-white/30 px-6 py-3 font-medium text-white hover:bg-white/10">Explore a school pilot</Link>
           </div>
         </div>
       </section>

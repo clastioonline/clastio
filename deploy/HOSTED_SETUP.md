@@ -1,5 +1,7 @@
 # Render frontend + Railway backend
 
+For the complete ordered launch procedure, see [the Render/Railway launch guide](../docs/RENDER_RAILWAY_LAUNCH_GUIDE.md).
+
 These templates match the current code. They contain placeholders, not deployable credentials.
 
 ## Render frontend
@@ -61,3 +63,19 @@ Reference: [Railway monorepo root directories](https://docs.railway.com/deployme
 ## Local validation of this change
 
 Frontend production builds passed both without Clerk and with a synthetic Clerk publishable key (build only). Seven provider boundary tests passed: signature/issuer/origin/expiration/status checks and Resend payload/retry handling. Run `cd apps/api && python -m pytest unit_tests/test_provider_validation.py -q` for those tests. Database integration tests in `tests/test_clerk_resend.py` require a dedicated `_test` PostgreSQL database with pgvector; they could not run on the available local PostgreSQL installation. Live sign-in and delivery remain to be tested after keys and DNS are configured.
+
+## Readiness fails after connecting Render to Railway
+
+A response from `https://clastio.online/api/v1/ready` containing the backend's `status`, `version` and `checks` JSON confirms the Render proxy is reaching Railway. `503 not_ready` with database/Redis checks false means backend dependency readiness failed; changing CORS will not repair those connections. The database check also covers migration discovery, so check API logs to distinguish connection failures from migration/configuration failures.
+
+1. Ensure PostgreSQL (with pgvector) and Redis are running in the same Railway environment as the API, worker and scheduler.
+2. Set `DATABASE_URL` on each backend service from the PostgreSQL connection URL. Replace its `postgresql://` or `postgres://` scheme with `postgresql+asyncpg://` for this application's async driver. Preserve the URL-encoded credentials, host, port and database. Do not use localhost, placeholder values or Render's API_URL as database URLs.
+3. Set `REDIS_URL` using a Railway reference to the actual Redis service, for example `${{Redis.REDIS_URL}}` if that service is named Redis. The API/worker/scheduler should reference the same Redis.
+4. Run the existing API pre-deploy command `alembic upgrade head && python -m app.seed --skip-embeddings`, then deploy the API and workers. If migration fails, fix the logged error before proceeding.
+5. Compare `https://clastio-production.up.railway.app/api/v1/ready` with `https://clastio.online/api/v1/ready`. Both should return HTTP 200 with status ready. `/api/v1/health` is only liveness and does not prove dependencies work.
+
+A missing `/favicon.ico` is separate from API readiness. The frontend now includes `apps/web/app/favicon.ico` from the existing Clastio logo; deploy the updated frontend to make it available.
+
+## Launch prices on an existing Railway database
+
+The code defaults are Teacher AED 149/month, Teacher Pro AED 249/month and Genie Assistant AED 399/month; yearly prices are AED 1,490 / 2,490 / 3,990. Ordinary seeding does not overwrite existing plans. After deploying the new API code, run `python -m app.seed --skip-embeddings --update-plan-prices` once in the Railway API environment to update only paid catalogue price fields. Keep existing limits and subscriptions. Align the Stripe price-ID or Dodo product mappings with the new recurring AED amounts before enabling new checkouts; mismatches are now refused. Existing provider subscriptions are not repriced by this command. See `docs/ENGAGEMENT_AND_BILLING.md` for the fee scenarios and full rollout details.

@@ -36,7 +36,7 @@ export function useCheckout() {
 export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidOnly = false, compact = false }: {
   mode?: "public" | "app"; currentPlan?: string; onTrial?: boolean; paidOnly?: boolean; compact?: boolean;
 }) {
-  const { data } = useApi<PlansResponse>("/billing/plans");
+  const { data, error, mutate } = useApi<PlansResponse>("/billing/plans");
   const [interval, setInterval] = useState<"month" | "year">("month");
   const { choose, busy } = useCheckout();
   const [couponCode, setCouponCode] = useState("");
@@ -44,10 +44,15 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
   const trial = data?.trial;
   const canPay = mode === "public" || !!data?.online_payments;
 
+  if (!data) return <div role={error ? "alert" : "status"} className="rounded-2xl bg-surface p-8 text-center ring-1 ring-line">
+    <p>{error ? "We couldn't load current prices. Please retry before choosing a plan." : "Loading current plans…"}</p>
+    {error && <button className="mt-4 rounded-full bg-brand-800 px-5 py-3 font-semibold text-white" onClick={() => void mutate()}>Retry pricing</button>}
+  </div>;
+
   return (
     <div>
       <div className="mb-6 flex flex-col items-center gap-3">
-        <Tabs tabs={[{ value: "month", label: "Monthly" }, { value: "year", label: "Yearly · 2 months free" }]} value={interval} onChange={setInterval} />
+        <Tabs tabs={[{ value: "month", label: "Monthly" }, { value: "year", label: "Yearly" }]} value={interval} onChange={setInterval} />
         {mode === "public" && trial?.enabled && (
           <p className="flex items-center gap-1.5 text-sm text-ink-2"><Sparkles className="h-4 w-4 text-accent-500" />
             Every new account starts with a {trial.days}-day free trial of {data?.items.find((p) => p.code === trial.plan)?.name || "a paid plan"}, with {trial.credits} trial credits. No card needed.</p>
@@ -69,7 +74,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
                 {p.price_monthly_aed > 0 && <span className={cn("text-sm", popular ? "text-white/70" : "text-muted")}>/month</span>}
               </div>
               <p className={cn("mt-1 text-xs", popular ? "text-white/70" : "text-muted")}>
-                {p.price_monthly_aed ? (interval === "year" ? `AED ${p.price_annual_aed} billed yearly · ` : "") + "+5% VAT" : "For trying things out"}
+                {p.price_monthly_aed ? (interval === "year" ? `AED ${p.price_annual_aed} billed yearly · ` : "") + (data.vat_rate ? `+${Math.round(data.vat_rate * 100)}% VAT` : "Taxes shown at checkout") : "For trying things out"}
               </p>
               {!compact && (
                 <ul className="mt-5 flex-1 space-y-2.5 text-sm">

@@ -83,3 +83,33 @@ If the validated/budgeted rewrite is identical to the original, the worker retur
 Suggested teacher instruction: “Slide 4 only: shorten the explanation to three bullets, keep the example and image, and move the detail to speaker notes.” Combine related changes into one instruction rather than requesting repeated rewrites. Review the updated slide and use version restore for undo. Full lesson rebuilds are appropriate when the topic, grade or lesson sequence changes substantially.
 
 Verification: `cd apps/api && ./.venv312/bin/python -m pytest unit_tests/test_efficient_edits.py unit_tests/test_teacher_images.py unit_tests/test_stock_presentations.py unit_tests/test_playground.py -q`, frontend typecheck and production build. Database locking tests use mocked sessions here; production workers and concurrent requests need a deployment smoke test.
+
+## Launch catalogue: AED 149 / 249 / 399
+
+Monthly launch prices (before checkout taxes) are Teacher AED 149, Teacher Pro AED 249 and Genie Assistant AED 399. Annual prices remain ten monthly payments: AED 1,490 / 2,490 / 3,990 for twelve months. The Free plan, seven-day trial and existing credit/image/class/storage limits are retained. Credits measure usage, not a promise of unlimited-length PPTs. The current rates in the app determine actual generation estimates.
+
+| Plan | Monthly price | Annual price | Monthly credits | AI-image allowance | After a 2% fee | After a 5% fee |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Teacher | AED 149 | AED 1,490 | 800 | 30 | AED 146.02 | AED 141.55 |
+| Teacher Pro | AED 249 | AED 2,490 | 2,000 | 100 | AED 244.02 | AED 236.55 |
+| Genie Assistant | AED 399 | AED 3,990 | 4,000 | 200 | AED 391.02 | AED 379.05 |
+
+Fee columns are arithmetic scenarios on the base subscription price, not profit or a gateway quote. They exclude fixed transaction charges, payment fees on tax-inclusive totals, tax, FX, refunds, billing add-ons, AI generation, infrastructure, trial usage, coupons and marketing. Stripe's published UAE standard card fee is 2.9% + AED 1, with additional charges possible: https://stripe.com/ae/pricing . Use the actual contracted gateway fee in the business model. Do not assume a plan is profitable merely because its subscription price increased.
+
+A practical contribution calculation is: base subscription revenue minus actual gateway charges, per-customer AI usage, allocated hosting/support and discount/refund costs. Marketing acquisition cost should be assessed against the number of paid months a customer stays, rather than charged entirely against every month's recurring revenue. Measure real usage and conversion before changing limits or adding discounts.
+
+### Roll out to an existing deployment
+
+Normal seeding still preserves existing admin-edited plans. Deploy the API code, then run this explicit catalogue update once in the Railway API environment:
+
+```sh
+python -m app.seed --skip-embeddings --update-plan-prices
+```
+
+This sets only the three paid plan price fields. It does not alter limits, custom features, subscription rows or existing gateway subscription amounts. Repeating it is safe when prices already match; do not keep the flag in a permanent pre-deploy command if admins will customise prices later. Fresh databases receive the new defaults during normal seeding.
+
+Create matching monthly/annual recurring prices or products in the active payment gateway. For Stripe, replace the relevant `STRIPE_PRICES` mappings; when no price ID is mapped, checkout uses the catalogue's inline AED recurring price. For Dodo, update `DODO_PRODUCTS` or the admin billing product map. Keep old gateway products and historical mappings available where needed for existing renewals/webhooks. No gateway products were changed from this workspace.
+
+Checkout now reads mapped Stripe prices and Dodo products and verifies the AED base amount and billing frequency before opening a session. Stale, inactive or incompatible mapped prices return `billing_price_mismatch` rather than charging a different base price. Discounts remain applied by the checkout coupon mechanism. Verify tax treatment and the final total in a real checkout before rollout; the amount guard does not configure taxes or change existing subscriptions.
+
+Deploy Render after the API catalogue is updated. Pricing cards read the backend catalogue, display explicit loading/error/retry states and show actual annual totals. The Yearly tab no longer promises a fixed discount for admin-customised annual prices.

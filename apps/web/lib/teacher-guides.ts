@@ -103,6 +103,235 @@ export const teacherGuides: TeacherGuide[] = [
     example: "Remember that I prefer diagrams for future lessons. For this presentation, use my uploaded photograph instead and ask me which details need highlighting.",
     questions: [{question: "Does a one-off image request change my preferences?", answer: "No. You can explicitly ask to remember a supported preference or choose the remember option after an image replacement."}, {question: "Can I delete a memory?", answer: "Yes. Teacher memory lets you remove preferences and stored notes."}, {question: "Will the assistant apply unconfirmed guesses?", answer: "Unconfirmed preferences are treated as suggestions to clarify, rather than defaults for generation."}],
   },
+{
+  "slug": "worksheet-maker-for-uae-teachers",
+  "title": "Worksheet maker for UAE teachers",
+  "description": "Create practice worksheets from your lesson and uploaded sources, with clear instructions, worked examples and a teacher-reviewed answer key.",
+  "answer": "Create the lesson first, then use its document tools to draft a worksheet that practises the same objective. Describe the question types, difficulty and time available, and check the answer key before giving it to students.",
+  "sections": [
+    {
+      "heading": "Choose what students should practise",
+      "text": "State one or two learning goals and the skill each question should reveal. A worksheet on equivalent fractions should require students to recognise and construct equivalent fractions, rather than spend most of the time copying definitions. Specify the grade, prior learning and available working time."
+    },
+    {
+      "heading": "Build support into the task",
+      "text": "Request a worked example, guided questions and independent practice. For learners who need language support, use short instructions and a small vocabulary bank. For additional challenge, ask students to explain an error or justify a method rather than simply complete more questions."
+    },
+    {
+      "heading": "Check the answers and format",
+      "text": "Read every question alongside its answer. Check units, calculations, diagrams and any question with multiple valid responses. Download the resource and inspect spacing before printing. When an exact image matters, supply an approved picture and its source instead of requesting a decorative generated visual."
+    }
+  ],
+  "steps": [
+    "Open a lesson with the right learning objective.",
+    "Choose a worksheet from the lesson documents.",
+    "Specify question types, support and working time.",
+    "Review questions against the source material.",
+    "Check the answer key and downloaded layout."
+  ],
+  "example": "Draft a 15-minute Grade 6 worksheet on equivalent fractions from this lesson: one worked example, six practice questions and two explain-your-reasoning questions. Include an answer key and flag anything that needs a diagram.",
+  "questions": [
+    {
+      "question": "Does a worksheet use credits?",
+      "answer": "Document generation uses the worksheet rate shown in the app. Slides and AI images have separate allowances; check the current estimate before generating."
+    },
+    {
+      "question": "Can I make separate support and challenge tasks?",
+      "answer": "Specify the tasks and the learning goal in the document instruction. Review that both versions assess the same core concept."
+    }
+  ]
+},
+{
+  "slug": "quiz-and-exit-ticket-maker",
+  "title": "Create quizzes and exit tickets for teaching lessons",
+  "description": "Draft short checks for understanding, useful distractors and answer explanations from your teaching sources with Clastio.",
+  "answer": "Use a quiz or exit ticket to find out what students understood, not just what they can repeat. Give Clastio the lesson objective, the misconception to test and the response format, then verify each question and answer.",
+  "sections": [
+    {
+      "heading": "Ask questions that reveal the misconception",
+      "text": "For a lesson on evaporation, a question should distinguish evaporation from boiling. Ask for a wrong answer a student might plausibly choose and an explanation of why it is wrong. Avoid ambiguous wording that tests reading difficulty rather than the science."
+    },
+    {
+      "heading": "Keep the check short enough to use",
+      "text": "Specify the time available and how students will respond. Three carefully chosen questions may be more useful at the end of a lesson than a long quiz you cannot review. Mix a recall question, an application question and a short explanation when that fits the objective."
+    },
+    {
+      "heading": "Plan what you will do with the answers",
+      "text": "Ask for a follow-up teaching question or a next-lesson retrieval prompt. After class, record the aggregate difficulty in your reflection without student names. Use that information when planning revision; do not assume that a single wrong response proves a student has not learned the topic."
+    }
+  ],
+  "steps": [
+    "Choose the lesson objective and misconception.",
+    "Specify question count, time and response format.",
+    "Draft the quiz from the lesson document tools.",
+    "Verify the correct answers and distractors.",
+    "Use the results to plan the next lesson."
+  ],
+  "example": "Create a five-minute exit ticket for this lesson on evaporation: one multiple-choice misconception check, one everyday application and one explanation. Give the answer and the next question I should ask if students confuse evaporation with boiling.",
+  "questions": [
+    {
+      "question": "Are AI answer keys guaranteed correct?",
+      "answer": "No. Check every key, calculation and explanation against your source material before teaching."
+    },
+    {
+      "question": "Can I save a preferred quiz length?",
+      "answer": "Add a confirmed quiz-length preference in Teacher memory, and state any exception in the current request."
+    }
+  ]
+},
+{
+  "slug": "differentiated-lesson-presentations",
+  "title": "Differentiate lesson presentations without starting again",
+  "description": "Adapt explanations, vocabulary, examples and practice for mixed-attainment classrooms while preserving the same learning goal.",
+  "answer": "Start with a shared lesson objective, then describe the support and challenge your class needs. Clastio can help revise individual slides and activities so you can adapt a presentation without rebuilding the whole deck.",
+  "sections": [
+    {
+      "heading": "Describe the barrier precisely",
+      "text": "Explain whether learners need help with vocabulary, prior knowledge, reading load or a particular method. Use aggregate class information. A request for simpler slides is less useful than saying students can identify the numerator but confuse its role when comparing fractions."
+    },
+    {
+      "heading": "Vary the support while keeping the goal",
+      "text": "Ask for a visual model, a worked example or sentence frames for guided practice. Add a reasoning task for learners ready to go further. Review that the support helps students reach the lesson objective and that the extension does not introduce an unrelated topic."
+    },
+    {
+      "heading": "Edit the affected slide",
+      "text": "Combine the changes in one slide instruction and state what must stay. Keep a useful picture and the core example while shortening the explanation. Make exact corrections manually, or restore a previous version when it worked better. Save reusable preferences only when they apply across lessons."
+    }
+  ],
+  "steps": [
+    "State the common learning objective.",
+    "Describe support and challenge needs.",
+    "Choose the slide or activity that needs adaptation.",
+    "Combine changes into one clear instruction.",
+    "Review and compare the revised version."
+  ],
+  "example": "On this slide, keep the worked example and diagram. Add a sentence frame for explaining the method, reduce the introductory text to two bullets, and put one challenge question in the teacher notes.",
+  "questions": [
+    {
+      "question": "Should I upload student records?",
+      "answer": "Use aggregate class needs and avoid individual student names or sensitive records."
+    },
+    {
+      "question": "Must I regenerate the whole presentation?",
+      "answer": "No. Manual edits and single-slide AI rewrites let you adapt the affected slide. The app shows the current generation cost."
+    }
+  ]
+},
+{
+  "slug": "turn-teaching-notes-into-powerpoint",
+  "title": "Turn teaching notes and textbook sources into PowerPoint",
+  "description": "Ground an editable teaching PPT in the chapter, PDF or notes you actually use, with a reviewable plan before slide generation.",
+  "answer": "Upload the relevant teaching source, select it for your chapter and discuss the lesson goals before generating slides. Give the assistant the section that matters and verify that the plan covers it at the depth your class needs.",
+  "sections": [
+    {
+      "heading": "Select the useful source, not every file",
+      "text": "Use the chapter pages or notes that directly support this lesson. Name the chapter section and the learning goals. Scanned pages should be readable; inspect the uploaded material if labels, equations or small print are important. Use materials you have permission to upload."
+    },
+    {
+      "heading": "Make the teaching sequence explicit",
+      "text": "Tell the playground what has already been taught, which idea needs a worked example and how you will check understanding. The source provides grounding, while the teacher decides how the class should learn it. Review the chapter plan before generating selected lessons."
+    },
+    {
+      "heading": "Review source-specific details",
+      "text": "Check terminology, worked calculations, quantities in diagrams and any passage that the assistant has summarised. A source upload does not guarantee that every sentence or image will be reproduced exactly. Upload an exact visual or make a manual correction when fidelity matters."
+    }
+  ],
+  "steps": [
+    "Upload readable, relevant teaching materials.",
+    "Select the source for the chapter.",
+    "State topic, grade, curriculum and objectives.",
+    "Discuss prior learning and lesson duration.",
+    "Review the sequence, then generate selected lessons.",
+    "Verify important details against the source."
+  ],
+  "example": "Use the uploaded chapter section on the water cycle to plan two Grade 5 lessons. The class already knows evaporation. Focus on condensation and collection, include a local everyday example, and ask me which practical resources are available.",
+  "questions": [
+    {
+      "question": "Can I upload a whole textbook?",
+      "answer": "Use the relevant material within the app upload limits and your permission to use it. Selecting the right chapter section makes review easier."
+    },
+    {
+      "question": "Does upload guarantee exact content?",
+      "answer": "No. Review the generated explanation, numbers and labels against your source before classroom use."
+    }
+  ]
+},
+{
+  "slug": "reuse-school-powerpoint-design",
+  "title": "Reuse your school PowerPoint design for teaching slides",
+  "description": "Use an existing presentation as a design reference and keep a reusable teacher style for future editable lesson decks.",
+  "answer": "Upload an existing PowerPoint as a design reference, save the resulting style and select it when creating a chapter. Review the generated layouts before teaching, especially when your school requires particular fonts, spacing or brand assets.",
+  "sections": [
+    {
+      "heading": "Choose a representative reference",
+      "text": "Use a deck with the layouts you actually teach with: title, explanation, example and practice. A reference with consistent typography and spacing is easier to use than a collection of unrelated designs. Keep a copy of the original and use materials your school permits you to share."
+    },
+    {
+      "heading": "Review readability rather than appearance alone",
+      "text": "Check heading size, contrast and how much text fits on a projected slide. Explain whether the class needs large labels, short explanations or visual examples. A design should support the teaching objective and work with the actual classroom display."
+    },
+    {
+      "heading": "Reuse and adjust selectively",
+      "text": "Save a preferred style for future chapters and choose a different one when a lesson needs it. The generated deck is an editable draft rather than a guaranteed pixel-perfect copy. Use the manual slide editor or PowerPoint for exact placement and inspect the exported file before class."
+    }
+  ],
+  "steps": [
+    "Choose an approved, consistent reference deck.",
+    "Upload it as a design reference.",
+    "Review and save the teacher style.",
+    "Select that style for the chapter.",
+    "Check the export and make exact adjustments."
+  ],
+  "example": "Use my uploaded presentation as the design reference. Keep explanations brief, prefer a worked-example layout for mathematics, and ask me which school elements must be included before planning.",
+  "questions": [
+    {
+      "question": "Is the result an exact copy of the reference?",
+      "answer": "It is a design-guided editable draft. Review layouts and use manual editing for exact school requirements."
+    },
+    {
+      "question": "How many styles can I save?",
+      "answer": "Style-profile allowances depend on your current plan. The pricing page and usage screen show the current limits."
+    }
+  ]
+},
+{
+  "slug": "stock-images-for-teaching-presentations",
+  "title": "Use uploaded and licensed stock images in teaching PPTs",
+  "description": "Choose stock-only or hybrid image sourcing, provide your own diagrams, and reduce paid AI-image calls in teaching presentations.",
+  "answer": "Use stock-only when suitable licensed visuals are enough, Hybrid when you want search before AI fallback, or upload an exact diagram yourself. Describe what the visual must teach and review both accuracy and attribution.",
+  "sections": [
+    {
+      "heading": "Choose the source for the teaching task",
+      "text": "Stock-only searches licensed images without paid AI-image generation. Hybrid searches first and can generate a fallback within your allowance. AI mode requests generated visuals directly. A recognisable real-world photograph often works well as stock; an exact labelled diagram may be better supplied by the teacher."
+    },
+    {
+      "heading": "Explain what belongs in the picture",
+      "text": "Give the subject, relevant details and the purpose of the visual. Add captions to teacher uploads so the system can place them with the appropriate slide. Check whether scientific quantities, labels and relationships are correct, especially in generated illustrations."
+    },
+    {
+      "heading": "Replace one visual with a reviewed brief",
+      "text": "If a picture is wrong, discuss the selected slide with the image assistant. Say what should change and what must stay, then review the source and replacement brief before confirming. For an exact replacement, upload the picture in the manual editor. Check any licence and attribution requirements for your intended use."
+    }
+  ],
+  "steps": [
+    "Decide whether you need an exact visual or a general illustration.",
+    "Upload your approved picture or select stock-only/Hybrid.",
+    "Describe the subject and teaching purpose.",
+    "Review accuracy and source attribution.",
+    "Use the image discussion for a targeted replacement."
+  ],
+  "example": "For this slide use a licensed photograph of a leaf, not an AI illustration. Keep the explanation unchanged. Ask me whether the image needs labels and offer stock-only search before preparing a replacement.",
+  "questions": [
+    {
+      "question": "Does stock-only spend AI-image allowance?",
+      "answer": "Stock-only avoids paid AI-image generation. Lesson generation and discussion can still use content-generation credits and provider tokens."
+    },
+    {
+      "question": "Can I supply my own image?",
+      "answer": "Yes. New chapter accepts up to five PNG, JPEG or WebP images with captions; the manual slide editor supports exact replacements."
+    }
+  ]
+},
 ];
 
 export function findTeacherGuide(slug: string) {

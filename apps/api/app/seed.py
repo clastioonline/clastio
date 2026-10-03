@@ -171,8 +171,15 @@ async def seed_demo() -> dict[str, str]:
     return {"admin": "admin@example.com / admin-demo-123", "teacher": "sara@example.com / teacher-demo-123"}
 
 
-async def main(demo: bool, embed: bool = True) -> None:
+async def main(demo: bool, embed: bool = True, update_prices: bool = False) -> None:
     await seed_core(embed=embed)
+    if update_prices:
+        from app.services.billing import update_launch_prices
+        async with get_sessionmaker()() as db:
+            changed = await update_launch_prices(db)
+            await db.commit()
+        print("Updated launch catalogue prices:", ", ".join(changed) or "already current")
+        print("Provider price/product mappings must match; existing subscriptions were not changed.")
     if demo and get_settings().is_production:
         # Demo accounts have published passwords; never create them on a production deployment.
         print("Skipping demo accounts: ENVIRONMENT=production.")
@@ -187,5 +194,6 @@ if __name__ == "__main__":
     ap.add_argument("--demo", action="store_true",
                     default=os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes"))
     ap.add_argument("--skip-embeddings", action="store_true", help="Seed without calling an AI provider")
+    ap.add_argument("--update-plan-prices", action="store_true", help="Set paid catalogue prices to launch defaults; preserves limits and subscriptions")
     args = ap.parse_args()
-    asyncio.run(main(args.demo, not args.skip_embeddings))
+    asyncio.run(main(args.demo, not args.skip_embeddings, args.update_plan_prices))

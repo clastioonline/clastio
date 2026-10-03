@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -42,6 +43,35 @@ async def seed_plans(db: AsyncSession) -> None:
     await db.flush()
 
 
+async def update_launch_prices(db: AsyncSession) -> list[str]:
+    """Explicit catalogue update; never change subscriptions, entitlements or provider prices."""
+    changed = []
+    for defaults in DEFAULT_PLANS:
+        if defaults["code"] == "free":
+            continue
+        row = await db.get(Plan, defaults["code"])
+        if row is None:
+            continue
+        if (row.price_monthly_aed, row.price_annual_aed) != (defaults["price_monthly_aed"], defaults["price_annual_aed"]):
+            row.price_monthly_aed = defaults["price_monthly_aed"]
+            row.price_annual_aed = defaults["price_annual_aed"]
+            changed.append(row.code)
+    await db.flush()
+    return changed
+
+
+def _plan_amount_minor(plan: Plan, interval: str) -> int:
+    amount = plan.price_annual_aed if interval == "year" else plan.price_monthly_aed
+    return int(Decimal(str(amount)) * 100)
+
+
+def _check_catalogue_price(plan: Plan, interval: str, *, amount: int | None, currency: str,
+                           frequency: str, count: int, active: bool = True) -> None:
+    period_matches = (frequency == interval and count == 1) or (interval == "year" and frequency == "month" and count == 12)
+    if not active or amount != _plan_amount_minor(plan, interval) or currency.lower() != "aed" or not period_matches:
+        raise AppError("billing_price_mismatch", "This plan's payment price is being updated. Please try again later.", 503)
+
+
 class StripeProvider:
     name = "stripe"
 
@@ -60,15 +90,21 @@ class StripeProvider:
             self.settings.stripe_prices.get(f"{plan.code}_{interval}")
         if price_id:
             return {"price": price_id, "quantity": 1}
-        amount = plan.price_annual_aed if interval == "year" else plan.price_monthly_aed
-        return {"price_data": {"currency": "aed", "unit_amount": int(float(amount) * 100),
+        return {"price_data": {"currency": "aed", "unit_amount": _plan_amount_minor(plan, interval),
                                "recurring": {"interval": interval},
                                "product_data": {"name": f"Clastio — {plan.name}"}}, "quantity": 1}
 
     async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None, coupon_code: str | None = None) -> str:
         web = self.settings.public_web_url
+        line_item = self._line_item(plan, interval)
+        if "price" in line_item:
+            price = await self.client.v1.prices.retrieve_async(line_item["price"])
+            recurring = price.recurring
+            _check_catalogue_price(plan, interval, amount=price.unit_amount, currency=price.currency,
+                                   frequency=recurring.interval if recurring else "", count=recurring.interval_count if recurring else 0,
+                                   active=price.active)
         params: dict[str, Any] = {
-            "mode": "subscription", "line_items": [self._line_item(plan, interval)],
+            "mode": "subscription", "line_items": [line_item],
             "success_url": f"{web}/billing?status=success&session_id={{CHECKOUT_SESSION_ID}}",
             "cancel_url": f"{web}/billing?status=cancelled",
             "client_reference_id": str(user.id),
@@ -152,6 +188,12 @@ class DodoProvider:
         if not product_id:
             raise AppError("billing_not_configured",
                            f"The {plan.name} {interval}ly plan isn't available for online payment yet.", 503)
+        product = await self.client.products.retrieve(product_id)
+        price = product.price
+        _check_catalogue_price(plan, interval, amount=getattr(price, "price", None), currency=price.currency,
+                               frequency=getattr(price, "payment_frequency_interval", ""),
+                               count=getattr(price, "payment_frequency_count", 0),
+                               active=price.type == "recurring_price")
         session = await self.client.checkout_sessions.create(
             product_cart=[{"product_id": product_id, "quantity": 1}],
             customer=self._customer(user, customer_id),
