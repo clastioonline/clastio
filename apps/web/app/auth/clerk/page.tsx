@@ -19,8 +19,10 @@ function EnabledCallback() {
     setError("");
     try {
       const token = await getToken();
-      const result = await api<{user: {onboarding_completed: boolean; role: string}}>("/auth/clerk", {body: {token, accept_terms: acceptTerms}});
-      window.location.replace(!result.user.onboarding_completed ? "/onboarding" : result.user.role === "admin" ? "/admin" : "/dashboard");
+      let referral_code: string | undefined;
+      try { referral_code = sessionStorage.getItem("clastio:referral") || undefined; } catch { /* optional */ }
+      const result = await api<{user: {onboarding_completed: boolean; role: string}}>("/auth/clerk", {body: {token, accept_terms: acceptTerms, referral_code}});
+      window.location.replace(result.user.role === "admin" ? "/admin" : !result.user.onboarding_completed ? "/onboarding" : "/dashboard");
     } catch (err: any) {
       if (err.code === "terms_required") setNeedsTerms(true);
       else setError(err.message);

@@ -252,7 +252,7 @@ async def repair_slide(ai: AIService, slide: SlideSpec, instruction: str, budget
     result = await ai.structured(task="slide_rewrite", tier=tier, system=prompts.REWRITE_SYSTEM, prompt=prompt,
                                  schema=SlideRewrite, effort="low", max_tokens=6000, owner_id=owner_id, job_id=job_id,
                                  offline_context={"slide": slide.model_dump(), "instruction": instruction,
-                                                  "budgets": budgets}, prompt_version=prompts.PROMPT_VERSION)
+                                                  "budgets": budgets}, prompt_version=prompts.PROMPT_VERSION, cache=True)
     new = result.slide
     new.number, new.asset_id, new.sources = slide.number, slide.asset_id, slide.sources
     if new.layout not in LAYOUT_KINDS:

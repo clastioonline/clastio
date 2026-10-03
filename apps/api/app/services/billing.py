@@ -65,7 +65,7 @@ class StripeProvider:
                                "recurring": {"interval": interval},
                                "product_data": {"name": f"Clastio — {plan.name}"}}, "quantity": 1}
 
-    async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None) -> str:
+    async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None, coupon_code: str | None = None) -> str:
         web = self.settings.public_web_url
         params: dict[str, Any] = {
             "mode": "subscription", "line_items": [self._line_item(plan, interval)],
@@ -81,6 +81,12 @@ class StripeProvider:
             params["customer"] = customer_id
         else:
             params["customer_email"] = user.email
+        if coupon_code:
+            promos = await self.client.v1.promotion_codes.list_async(params={"code": coupon_code, "active": True, "limit": 1})
+            if not promos.data:
+                raise AppError("invalid_coupon", "This coupon code is invalid or expired.", 422)
+            params.pop("allow_promotion_codes", None)
+            params["discounts"] = [{"promotion_code": promos.data[0].id}]
         session = await self.client.v1.checkout.sessions.create_async(params=params)
         return session.url
 
@@ -141,7 +147,7 @@ class DodoProvider:
             return {"customer_id": customer_id}
         return {"email": user.email, "name": user.name or user.email.split("@")[0]}
 
-    async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None) -> str:
+    async def checkout(self, user: User, plan: Plan, interval: str, customer_id: str | None, coupon_code: str | None = None) -> str:
         product_id = self.products.get(f"{plan.code}_{interval}")
         if not product_id:
             raise AppError("billing_not_configured",
@@ -151,7 +157,9 @@ class DodoProvider:
             customer=self._customer(user, customer_id),
             return_url=f"{self.settings.public_web_url}/billing?status=success",
             metadata={"user_id": str(user.id), "plan_code": plan.code, "interval": interval,
-                      "kind": "subscription"})
+                      "kind": "subscription"},
+            feature_flags={"allow_discount_code": True},
+            **({"discount_codes": [coupon_code]} if coupon_code else {}))
         return session.checkout_url
 
     async def checkout_one_time(self, user: User, *, name: str, amount_aed: float, product_id: str | None,
@@ -218,7 +226,7 @@ async def get_provider(name: str | None = None) -> PaymentProvider:
     raise AppError("billing_provider_unknown", f"Unknown provider {name}", 400)
 
 
-async def start_checkout(db: AsyncSession, user: User, plan_code: str, interval: str) -> str:
+async def start_checkout(db: AsyncSession, user: User, plan_code: str, interval: str, coupon_code: str | None = None) -> str:
     plan = await db.get(Plan, plan_code)
     if plan is None or not plan.active or plan.code == "free":
         raise AppError("bad_request", "Unknown plan", 400)
@@ -227,7 +235,16 @@ async def start_checkout(db: AsyncSession, user: User, plan_code: str, interval:
     sub = await active_subscription(db, user.id)
     provider = await get_provider()
     customer_id = sub.provider_customer_id if sub and sub.provider == provider.name else None
-    return await provider.checkout(user, plan, interval, customer_id)
+    coupon_code = coupon_code.strip() if coupon_code else None
+    try:
+        if coupon_code:
+            return await provider.checkout(user, plan, interval, customer_id, coupon_code=coupon_code)
+        return await provider.checkout(user, plan, interval, customer_id)
+    except Exception as exc:
+        status = getattr(exc, "status_code", getattr(exc, "http_status", None))
+        if coupon_code and status == 400:
+            raise AppError("invalid_coupon", "This coupon couldn't be applied to this plan. Check its expiry and eligibility.", 422) from None
+        raise
 
 
 async def open_portal(db: AsyncSession, user: User) -> str:
@@ -349,6 +366,9 @@ async def handle_stripe_event(db: AsyncSession, event: dict[str, Any]) -> str:
                            tax_amount=tax / 100, status="paid", invoice_url=obj.get("hosted_invoice_url")))
             await _receipt(db, user_id, obj["id"], (obj.get("amount_paid") or 0) / 100,
                            (obj.get("currency") or "aed").upper())
+            if (obj.get("amount_paid") or 0) > 0:
+                from app.services.engagement import reward_referral
+                await reward_referral(db, user_id)
         if sub and sub.status == "past_due":
             changes.see(sub)
             sub.status = "active"
@@ -462,6 +482,9 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
                                invoice_url=data.get("invoice_url")))
                 await _receipt(db, user_id, payment_id, (data.get("total_amount") or 0) / 100,
                                (data.get("currency") or "AED").upper())
+                if data.get("subscription_id") and not pack_code and (data.get("total_amount") or 0) > 0:
+                    from app.services.engagement import reward_referral
+                    await reward_referral(db, user_id)
         if sub and sub.status == "past_due":
             changes.see(sub)
             sub.status = "active"

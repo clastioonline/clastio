@@ -170,10 +170,8 @@ async def signup(data: SignupIn, request: Request, response: Response, db: DB):
     meta = {k: str(v)[:120] for k, v in data.utm.items() if k in ("utm_source", "utm_medium", "utm_campaign",
                                                                    "utm_term", "utm_content", "referrer", "landing")}
     user = await _create_user(db, data.email, data.name, data.password, source="web", request=request, signup_meta=meta)
-    if data.referral_code:
-        ref = (await db.execute(select(User).where(User.referral_code == data.referral_code))).scalars().first()
-        if ref and ref.id != user.id:
-            user.referred_by_id = ref.id
+    from app.services.engagement import attribute_referral
+    await attribute_referral(db, user, data.referral_code)
     # The marketing choice is recorded either way (unticked by default), separately from the Terms.
     legal.record(db, user.id, "marketing_email", data.marketing_email, request=request, method="signup_checkbox",
                  version="1")
@@ -385,7 +383,7 @@ async def magic(data: MagicIn, request: Request, response: Response, db: DB):
         raise HTTPException(status_code=403, detail="Account unavailable")
     await sessions.start_session(db, user, request, response, method="magic")
     await db.commit()
-    return {"user": user_out(user), "redirect": payload.get("r", "/dashboard")}
+    return {"user": user_out(user), "redirect": "/admin" if user.role == "admin" else payload.get("r", "/dashboard")}
 
 
 # --------------------------------------------------------------------------- OAuth (Google / Microsoft)
@@ -415,7 +413,7 @@ async def oauth_providers():
 
 
 @router.get("/oauth/{provider}/start")
-async def oauth_start(provider: str):
+async def oauth_start(provider: str, ref: str = ""):
     cid, _ = _oauth_creds(provider)
     s = get_settings()
     state = secrets.token_urlsafe(24)
@@ -423,6 +421,10 @@ async def oauth_start(provider: str):
               "redirect_uri": f"{s.public_web_url}/api/v1/auth/oauth/{provider}/callback", "prompt": "select_account"}
     resp = RedirectResponse(f"{OAUTH[provider]['auth']}?{urlencode(params)}")
     resp.set_cookie("oauth_state", state, httponly=True, secure=s.cookie_secure, samesite="lax", max_age=600)
+    if ref and len(ref) <= 16 and all(c in "0123456789abcdef" for c in ref.lower()):
+        resp.set_cookie("oauth_referral", ref.lower(), httponly=True, secure=s.cookie_secure, samesite="lax", max_age=600)
+    else:
+        resp.delete_cookie("oauth_referral")
     return resp
 
 
@@ -457,21 +459,26 @@ async def oauth_callback(provider: str, request: Request, db: DB, code: str = ""
         if user is None:
             user = await _create_user(db, email, info.get("name") or email.split("@")[0], None, source=provider,
                                       request=request, verified=True)
+            from app.services.engagement import attribute_referral
+            await attribute_referral(db, user, request.cookies.get("oauth_referral"))
         user.email_verified = True
         user.email_verified_at = user.email_verified_at or utcnow()
         db.add(OAuthAccount(user_id=user.id, provider=provider, subject=subject))
     if (err := _login_block(user)) is not None:
         raise err
     user.last_login_at = utcnow()
-    resp = RedirectResponse(f"{s.public_web_url}/dashboard")
+    destination = "/admin" if user.role == "admin" else "/dashboard"
+    resp = RedirectResponse(f"{s.public_web_url}{destination}")
     await sessions.start_session(db, user, request, resp, method=provider)
     security_event(db, "login_success", user_id=user.id, request=request, method=provider)
     await db.commit()
     resp.delete_cookie("oauth_state")
+    resp.delete_cookie("oauth_referral")
     return resp
 
 
 class ClerkLoginIn(BaseModel):
+    referral_code: str | None = Field(None, max_length=16)
     token: str = Field(min_length=1, max_length=16000)
     accept_terms: bool = False
 
@@ -535,6 +542,8 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
                 raise AppError("terms_required", "Please accept the Terms and Acceptable Use Policy to continue.", 422)
             name = " ".join(filter(None, [info.get("first_name"), info.get("last_name")])) or email.split("@")[0]
             user = await _create_user(db, email, name, None, source="clerk", request=request, verified=True)
+            from app.services.engagement import attribute_referral
+            await attribute_referral(db, user, data.referral_code)
             queue_email(db, user, "welcome", link=f"{s.public_web_url}/dashboard")
         db.add(OAuthAccount(user_id=user.id, provider="clerk", subject=subject))
     if user is None:

@@ -147,3 +147,9 @@ async def template_preview(ctx: JobContext) -> dict[str, Any]:
         template.preview_keys = previews
         await db.commit()
     return {"template_id": ctx.payload["template_id"]}
+
+
+@handler("image_replacement", queue="ai")
+async def image_replacement(ctx: JobContext) -> dict[str, Any]:
+    from app.services.image_assistant import replace
+    return await replace(ctx)

@@ -160,7 +160,8 @@ async def plans(db: DB):
     return {"items": [plan_out(p) for p in rows], "currency": "AED", "vat_rate": 0.05,
             "online_payments": provider is not None, "payment_provider": provider,
             "trial": {"enabled": bool(trial.get("enabled")) and int(trial.get("days", 0)) > 0,
-                      "plan": trial.get("plan", "pro"), "days": int(trial.get("days", 0))}}
+                      "plan": trial.get("plan", "pro"), "days": int(trial.get("days", 0)),
+                      "credits": int(trial.get("credits", 50))}}
 
 
 @router.get("/billing/subscription", tags=["billing"])
@@ -177,11 +178,12 @@ async def subscription(user: CurrentUser, db: DB):
 class CheckoutIn(BaseModel):
     plan: str
     interval: str = Field("month", pattern="^(month|year)$")
+    coupon_code: str | None = Field(None, max_length=100)
 
 
 @router.post("/billing/checkout", tags=["billing"])
 async def checkout(data: CheckoutIn, user: CurrentUser, db: DB):
-    url = await billing.start_checkout(db, user, data.plan, data.interval)
+    url = await billing.start_checkout(db, user, data.plan, data.interval, data.coupon_code)
     from app.services.events import track
 
     track(db, "checkout_started", user_id=user.id, plan=data.plan, interval=data.interval)
@@ -445,11 +447,20 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
         for field in ("image_model", "video_model"):
             if value.get(field) and ":" not in value[field]:
                 raise bad(f"{field} must look like provider:model, e.g. openai:sora-2.")
+    elif key == "referrals":
+        if type(value.get("enabled", True)) is not bool:
+            raise bad("Referral enabled must be true or false.")
+        reward = value.get("reward_media_credits", 25)
+        if type(reward) is not int or not 1 <= reward <= 10000:
+            raise bad("Referral reward must be 1 to 10000 media credits.")
     elif key == "trial":
         if value.get("plan", "pro") not in ("teacher", "pro", "assistant"):
             raise bad("Trial plan must be teacher, pro or assistant.")
-        if not isinstance(value.get("days", 14), int) or not 0 <= value.get("days", 14) <= 90:
+        if not isinstance(value.get("days", 7), int) or not 0 <= value.get("days", 7) <= 90:
             raise bad("Trial length must be 0 to 90 days.")
+        for resource in ("credits", "ai_images", "whatsapp_messages"):
+            if resource in value and (type(value[resource]) is not int or not 0 <= value[resource] <= 100000):
+                raise bad(f"Trial {resource} must be a whole number from 0 to 100000.")
     elif key == "ui" and value.get("default_skin", "forest") not in ("classic", "forest"):
         raise bad("Theme must be classic or forest.")
     elif key == "system":
@@ -600,3 +611,9 @@ async def credit_estimates(user: CurrentUser, db: DB):
     return {"costs": settings["credit_costs"], "used": consumed, "reserved": held,
             "remaining": None if user.role == "admin" or limit is None or limit < 0 else max(0, limit - consumed - held),
             "reset_at": reset.isoformat(), "message": "Final credits depend on what you generate. Saved resources remain accessible."}
+
+
+@router.get("/billing/referrals", tags=["billing"])
+async def referrals(user: CurrentUser, db: DB):
+    from app.services.engagement import referral_summary
+    return await referral_summary(db, user)

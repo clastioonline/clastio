@@ -190,7 +190,7 @@ class Visual(BaseModel):
     image_query: str = Field("", description="2-5 plain keywords for a stock photo search")
     alt_text: str = ""
     fit: Literal["contain", "cover"] = "contain"
-    source_image_key: str | None = Field(None, description="Exact image_key from the uploaded template's image catalog; null for a new visual")
+    source_image_key: str | None = Field(None, description="Exact image_key from the template or teacher-supplied image catalog; null for a new visual")
     counting_groups: list[CountingGroup] = Field(default_factory=list,
         description="Two parts for an exact, editable counting diagram; use for early addition instead of a stock image")
     show_total: bool = True

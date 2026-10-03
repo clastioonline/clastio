@@ -45,8 +45,10 @@ function LegacySignupPage() {
         if (v) utm[k] = v;
       }
       if (document.referrer) utm.referrer = document.referrer.slice(0, 120);
+      let referral = params.get("ref");
+      try { referral ||= sessionStorage.getItem("clastio:referral"); } catch { /* optional */ }
       await api("/auth/signup", { body: { ...form, accept_terms: acceptTerms, marketing_email: marketing, utm,
-        referral_code: params.get("ref") || undefined, captcha_token: captcha || undefined } });
+        referral_code: referral || undefined, captcha_token: captcha || undefined } });
       await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
       router.replace("/onboarding");
     } catch (err: any) {

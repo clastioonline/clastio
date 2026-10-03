@@ -4,22 +4,22 @@ import { Check, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { errorMessage, useToast } from "@/components/toast";
-import { Tabs } from "@/components/ui";
+import { Field, Input, Tabs } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
 export type Plan = { code: string; name: string; price_monthly_aed: number; price_annual_aed: number; features: string[]; limits: Record<string, any> };
-type PlansResponse = { items: Plan[]; vat_rate: number; online_payments: boolean; payment_provider: string | null; trial: { enabled: boolean; plan: string; days: number } };
+type PlansResponse = { items: Plan[]; vat_rate: number; online_payments: boolean; payment_provider: string | null; trial: { enabled: boolean; plan: string; days: number; credits: number } };
 
 /* Starts checkout for a plan and sends the teacher to the payment page. */
 export function useCheckout() {
   const { notify } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  const choose = async (plan: string, interval: "month" | "year") => {
+  const choose = async (plan: string, interval: "month" | "year", couponCode?: string) => {
     setBusy(plan);
     try {
-      const r = await api<{ url: string }>("/billing/checkout", { body: { plan, interval } });
+      const r = await api<{ url: string }>("/billing/checkout", { body: { plan, interval, coupon_code: couponCode?.trim() || undefined } });
       window.location.href = r.url;
     } catch (e) {
       notify({ tone: "error", title: "Checkout isn't available right now", body: errorMessage(e) });
@@ -39,6 +39,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
   const { data } = useApi<PlansResponse>("/billing/plans");
   const [interval, setInterval] = useState<"month" | "year">("month");
   const { choose, busy } = useCheckout();
+  const [couponCode, setCouponCode] = useState("");
   const plans = (data?.items || []).filter((p) => !paidOnly || p.code !== "free");
   const trial = data?.trial;
   const canPay = mode === "public" || !!data?.online_payments;
@@ -49,9 +50,10 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
         <Tabs tabs={[{ value: "month", label: "Monthly" }, { value: "year", label: "Yearly · 2 months free" }]} value={interval} onChange={setInterval} />
         {mode === "public" && trial?.enabled && (
           <p className="flex items-center gap-1.5 text-sm text-ink-2"><Sparkles className="h-4 w-4 text-accent-500" />
-            Every new account starts with a {trial.days}-day free trial of {data?.items.find((p) => p.code === trial.plan)?.name || "a paid plan"}. No card needed.</p>
+            Every new account starts with a {trial.days}-day free trial of {data?.items.find((p) => p.code === trial.plan)?.name || "a paid plan"}, with {trial.credits} trial credits. No card needed.</p>
         )}
       </div>
+      {mode === "app" && <div className="mx-auto mb-6 max-w-sm"><Field label="Have a coupon code?" hint="Your discount and final total are confirmed on the secure payment page."><Input value={couponCode} maxLength={100} onChange={(e) => setCouponCode(e.target.value)} placeholder="Enter coupon code" autoComplete="off" /></Field></div>}
       <div className={cn("grid gap-5", paidOnly ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4")}>
         {plans.map((p) => {
           const popular = p.code === "pro";
@@ -93,7 +95,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
                     {currentPlan === "free" ? "Your plan" : "Where you land after a trial"}
                   </p>
                 ) : (
-                  <button disabled={current || !canPay || busy !== null} onClick={() => choose(p.code, interval)}
+                  <button disabled={current || !canPay || busy !== null} onClick={() => choose(p.code, interval, couponCode)}
                     className={cn("flex h-12 w-full items-center justify-center rounded-full font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
                       popular ? "bg-white text-brand-800 hover:bg-white/90" : "bg-brand-800 text-white hover:brightness-110")}>
                     {busy === p.code ? "Opening checkout…" : current ? "Your plan" : onTrial && currentPlan === p.code ? "Keep this plan" : "Upgrade"}

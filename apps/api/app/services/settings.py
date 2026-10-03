@@ -46,7 +46,8 @@ DEFAULTS: dict[str, Any] = {
         ],
     },
     # Free trial every new teacher gets on sign-up, no card needed. After it ends they are on the Free plan.
-    "trial": {"enabled": True, "plan": "pro", "days": 14},
+    "trial": {"enabled": True, "plan": "pro", "days": 7, "credits": 50, "ai_images": 5, "whatsapp_messages": 20},
+    "referrals": {"enabled": True, "reward_media_credits": 25},
     # Look of the web app. Teachers can still pick their own in Settings.
     "ui": {"default_skin": "forest"},
     # Platform switches. Maintenance mode blocks the app for everyone but staff (the API answers 503).

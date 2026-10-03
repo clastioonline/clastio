@@ -304,6 +304,11 @@ async def delete_template(template_id: uuid.UUID, user: CurrentUser, db: DB):
 # --------------------------------------------------------------------------- courses / projects
 
 
+class TeacherImageIn(BaseModel):
+    asset_id: uuid.UUID
+    description: str = Field(min_length=2, max_length=300)
+
+
 class CourseIn(BaseModel):
     topic: str = Field(min_length=2, max_length=300)
     grade: str = Field(min_length=1, max_length=20)
@@ -318,10 +323,12 @@ class CourseIn(BaseModel):
     outcomes: list[dict[str, Any]] = []
     instructions: str | None = Field(None, max_length=2000)
     source_file_ids: list[uuid.UUID] = Field(default_factory=list, max_length=10)
+    teacher_images: list[TeacherImageIn] = Field(default_factory=list, max_length=5)
     chapter_mode: Literal["complete", "parts", "daily"] = "complete"
     previous_taught: str | None = Field(None, max_length=2000)
     revision_needed: str | None = Field(None, max_length=2000)
-    image_mode: Literal["auto", "ai", "reuse"] = "auto"
+    image_mode: Literal["auto", "hybrid", "ai", "reuse", "stock"] = "auto"
+    writing_style: Literal["standard", "natural"] = "standard"
     auto_generate: bool = False
     homework: bool = True
     start_date: date | None = None
@@ -534,6 +541,7 @@ async def edit_slide(lesson_id: uuid.UUID, number: int, data: SlidePatch, user: 
 
 
 class SlideRegenIn(BaseModel):
+    keep_images: bool = True
     action: str | None = None
     instruction: str | None = Field(None, max_length=1000)
 
@@ -541,7 +549,7 @@ class SlideRegenIn(BaseModel):
 @router.post("/lessons/{lesson_id}/slides/{number}/regenerate")
 async def regenerate_slide(lesson_id: uuid.UUID, number: int, data: SlideRegenIn, user: CurrentUser, db: DB):
     job_id = await course_svc.regenerate_slide(db, user, lesson_id, number, action=data.action,
-                                               instruction=data.instruction)
+                                               instruction=data.instruction, keep_images=data.keep_images)
     return {"job_id": str(job_id)}
 
 

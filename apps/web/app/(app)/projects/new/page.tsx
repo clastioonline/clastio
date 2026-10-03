@@ -2,7 +2,9 @@
 
 import { Check, Sparkles, WandSparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { TeacherImages, type TeacherImage } from "@/components/teacher-images";
 import { ChapterSources } from "@/components/chapter-sources";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, Chips, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
@@ -16,6 +18,13 @@ function NewCourse() {
   const { notify } = useToast();
   const { data: creditInfo } = useApi<any>("/usage/estimates");
   const { data: profile } = useApi<any>("/me/profile");
+  const { data: teacherMemory } = useApi<any>("/memory");
+  const imageChoiceTouched = useRef(false);
+  useEffect(() => {
+    if (!teacherMemory || imageChoiceTouched.current) return;
+    const saved = teacherMemory.preferences?.find((p: any) => p.key === "preferred_image_source" && p.confirmed);
+    if (saved && ["hybrid", "ai", "stock"].includes(saved.value)) setForm((f) => ({...f, image_mode: saved.value}));
+  }, [teacherMemory]);
   const { data: classes } = useApi<any>("/classes");
   const { data: templates } = useApi<any>("/templates");
   const [form, setForm] = useState({
@@ -33,12 +42,28 @@ function NewCourse() {
     homework: true,
     chapter_mode: "complete",
     source_file_ids: [] as string[],
+    teacher_images: [] as TeacherImage[],
     previous_taught: "",
     revision_needed: "",
-    image_mode: "auto",
+    image_mode: "hybrid",
+    writing_style: "natural",
   });
+  const briefApplied = useRef<string | null>(null);
+  const briefId = params.get("brief");
+  const { data: briefConversation, error: briefError } = useApi<any>(briefId ? `/assistant/conversations/${briefId}` : null);
+  useEffect(() => {
+    if (!briefId || !briefConversation || briefApplied.current === briefId) return;
+    const latest = [...(briefConversation.messages || [])].reverse().find((m: any) => m.role === "assistant");
+    const action = latest?.actions?.find((a: any) => a.type === "ppt_brief");
+    if (!action) return;
+    const b = action.brief;
+    setForm((f) => ({...f, topic: b.topic, grade: b.grade, subject: b.subject, language: b.language, num_lectures: b.num_lectures, slides_per_lecture: b.slides_per_lecture, lecture_minutes: b.lecture_minutes, instructions: b.instructions, writing_style: b.writing_style, image_mode: b.image_mode || "hybrid", auto_generate: false}));
+    imageChoiceTouched.current = true;
+    briefApplied.current = briefId;
+  }, [briefId, briefConversation]);
   const [selected, setSelected] = useState<any[]>([]);
   const [sourcesBlocked, setSourcesBlocked] = useState(false);
+  const [imagesBlocked, setImagesBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,13 +71,13 @@ function NewCourse() {
     if (!profile) return;
     setForm((f) => ({
       ...f,
-      grade: f.grade || profile.grades?.[0] || "8",
-      subject: f.subject || profile.subjects?.[0] || "Science",
-      lecture_minutes: profile.class_duration_minutes || 45,
+      grade: f.grade || profile.grades?.[0] || "",
+      subject: f.subject || profile.subjects?.[0] || "",
+      lecture_minutes: briefId ? f.lecture_minutes : profile.class_duration_minutes || 45,
       template_id: f.template_id || profile.default_template_id || "",
-      language: profile.teaching_languages?.[0] === "ar" ? "ar" : "en",
+      language: briefId ? f.language : profile.teaching_languages?.[0] === "ar" ? "ar" : "en",
     }));
-  }, [profile]);
+  }, [profile, briefId]);
   useEffect(() => {
     if (!form.template_id && templates?.items?.length) setForm((f) => ({ ...f, template_id: templates.items[0].id }));
   }, [templates, form.template_id]);
@@ -94,10 +119,13 @@ function NewCourse() {
 
   return (
     <div className="mx-auto max-w-5xl">
+      <Link href="/assistant?mode=playground" className="mb-4 inline-flex text-sm font-semibold text-brand-700">Discuss your PPT in the playground →</Link>
+      {briefId && <Alert tone={briefError ? "warn" : "brand"} title={briefError ? "Could not load your PPT draft" : "Review your playground brief"}>Check the content, attach your source material and adjust the settings before creating your chapter.</Alert>}
       <PageHeader eyebrow="New chapter" title="What chapter are you teaching?" subtitle="The planner builds a connected sequence: each lesson introduces new ideas and revisits earlier ones." />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
           <ChapterSources value={form.source_file_ids} onChange={(ids) => set("source_file_ids", ids)} onBlocked={setSourcesBlocked} />
+          <TeacherImages value={form.teacher_images} onChange={(images) => set("teacher_images", images)} onBlocked={setImagesBlocked} />
           <Card className="p-5 sm:p-6">
             <div className="space-y-5">
               <Field label="Chapter / topic">
@@ -154,13 +182,26 @@ function NewCourse() {
               <Field label="What needs revision? (optional)" hint="The next lesson will include a focused recap and a worked example.">
                 <Textarea value={form.revision_needed} maxLength={2000} onChange={(e) => set("revision_needed", e.target.value)} placeholder="Revise choosing sin, cos or tan. Students still confuse opposite and adjacent." />
               </Field>
-              <Field label="Images">
-                <Select value={form.image_mode} onChange={(e) => set("image_mode", e.target.value)}>
-                  <option value="auto">Reuse suitable images, then find or generate missing visuals</option>
-                  <option value="ai">Prefer AI illustrations for missing images</option>
-                  <option value="reuse">Reuse / licensed images only — no paid image generation</option>
+              <Field label="PPT version">
+                <div role="group" aria-label="PPT version" className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1.5">
+                  {[{value: "standard", label: "AI"}, {value: "natural", label: "Humanize"}].map((mode) => (
+                    <button key={mode.value} type="button" aria-pressed={form.writing_style === mode.value}
+                      onClick={() => setForm((f) => ({...f, writing_style: mode.value}))}
+                      className={`focus-ring rounded-xl px-4 py-3 text-sm font-semibold transition ${form.writing_style === mode.value ? "bg-brand-800 text-white shadow-sm" : "text-muted hover:bg-surface hover:text-ink"}`}>
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted">{form.writing_style === "natural"
+                  ? "Natural teacher voice with concrete examples and varied slides. Text is AI-assisted and editable."
+                  : "Standard AI lesson structure. Choose your image source below."}</p>
+              </Field>
+              <Field label="Image source" hint="Hybrid searches licensed internet images first, then generates if needed within your AI image allowance. Attribution is retained. With no allowance, a placeholder may be used.">
+                <Select value={form.image_mode} onChange={(e) => { imageChoiceTouched.current = true; set("image_mode", e.target.value); }}>
+                  <option value="hybrid">Hybrid — search first, generate if needed</option>
+                  <option value="stock">Licensed stock only — no AI image cost</option>
+                  <option value="ai">AI images</option>
                 </Select>
-                <p className="mt-2 text-xs text-muted">Charts and counting diagrams stay editable. AI illustrations need live mode and image allowance; unavailable images are marked for replacement.</p>
               </Field>
               <Field label="Anything specific? (optional)" hint="e.g. include a practical on leaf starch testing; students are mostly EAL learners">
                 <Textarea value={form.instructions} onChange={(e) => set("instructions", e.target.value)} />
@@ -224,7 +265,7 @@ function NewCourse() {
             <div className="mt-3 text-xs text-muted">{estimate === null ? "Loading credit estimate…" : `About ${estimate} credits`}
               {creditInfo && <p className="mt-1">{creditInfo.remaining === null ? "Unlimited plan credits" : `${creditInfo.remaining} credits available`} · Resets {new Date(creditInfo.reset_at).toLocaleDateString()}</p>}</div>
             {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
-            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || sourcesBlocked}>
+            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || !form.grade || !form.subject || sourcesBlocked || imagesBlocked}>
               <WandSparkles className="h-5 w-5" /> {form.auto_generate && form.chapter_mode !== "parts" ? form.chapter_mode === "daily" ? "Plan chapter & build first lesson" : "Plan & build complete chapter" : "Plan chapter"}
             </Button>
           </Card>

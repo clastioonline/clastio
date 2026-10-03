@@ -12,6 +12,8 @@ from app.ai.service import get_ai
 from app.models import TeacherMemory, TeacherPreference
 
 PREFERENCE_LABELS: dict[str, str] = {
+    "preferred_image_style": "Preferred image style",
+    "preferred_image_source": "Preferred image source",
     "language_level": "Language level",
     "explanation_depth": "Explanation depth",
     "tone": "Tone",
@@ -79,12 +81,13 @@ async def search_memory(db: AsyncSession, user_id: uuid.UUID, query: str, k: int
     try:
         vec = (await get_ai().embed([query], owner_id=user_id))[0]
     except Exception:
-        return []
+        return await lexical_memory(db, user_id, query, k=k, kinds=kinds)
     q = select(TeacherMemory).where(TeacherMemory.user_id == user_id, TeacherMemory.embedding.is_not(None))
     if kinds:
         q = q.where(TeacherMemory.kind.in_(kinds))
     q = q.order_by(TeacherMemory.embedding.cosine_distance(vec)).limit(k)
-    return list((await db.execute(q)).scalars().all())
+    rows = list((await db.execute(q)).scalars().all())
+    return rows or await lexical_memory(db, user_id, query, k=k, kinds=kinds)
 
 
 async def recent_memory(db: AsyncSession, user_id: uuid.UUID, *, kinds: list[str] | None = None,
@@ -116,3 +119,15 @@ async def learn_from_slide_edit(db: AsyncSession, user_id: uuid.UUID, before: di
         except (TypeError, ValueError):
             new = round(a, 1)
         await set_preference(db, user_id, "words_per_bullet", new, source="inferred", confidence=0.8)
+
+
+async def lexical_memory(db: AsyncSession, user_id: uuid.UUID, query: str, *, k: int = 5,
+                         kinds: list[str] | None = None) -> list[TeacherMemory]:
+    """Owner-scoped fallback when embeddings are unavailable, bounded to 60 recent notes."""
+    from app.services.teacher_signals import memory_terms
+    terms = memory_terms(query)
+    if not terms:
+        return []
+    rows = await recent_memory(db, user_id, kinds=kinds, limit=60)
+    scored = [(len(terms & memory_terms(row.content)), row) for row in rows]
+    return [row for score, row in sorted(scored, key=lambda item: item[0], reverse=True) if score][:k]

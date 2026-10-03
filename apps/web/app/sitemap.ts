@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
+import { teacherGuides } from "@/lib/teacher-guides";
+import { SITE_URL } from "@/lib/seo";
 export default function sitemap(): MetadataRoute.Sitemap {
-  const pages = ["", "/pricing", "/signup", "/login", "/status", "/legal/terms", "/legal/privacy", "/legal/acceptable_use", "/legal/cookie", "/legal/refund"];
-  return pages.map((p) => ({ url: `${SITE}${p}`, changeFrequency: p ? "monthly" : "weekly", priority: p ? 0.5 : 1 }));
+  const pages = ["", "/pricing", "/solutions", ...teacherGuides.map((guide) => `/solutions/${guide.slug}`), "/status", "/legal/terms", "/legal/privacy", "/legal/acceptable_use", "/legal/cookie", "/legal/refund"];
+  return pages.map((path) => ({ url: `${SITE_URL}${path}`, changeFrequency: path ? "monthly" : "weekly", priority: path === "" ? 1 : path.startsWith("/solutions") ? 0.8 : 0.5 }));
 }

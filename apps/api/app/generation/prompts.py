@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-chapter-v4"
+PROMPT_VERSION = "2026-10-natural-stock-v5"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
@@ -18,6 +18,24 @@ WRITING_RULES = """Writing rules (apply to every piece of student-facing and tea
 - Headings are short and informative; never repeat the same heading twice in a deck.
 - Be factually careful. If a fact is uncertain or contested, leave it out rather than guess.
 - Never claim the content was written by a human, and do not add AI-detection-evasion tricks."""
+
+NATURAL_CLASSROOM_STYLE = """NATURAL CLASSROOM STYLE
+- Write concise slide text in the teacher's voice: specific explanations, varied sentence lengths, and useful questions.
+- Use one concrete everyday example per key concept where appropriate; connect it to the provided local context.
+- Alternate explanations with worked examples, discussion, and short activities instead of repeating bullet lists.
+- Give speaker notes practical transitions, likely misconceptions, and suggested follow-up questions.
+- Avoid generic conclusions, formulaic introductions, repetitive headings, and unnecessary adjectives.
+- Do not invent personal experiences, classroom results, sources, quotes, or statistics.
+- Preserve subject accuracy, the requested language, reading level, and template text budgets."""
+
+
+def presentation_style(req: dict[str, Any]) -> str:
+    parts = [NATURAL_CLASSROOM_STYLE] if req.get("writing_style") == "natural" else []
+    if req.get("image_mode") == "stock":
+        parts.append("STOCK PHOTOS ONLY: request a relevant existing photograph with a concrete image_query. "
+                     "No AI illustrations or decorative generated imagery. For abstract concepts use editable process, comparison, "
+                     "table or chart layouts with verified data. Do not request a stock photo for a scientific diagram.")
+    return "\n".join(parts)
 
 LAYOUT_GUIDE = """Slide layouts you can use (pick the one that best fits the purpose of each slide):
 - cover: first slide only. title = lesson title; subtitle = "<Grade> <Subject> • Lesson N of M".
@@ -186,6 +204,7 @@ TEACHER INSTRUCTIONS
 
 REQUIREMENTS
 - Lesson duration: {req['lecture_minutes']} minutes.
+{presentation_style(req)}
 - Exactly {req['slides_per_lecture']} slides. {'Include a homework slide near the end.' if homework else ''}
 - Text budgets (hard limits so text fits the teacher's template):
 {dump(budgets)}

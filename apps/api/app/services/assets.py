@@ -111,7 +111,7 @@ def _normalise_image(data: bytes, max_side: int = 1600) -> tuple[bytes, int, int
 
 async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, Any] | None:
     params = {"q": query, "page_size": 8, "license_type": "commercial,modification", "mature": "false",
-              "aspect_ratio": "wide", "size": "large"}
+              "aspect_ratio": "wide", "size": "large", "license": "cc0,pdm,by"}
     try:
         r = await client.get(OPENVERSE_URL, params=params, timeout=8)
         r.raise_for_status()
@@ -119,6 +119,8 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
     except (httpx.HTTPError, ValueError):
         return None
     for item in results:
+        if item.get("license", "").lower() not in {"cc0", "pdm", "by"}:
+            continue
         if (item.get("width") or 0) < 640 or not item.get("url"):
             continue
         try:
@@ -131,24 +133,54 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
         lic = f"CC {item.get('license', '').upper()} {item.get('license_version', '')}".strip()
         attribution = item.get("attribution") or (
             f"\"{item.get('title') or 'Image'}\" by {item.get('creator') or 'unknown'} ({lic})")
+        if item.get("foreign_landing_url"):
+            attribution += f" — {item['foreign_landing_url']}"
         return {"data": img.content, "license": lic, "attribution": attribution, "source_url":
                 item.get("foreign_landing_url")}
     return None
 
 
+def stock_image_unavailable(slide: SlideSpec) -> None:
+    slide.asset_id = None
+    slide.visual.kind = "none"
+    if slide.layout == "image_text":
+        slide.layout = "concept"
+    note = "No matching licensed stock photo was available. Add a suitable photo in the editor if needed."
+    if note not in slide.speaker_notes:
+        slide.speaker_notes += "\n" + note
+
+
 async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[SlideSpec], colors: dict[str, str],
                          job_id: uuid.UUID | None = None, allow_ai_images: int = 0,
                          openverse: bool = True, source_images: dict | None = None,
-                         image_mode: str = "auto", teaching_context: str = "") -> tuple[dict[str, bytes], dict[str, int]]:
+                         image_mode: str = "auto", teaching_context: str = "",
+                         require_real_image: bool = False, reuse_cached: bool = True) -> tuple[dict[str, bytes], dict[str, int]]:
     """Attach an asset to every slide that wants a picture. Returns (asset_id -> bytes, counters)."""
     storage = get_storage()
     ai = get_ai()
     settings = get_settings()
     from app.services.settings import get_setting
     flags = await get_setting("feature_flags")
-    allow_ai_images = allow_ai_images if flags.get("ai_images", True) and image_mode != "reuse" else 0
+    allow_ai_images = allow_ai_images if flags.get("ai_images", True) and image_mode not in ("reuse", "stock") else 0
     openverse = openverse and flags.get("openverse", True) and image_mode != "ai"
     images: dict[str, bytes] = {}
+    if image_mode == "stock":
+        for slide in slides:
+            if slide.asset_id:
+                try:
+                    asset = await db.get(Asset, uuid.UUID(slide.asset_id))
+                except ValueError:
+                    asset = None
+                if asset and ((asset.source == "openverse" and asset.owner_id in (owner_id, None))
+                              or (asset.source == "upload" and asset.owner_id == owner_id)
+                              or (asset.source == "ai" and asset.owner_id == owner_id and any(
+                                  source.get("type") == "image" and source.get("source") == "ai" and source.get("teacher_confirmed") is True
+                                  for source in slide.sources))):
+                    images[slide.asset_id] = await storage.get(asset.storage_key)
+                    if asset.attribution and not any(src.get("attribution") == asset.attribution for src in slide.sources):
+                        slide.sources.append({"type": "image", "attribution": asset.attribution})
+                else:
+                    slide.asset_id = None
     counters = {"reused": 0, "openverse": 0, "ai": 0, "placeholder": 0}
     ai_attempts = 0
     wanted = [s for s in slides if s.visual.kind in ("image", "diagram") and s.layout in ("image_text", "concept")
@@ -156,7 +188,7 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
     async with httpx.AsyncClient(headers={"User-Agent": "AI-Teacher-Assistant/1.0"}) as client:
         for s in wanted:
             source_image = (source_images or {}).get(s.visual.source_image_key)
-            if source_image:
+            if source_image and (image_mode != "stock" or source_image.get("teacher_supplied")):
                 try:
                     asset = await db.get(Asset, uuid.UUID(source_image["asset_id"]))
                 except (ValueError, KeyError):
@@ -173,7 +205,8 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
             existing = (await db.execute(select(Asset).where(
                 or_(Asset.owner_id == owner_id, Asset.owner_id.is_(None)), Asset.tags.any(query),
                 Asset.source != "placeholder",
-                Asset.source.in_(["ai", "upload"]) if image_mode == "ai" or s.visual.kind == "diagram" else True).limit(1))).scalars().first()
+                Asset.source == "openverse" if image_mode in ("stock", "hybrid", "auto") else
+                Asset.source.in_(["ai", "upload"]) if image_mode == "ai" or s.visual.kind == "diagram" else True).limit(1))).scalars().first() if reuse_cached else None
             if existing:
                 s.asset_id = str(existing.id)
                 images[s.asset_id] = await storage.get(existing.storage_key)
@@ -181,11 +214,12 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 if existing.attribution:
                     s.sources.append({"type": "image", "attribution": existing.attribution})
                 continue
-            found = await search_openverse(query, client) if (openverse and settings.openverse_enabled and query and s.visual.kind != "diagram") \
+            found = await search_openverse(query, client) if (openverse and settings.openverse_enabled and query and (s.visual.kind != "diagram" or image_mode == "hybrid")) \
                 else None
             source, lic, attribution, data = None, None, None, None
             if found:
                 source, lic, attribution, data = "openverse", found["license"], found["attribution"], found["data"]
+                s.sources.append({"type": "image", "url": found.get("source_url"), "license": lic})
             elif allow_ai_images > ai_attempts:
                 ai_attempts += 1
                 prompt = (f"Educational illustration for {teaching_context or 'a school lesson'}. Slide: {s.title}. "
@@ -201,6 +235,9 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 if res:
                     source, lic, data = "ai", "AI-generated (owned by the teacher)", res.data
                     counters["ai"] += 1
+            if data is None and (image_mode == "stock" or require_real_image):
+                stock_image_unavailable(s)
+                continue
             if data is None:
                 data = await asyncio.to_thread(placeholder_illustration, s.visual.description or s.title,
                                                colors.get("primary", "#2563EB"), colors.get("secondary", "#F59E0B"))
@@ -211,6 +248,12 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
             try:
                 data, w, h = await asyncio.to_thread(_normalise_image, data)
             except (OSError, ValueError):
+                if image_mode == "stock" or require_real_image:
+                    if source == "ai":
+                        counters["ai"] = max(0, counters["ai"] - 1)
+                    counters["openverse"] = max(0, counters["openverse"] - 1)
+                    stock_image_unavailable(s)
+                    continue
                 data = await asyncio.to_thread(placeholder_illustration, s.title,
                     colors.get("primary", "#2563EB"), colors.get("secondary", "#F59E0B"))
                 data, w, h = await asyncio.to_thread(_normalise_image, data)

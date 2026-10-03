@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { SITE_URL } from "@/lib/seo";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
   icons: { icon: "/brand/clastio-original.png" },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     siteName: "Clastio",

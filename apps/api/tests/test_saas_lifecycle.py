@@ -18,7 +18,7 @@ async def test_new_teacher_gets_a_no_card_trial_that_ends_on_free(client):
     data, h = await _signup(client)
     assert data["user"]["onboarding_completed"] is False
     usage = (await client.get("/api/v1/me/usage", headers=h)).json()
-    assert usage["plan"]["code"] == "pro" and usage["trial"]["active"] and usage["trial"]["days_left"] == 14
+    assert usage["plan"]["code"] == "pro" and usage["trial"]["active"] and usage["trial"]["days_left"] == 7
     assert usage["subscription"]["provider"] == "trial"
 
     from sqlalchemy import update
@@ -42,15 +42,15 @@ async def test_admin_can_turn_the_trial_off(client):
     from tests.test_media_and_dodo import make_admin
 
     admin = await make_admin(client)
-    r = await client.put("/api/v1/admin/settings/trial", headers=admin["headers"], json={"enabled": False, "plan": "pro", "days": 14})
+    r = await client.put("/api/v1/admin/settings/trial", headers=admin["headers"], json={"enabled": False, "plan": "pro", "days": 7})
     assert r.status_code == 200
     try:
         _, h = await _signup(client)
         assert (await client.get("/api/v1/me/usage", headers=h)).json()["plan"]["code"] == "free"
         assert (await client.put("/api/v1/admin/settings/trial", headers=admin["headers"],
-                                 json={"enabled": True, "plan": "gold", "days": 14})).status_code == 422
+                                 json={"enabled": True, "plan": "gold", "days": 7})).status_code == 422
     finally:
-        await client.put("/api/v1/admin/settings/trial", headers=admin["headers"], json={"enabled": True, "plan": "pro", "days": 14})
+        await client.put("/api/v1/admin/settings/trial", headers=admin["headers"], json={"enabled": True, "plan": "pro", "days": 7})
 
 
 async def test_admins_are_not_customers(client):

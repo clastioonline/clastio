@@ -36,7 +36,7 @@ function LoginForm() {
         return;
       }
       const next = params.get("next");
-      router.replace(!res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next, res.user.role === "admin" ? "/admin" : "/dashboard"));
+      router.replace(res.user.role === "admin" ? "/admin" : !res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next));
     } catch (err: any) {
       setError(err.message);
       setBusy(false);

@@ -14,7 +14,7 @@ from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.jobs.queue import enqueue, run_inline_if_configured
-from app.models import Conversation, ConversationMessage, GenerationJob, TeacherMemory, TeacherPreference
+from app.models import Conversation, ConversationMessage, GenerationJob, TeacherMemory, TeacherPreference, Lesson, Slide
 from app.services import assistant
 from app.services import memory as memory_svc
 
@@ -47,7 +47,14 @@ class PrefIn(BaseModel):
 
 @router.put("/memory/preferences/{key}")
 async def set_pref(key: str, data: PrefIn, user: CurrentUser, db: DB):
-    row = await memory_svc.set_preference(db, user.id, key[:80], data.value, source="stated")
+    value = data.value
+    allowed_images = {"preferred_image_style": {"photograph", "diagram", "illustration", "cartoon"},
+                      "preferred_image_source": {"hybrid", "stock", "ai"}}
+    if key in allowed_images:
+        value = str(value).strip().lower()
+        if value not in allowed_images[key]:
+            raise AppError("invalid_preference", "Choose one of: " + ", ".join(sorted(allowed_images[key])), 422)
+    row = await memory_svc.set_preference(db, user.id, key[:80], value, source="stated")
     await db.commit()
     return {"key": row.key, "value": row.value}
 
@@ -106,6 +113,9 @@ async def search(q: str, user: CurrentUser, db: DB):
 class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
     conversation_id: uuid.UUID | None = None
+    mode: str = Field(default="assistant", pattern="^(assistant|playground|image_edit)$")
+    lesson_id: uuid.UUID | None = None
+    slide_number: int | None = Field(None, ge=1, le=30)
 
 
 @router.post("/assistant/tasks", status_code=202, dependencies=[Depends(rate_limit("assistant", 40, 600))])
@@ -127,9 +137,22 @@ async def queue_message(data: MessageIn, user: CurrentUser, db: DB):
         if pending:
             raise AppError("reply_pending", "A reply is already being prepared in this conversation.", 409)
     else:
-        conv = Conversation(owner_id=user.id, title=data.text.strip()[:80])
+        conv = Conversation(owner_id=user.id, title=data.text.strip()[:80],
+                            channel=data.mode if data.mode in ("playground", "image_edit") else "web")
+        if data.mode == "image_edit":
+            lesson = await db.get(Lesson, data.lesson_id) if data.lesson_id else None
+            if not lesson or lesson.owner_id != user.id or not data.slide_number:
+                raise NotFound("Lesson slide")
+            row = (await db.execute(select(Slide).where(Slide.lesson_id == lesson.id, Slide.number == data.slide_number))).scalars().first()
+            if not row:
+                raise NotFound("Slide")
+            if row.spec.get("layout") not in ("image_text", "concept"):
+                raise AppError("image_layout", "Choose an image or concept slide to discuss a picture replacement.", 422)
         db.add(conv)
         await db.flush()
+        if data.mode == "image_edit":
+            db.add(ConversationMessage(conversation_id=conv.id, role="system", content="Image change target", actions=[{
+                "type": "image_target", "lesson_id": str(data.lesson_id), "slide_number": data.slide_number}]))
     conv.updated_at = utcnow()
     db.add(ConversationMessage(conversation_id=conv.id, role="user", content=data.text.strip()))
     job = await enqueue(db, "assistant_reply", {"conversation_id": str(conv.id), "text": data.text.strip()},
@@ -141,8 +164,10 @@ async def queue_message(data: MessageIn, user: CurrentUser, db: DB):
 
 @router.post("/assistant/messages", dependencies=[Depends(rate_limit("assistant", 40, 600))])
 async def message(data: MessageIn, user: CurrentUser, db: DB):
+    if data.mode == "image_edit" and not data.conversation_id:
+        raise AppError("use_queue", "Start image discussions through /assistant/tasks with a lesson and slide.", 422)
     async def gen():
-        async for ev in assistant.converse(db, user, data.text, data.conversation_id):
+        async for ev in assistant.converse(db, user, data.text, data.conversation_id, mode=data.mode):
             yield {"event": ev["event"], "data": json.dumps(ev["data"])}
 
     return EventSourceResponse(gen())
@@ -165,8 +190,21 @@ async def conversation(conv_id: uuid.UUID, user: CurrentUser, db: DB):
     job = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == user.id,
         GenerationJob.type == "assistant_reply", GenerationJob.payload["conversation_id"].astext == str(c.id))
         .order_by(GenerationJob.created_at.desc()).limit(1))).scalars().first()
-    return {"id": str(c.id), "title": c.title,
+    return {"id": str(c.id), "title": c.title, "mode": c.channel,
             "job": {"id": str(job.id), "status": job.status, "stage": job.stage,
                     "result": job.result} if job else None,
-            "messages": [{"role": m.role, "content": m.content, "actions": m.actions,
-                          "created_at": m.created_at.isoformat()} for m in msgs]}
+            "messages": [{"id": str(m.id), "role": m.role, "content": m.content, "actions": m.actions,
+                          "created_at": m.created_at.isoformat()} for m in msgs if m.role != "system"]}
+
+
+class ImageConfirmIn(BaseModel):
+    message_id: uuid.UUID
+    remember_style: bool = False
+
+
+@router.post("/assistant/conversations/{conv_id}/confirm-image", status_code=202,
+             dependencies=[Depends(rate_limit("image_confirmation", 20, 3600))])
+async def confirm_image(conv_id: uuid.UUID, data: ImageConfirmIn, user: CurrentUser, db: DB):
+    from app.services.image_assistant import confirm
+    job_id = await confirm(db, user, conv_id, data.message_id, remember_style=data.remember_style)
+    return {"job_id": str(job_id)}

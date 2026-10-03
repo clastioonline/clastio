@@ -71,6 +71,7 @@ EVENTS: dict[str, Event] = {
     "payment_retry_reminder": Event("billing_alert", "Your payment is still outstanding",
                                     "We couldn't take payment for {plan} {days} days ago. Update your payment method "
                                     "to keep your plan.", "/billing", "payment_reminder"),
+    "referral_reward": Event("billing", "Your referral reward is ready", "You've earned {credits} media credits. Create something for your next class.", "/billing", "referral_reward"),
     "payment_receipt": Event("billing", "Payment received: {amount}", "Thank you. Your receipt is in Plan & billing.",
                              "/billing", None),
     "media_credits_low": Event("usage", "Media credits running low",
@@ -107,6 +108,7 @@ STAFF_ALERTS: dict[str, tuple[str, str, str, str]] = {
 }
 
 TEMPLATES.update({
+    "referral_reward": ("Your Clastio referral reward is ready", "Hi {name},\n\nYou've earned {credits} media credits after a referred teacher's first paid subscription. Use them in Media studio: {link}\n"),
     "trial_ending": ("Your Clastio trial ends in {days} day{s}",
                      "Hi {name},\n\nYour free {plan} trial ends in {days} day{s}. Choose a plan to keep everything "
                      "working; your lessons and designs are safe either way: {link}\n"),
@@ -309,12 +311,12 @@ async def run_reminders() -> dict[str, int]:
         # Dunning: follow-ups 3 and 7 days after a subscription went past due.
         overdue = (await db.execute(select(Subscription, User).join(User, User.id == Subscription.user_id).where(
             Subscription.status == "past_due", User.status == "active",
-            Subscription.updated_at < now - timedelta(days=3)))).all()
+            Subscription.updated_at < now - timedelta(days=1)))).all()
         for sub, user in overdue:
             days = int((now - sub.updated_at).total_seconds() // 86400)
-            step = 7 if days >= 7 else 3
+            step = 7 if days >= 7 else 3 if days >= 3 else 1
             plan = plans.get(sub.plan_code)
-            if await send(db, user, "payment_retry_reminder", dedupe_key=f"dunning:{sub.id}:{step}", days=step,
+            if await send(db, user, "payment_retry_reminder", dedupe_key=f"dunning:{sub.id}:{sub.current_period_start}:{step}", days=step,
                           plan=plan.name if plan else sub.plan_code):
                 out["payment_retry_reminder"] += 1
         await db.commit()
@@ -346,7 +348,7 @@ async def job_failure_watch() -> int:
 # --------------------------------------------------------------------------- job completion
 
 NOTIFY_JOBS = {"lesson_generation", "course_plan", "document_generation", "media_generation",
-               "style_analysis", "source_indexing", "slide_regeneration", "lesson_render", "assistant_reply", "template_preview"}
+               "style_analysis", "source_indexing", "slide_regeneration", "image_replacement", "lesson_render", "assistant_reply", "template_preview"}
 
 
 async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | None, payload: dict[str, Any],

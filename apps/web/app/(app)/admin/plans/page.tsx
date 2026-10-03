@@ -80,7 +80,7 @@ export default function AdminPlans() {
   const saveTrial = async () => {
     try {
       await api("/admin/settings/trial", { method: "PUT", body: { ...trial, days: Number(trial.days) } });
-      notify({ tone: "success", title: "Trial saved", body: "Applies to teachers who sign up from now on." });
+      notify({ tone: "success", title: "Trial saved", body: "Duration applies to new trials; allowance limits also apply to active trials." });
       mutateSettings();
     } catch (e) {
       notify({ tone: "error", title: "Couldn't save", body: errorMessage(e) });
@@ -106,6 +106,7 @@ export default function AdminPlans() {
           <label className="text-sm">Days
             <Input className="mt-1 w-24 text-ink" type="number" min={0} max={90} value={trial.days} onChange={(e) => setTrial({ ...trial, days: e.target.value })} />
           </label>
+          {[["credits", "Trial credits"], ["ai_images", "AI images"], ["whatsapp_messages", "WhatsApp messages"]].map(([key, label]) => <label key={key} className="text-sm">{label}<Input className="mt-1 w-24 text-ink" type="number" min={0} max={100000} value={trial[key] ?? 0} onChange={(e) => setTrial({...trial, [key]: Number(e.target.value)})} /></label>)}
           <button onClick={saveTrial} className="h-10 rounded-full bg-white px-5 text-sm font-semibold text-brand-800 hover:bg-white/90">Save trial</button>
         </div>
       </section>

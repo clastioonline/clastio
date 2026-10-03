@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { DashHeader, Panel } from "@/components/dash";
+import { ReferralPanel } from "@/components/referral-panel";
 import { PricingTable } from "@/components/pricing-table";
 import { errorMessage, useToast } from "@/components/toast";
 import { Badge, Button, Skeleton } from "@/components/ui";
@@ -104,7 +105,7 @@ function Billing() {
             )}
           </div>
         </section>
-        <Panel title="This month's usage" className="xl:col-span-4">
+        <Panel title={trial?.active ? "Your trial allowance" : "This month's usage"} className="xl:col-span-4">
           <div className="space-y-4">
             <Meter label="Credits" used={u.credits.used} limit={u.credits.limit} />
             <Meter label="AI images in slides" used={u.ai_images.used} limit={u.ai_images.limit} />
@@ -123,6 +124,8 @@ function Billing() {
         <p className="mb-6 text-center text-muted">All plans include your own slide design, worksheets, quizzes and homework.</p>
         <PricingTable mode="app" currentPlan={data.plan.code} onTrial={!!trial?.active} />
       </section>
+
+      <ReferralPanel />
 
       <Panel title="Payments">
         {data.payments.length ? (

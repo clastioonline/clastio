@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -90,6 +91,16 @@ async def get_plan(db: AsyncSession, user: User) -> tuple[Plan, Subscription | N
     if plan is None:  # plans not seeded yet (fresh DB)
         d = DEFAULT_PLANS[0]
         plan = Plan(code=d["code"], name=d["name"], limits=d["limits"], features=d["features"])
+    if sub and sub.provider == "trial":
+        cfg = await get_setting("trial")
+        limits = dict(plan.limits)
+        for resource in ("credits", "ai_images", "whatsapp_messages"):
+            cap = int(cfg.get(resource, limits.get(resource, 0)))
+            original = limits.get(resource)
+            limits[resource] = cap if original in (None, -1) else min(cap, original)
+        # A detached view: never mutate the paid plan's persisted limits.
+        plan = Plan(code=plan.code, name=plan.name, limits=limits, features=plan.features,
+                    price_monthly_aed=plan.price_monthly_aed, price_annual_aed=plan.price_annual_aed)
     return plan, sub
 
 
@@ -106,7 +117,7 @@ async def credit_cost(kind: str, quantity: int = 1) -> int:
 
 
 GENERATION_JOB_TYPES = ("course_plan", "lesson_generation", "slide_regeneration", "document_generation",
-                        "media_generation", "assistant_reply")
+                        "media_generation", "assistant_reply", "image_replacement")
 
 
 async def plan_limits(db: AsyncSession, user: User) -> dict[str, Any]:
@@ -173,7 +184,7 @@ async def check(db: AsyncSession, user: User, resource: str, amount: int, *, job
         left = max(0, int(limit) - spent - held)
         raise LimitExceeded(
             f"This needs {amount} {resource.replace('_', ' ')} but only {left} are left on "
-            f"your {plan.name} plan this month" + (" (some are held by lessons still generating)." if held else "."),
+            f"your {plan.name} {'trial' if sub and sub.provider == 'trial' else 'plan this month'}" + (" (some are held by lessons still generating)." if held else "."),
             {"resource": resource, "limit": limit, "used": spent, "reserved": held, "needed": amount,
              "plan": plan.code})
 
@@ -248,9 +259,12 @@ async def warn_usage(db: AsyncSession, user_id: uuid.UUID, resource: str) -> int
         return None
     t = crossed[-1]
     key = f"usage:{resource}:{since.date().isoformat()}:{t}"
-    title = "You've used all your credits this month" if t >= 100 else f"You've used {t}% of this month's credits"
-    body = (f"Your {plan.name} plan includes {limit} credits a month. "
-            + ("New lessons will wait until next month unless you upgrade." if t >= 100 else
+    trial = bool(sub and sub.provider == "trial")
+    period_label = "trial" if trial else "this month"
+    title = f"You've used all your {period_label} credits" if t >= 100 else f"You've used {t}% of your {period_label} credits"
+    body = (f"Your {'trial' if trial else plan.name + ' plan'} includes {limit} credits {'for the entire trial' if trial else 'a month'}. "
+            + (("Choose a plan to keep creating. Your existing work stays safe." if trial else
+                "New lessons will wait until next month unless you upgrade.") if t >= 100 else
                f"{max(0, int(limit) - spent)} are left."))
     if await notify(db, user_id, "usage", title, body, "/billing", dedupe_key=key) and t in EMAIL_THRESHOLDS:
         queue_email(db, user, "usage_warning", link=f"{get_settings().public_web_url}/billing", percent=str(t),
@@ -314,7 +328,7 @@ async def summary(db: AsyncSession, user: User) -> dict[str, Any]:
     out["trial"] = None
     if sub and sub.provider == "trial" and sub.current_period_end:
         left = (sub.current_period_end - datetime.now(UTC)).total_seconds() / 86400
-        out["trial"] = {"active": True, "ends_at": sub.current_period_end.isoformat(), "days_left": max(0, round(left))}
+        out["trial"] = {"active": True, "ends_at": sub.current_period_end.isoformat(), "days_left": max(0, math.ceil(left)), "limits": plan.limits}
     elif had_trial and (sub is None or sub.provider in ("trial", "manual")) and plan.code == "free":
         out["trial"] = {"active": False, "ended": True}
     if sub:
@@ -323,7 +337,7 @@ async def summary(db: AsyncSession, user: User) -> dict[str, Any]:
                                if sub.current_period_end else None,
                                "cancel_at_period_end": sub.cancel_at_period_end, "provider": sub.provider}
     for res in ("credits", "ai_images", "whatsapp_messages"):
-        out["usage"][res] = {"used": await used(db, user.id, res, since), "limit": plan.limits.get(res)}
+        out["usage"][res] = {"used": max(0, await used(db, user.id, res, since)), "limit": plan.limits.get(res)}
     storage = (await db.execute(select(func.coalesce(func.sum(UploadedFile.size_bytes), 0)).where(
         UploadedFile.owner_id == user.id))).scalar_one()
     out["usage"]["storage_mb"] = {"used": round(storage / 1_048_576, 1), "limit": plan.limits.get("storage_mb")}

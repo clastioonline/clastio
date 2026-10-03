@@ -46,7 +46,7 @@ export default function TeacherMemory() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Teacher memory" subtitle="What the assistant knows about how you teach. Everything here is applied to new lessons, and you can edit or delete any of it." />
+      <PageHeader title="Teacher memory" subtitle="What the assistant knows about how you teach. Confirmed preferences guide new lessons. Learned suggestions need your confirmation. You can edit or delete any memory." />
       {error && <LoadError retry={mutate} label="teacher memory" />}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Card className="min-w-0">
@@ -73,10 +73,10 @@ export default function TeacherMemory() {
           <div className="space-y-3 border-t border-line p-5">
             <div className="text-sm font-medium text-ink">Add or change a preference</div>
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-              <Select value={newPref.key} onChange={(e) => setNewPref({ ...newPref, key: e.target.value })}>
+              <Select value={newPref.key} onChange={(e) => setNewPref({ key: e.target.value, value: "" })}>
                 {Object.entries(data?.known_preferences || {}).map(([k, label]: any) => <option key={k} value={k}>{label}</option>)}
               </Select>
-              <Input value={newPref.value} onChange={(e) => setNewPref({ ...newPref, value: e.target.value })} placeholder="e.g. simple English" />
+              {["preferred_image_source", "preferred_image_style"].includes(newPref.key) ? <Select value={newPref.value} onChange={(e) => setNewPref({...newPref, value: e.target.value})}><option value="">Choose a preference</option>{(newPref.key === "preferred_image_source" ? ["hybrid", "stock", "ai"] : ["photograph", "diagram", "illustration", "cartoon"]).map((value) => <option key={value} value={value}>{value === "hybrid" ? "Hybrid — licensed search first" : value === "stock" ? "Licensed stock only" : value === "ai" ? "AI images" : value}</option>)}</Select> : <Input value={newPref.value} onChange={(e) => setNewPref({ ...newPref, value: e.target.value })} placeholder="e.g. simple English" />}
               <Button disabled={!newPref.value} onClick={() => {
                 const v = newPref.value.trim();
                 const parsed = v === "yes" || v === "true" ? true : v === "no" || v === "false" ? false : /^\d+$/.test(v) ? Number(v) : v;

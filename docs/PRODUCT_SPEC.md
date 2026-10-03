@@ -527,7 +527,7 @@ Limits are expressed as **credits** so different outputs can be priced fairly (e
 | **AI Teaching Assistant** | AED 249 / month | Everything + daily/weekly planning automation, WhatsApp assistant, cover lessons, priority generation |
 | **School / Department [NEW]** | Per-seat annual contract | Shared templates & schemes of work, admin dashboard, SSO, coverage reports, invoicing, data-processing agreement |
 
-- **14-day trial** of Assistant features. **Annual billing ≈ 2 months free.** Referral credits. Education or bulk discounts.
+- **7-day trial** of Assistant features. **Annual billing ≈ 2 months free.** Referral credits. Education or bulk discounts.
 - Monthly and annual billing, usage tracking, status (trialing / active / past_due / cancelled), renewal, cancellation (effective at period end), upgrades/downgrades with proration, dunning emails, **5% UAE VAT-compliant tax invoices**, and payment webhooks (signature-verified, idempotent).
 - India: INR pricing, Razorpay (UPI Autopay), GST.
 

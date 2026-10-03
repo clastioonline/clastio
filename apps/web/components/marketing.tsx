@@ -11,6 +11,7 @@ export function LandingNav() {
           <a href="/#features" className="hover:text-[var(--l-ink)]">Features</a>
           <a href="/#how" className="hover:text-[var(--l-ink)]">How it works</a>
           <Link href="/pricing" className="hover:text-[var(--l-ink)]">Pricing</Link>
+          <Link href="/solutions" className="hover:text-[var(--l-ink)]">Teacher guides</Link>
           <a href="/#schools" className="hover:text-[var(--l-ink)]">For schools</a>
           <a href="/#faq" className="hover:text-[var(--l-ink)]">FAQ</a>
         </nav>
@@ -20,7 +21,7 @@ export function LandingNav() {
         </div>
       </header>
       <nav className="mx-auto mt-2 flex max-w-6xl flex-wrap justify-center gap-x-5 gap-y-1 rounded-xl bg-[var(--l-card)] px-3 py-2 text-sm md:hidden" aria-label="Explore Clastio">
-        <a href="/#features" className="focus-ring py-2">Features</a><a href="/#example" className="focus-ring py-2">Example</a><Link href="/pricing" className="focus-ring py-2">Pricing</Link><a href="/#faq" className="focus-ring py-2">FAQ</a>
+        <a href="/#features" className="focus-ring py-2">Features</a><a href="/#example" className="focus-ring py-2">Example</a><Link href="/pricing" className="focus-ring py-2">Pricing</Link><Link href="/solutions" className="focus-ring py-2">Teacher guides</Link><a href="/#faq" className="focus-ring py-2">FAQ</a>
       </nav>
     </div>
   );
@@ -50,7 +51,10 @@ export function LandingFooter() {
           <Link href="/status" className="block hover:text-[var(--l-ink)]">System status</Link>
         </div>
         <div className="space-y-2">
-          <div className="font-semibold text-[var(--l-ink)]">Curricula</div>
+          <div className="font-semibold text-[var(--l-ink)]">Teacher resources</div>
+          <Link href="/solutions" className="block hover:text-[var(--l-ink)]">All teacher guides</Link>
+          <Link href="/solutions/personal-ai-teaching-assistant" className="block hover:text-[var(--l-ink)]">Personal teaching assistant</Link>
+          <Link href="/solutions/edit-ppt-without-regenerating" className="block hover:text-[var(--l-ink)]">Edit PPTs with fewer credits</Link>
           <p>British · CBSE · ICSE · American · IB · UAE MoE · UAE AI curriculum</p>
         </div>
       </div>

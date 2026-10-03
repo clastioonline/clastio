@@ -22,7 +22,7 @@ LABELS = {
     "course_plan": "Plan your lessons", "lesson_generation": "Build lesson slides",
     "slide_regeneration": "Update a slide", "lesson_render": "Rebuild presentation",
     "document_generation": "Create a worksheet or quiz", "media_generation": "Create lesson media",
-    "assistant_reply": "Assistant reply", "template_preview": "Refresh template previews",
+    "image_replacement": "Replace lesson image", "assistant_reply": "Assistant reply", "template_preview": "Refresh template previews",
 }
 
 

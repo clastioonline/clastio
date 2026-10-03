@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusBadge } from "@/components/common";
 import { DocumentDialog, DocumentFiles } from "@/components/document-dialog";
 import { errorMessage, useToast } from "@/components/toast";
-import { Alert, Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, Tabs, Textarea } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, EmptyState, Field, Input, Modal, Select, Skeleton, Tabs, Textarea, Toggle } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
 import { useApi, useJob } from "@/lib/hooks";
 import { LAYOUT_LABELS, cn } from "@/lib/utils";
@@ -39,7 +39,7 @@ function toLines(xs: string[] | undefined) {
   return (xs || []).join("\n");
 }
 
-function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any; onJob: (id: string) => void }) {
+function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; slide: any; pending: boolean; onJob: (id: string) => void }) {
   const { notify } = useToast();
   const s = slide.spec;
   const [title, setTitle] = useState(s.title);
@@ -65,6 +65,8 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
   const [imageChanged, setImageChanged] = useState(false);
   const [imageRemoved, setImageRemoved] = useState(false);
   const [instruction, setInstruction] = useState("");
+  const [keepImages, setKeepImages] = useState(true);
+  const { data: creditInfo } = useApi<any>("/usage/estimates");
   const [busy, setBusy] = useState<string | null>(null);
   const { data: versions, mutate: refreshVersions } = useApi<any>(`/lessons/${lessonId}/slides/${slide.number}/versions`);
 
@@ -117,7 +119,7 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
       if (assetId) patch.sources.push({ type: "image", source: "upload", description: "Teacher supplied" });
     }
     try {
-      const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}`, { method: "PATCH", body: { spec: patch } });
+      const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}`, { method: "PATCH", body: { spec: patch }, idempotent: true });
       onJob(r.job_id);
     } catch (e) {
       notify({ tone: "error", title: "Couldn't save", body: errorMessage(e) });
@@ -140,7 +142,7 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
   const regenerate = async (action?: string) => {
     setBusy(action || "custom");
     try {
-      const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}/regenerate`, { body: { action, instruction: action ? undefined : instruction } });
+      const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}/regenerate`, { body: { action, instruction: action ? undefined : instruction, keep_images: keepImages }, idempotent: true });
       onJob(r.job_id);
       setInstruction("");
     } catch (e) {
@@ -150,14 +152,17 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
     }
   };
   const restore = async (version: number) => {
-    const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}/restore`, { body: { version } });
+    const r = await api<any>(`/lessons/${lessonId}/slides/${slide.number}/restore`, { body: { version }, idempotent: true });
     onJob(r.job_id);
   };
 
   return (
-    <div className="space-y-5">
+    <fieldset disabled={pending || !!busy} className="space-y-5">
       <div>
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Quick changes (keeps your design)</div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">AI edit — this slide only</div>
+        <p className="mb-3 text-xs text-muted">{creditInfo ? `${creditInfo.costs.slide} credit(s) per successful changed slide` : "Loading edit cost…"}. Manual edits and version restores use 0 generation credits. Other slides are not sent for rewriting.</p>
+        {["image_text", "concept"].includes(s.layout) && <Link href={`/assistant?mode=image_edit&lesson=${lessonId}&slide=${slide.number}`} className="mb-3 inline-flex text-sm font-semibold text-brand-700">Discuss image changes with your assistant →</Link>}
+        <Toggle checked={keepImages} onChange={setKeepImages} label="Keep existing images" description="Recommended for wording changes. To replace a picture precisely, upload it in the manual editor below." />
         <div className="flex flex-wrap gap-2">
           {ACTIONS.map((a) => (
             <Button key={a.key} size="sm" variant="outline" loading={busy === a.key} disabled={!!busy} onClick={() => regenerate(a.key)}>{a.label}</Button>
@@ -225,10 +230,10 @@ function SlideEditor({ lessonId, slide, onJob }: { lessonId: string; slide: any;
               {versions.items.slice(1).map((v: any) => <option key={v.version} value={v.version}>v{v.version} · {v.reason || "edit"} · {formatDate(v.created_at, { hour: "2-digit", minute: "2-digit" })}</option>)}
             </Select>
           ) : <span />}
-          <Button onClick={save} loading={busy === "save"} disabled={!!busy && busy !== "save"}><Save className="h-4 w-4" /> Save & rebuild</Button>
+          <Button onClick={save} loading={busy === "save"} disabled={!!busy && busy !== "save"}><Save className="h-4 w-4" /> Save & rebuild · 0 credits</Button>
         </div>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -283,6 +288,7 @@ export default function LessonPage() {
   const { id } = useParams<{ id: string }>();
   const { notify } = useToast();
   const { data, mutate } = useApi<any>(`/lessons/${id}`);
+  const { data: creditInfo } = useApi<any>("/usage/estimates");
   const [tab, setTab] = useState<"slides" | "plan" | "documents" | "qc">("slides");
   const [current, setCurrent] = useState(1);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -295,7 +301,7 @@ export default function LessonPage() {
   const job = useJob(jobId || (["queued", "running"].includes(data?.job?.status) ? data.job.id : null), (j) => {
     setJobId(null);
     mutate();
-    if (j.status === "succeeded") notify({ tone: "success", title: "Slides updated", body: "Your design system was preserved." });
+    if (j.status === "succeeded") notify({ tone: "success", title: j.result?.changed === false ? "No changes needed" : "Slides updated", body: j.result?.changed === false ? "No generation credits were used." : "Your design system was preserved." });
     else notify({ tone: "error", title: "Update failed", body: j.error || undefined });
   });
 
@@ -416,7 +422,7 @@ export default function LessonPage() {
               </Card>
             )}
           </div>
-          <div data-tour="slide-editor" className="order-3"><Card className="p-5">{slide && <SlideEditor lessonId={id} slide={slide} onJob={setJobId} />}</Card></div>
+          <div data-tour="slide-editor" className="order-3"><Card className="p-5">{slide && <SlideEditor lessonId={id} slide={slide} onJob={setJobId} pending={!!jobId || generating} />}</Card></div>
         </div>
       ) : <EmptyState title="This lesson hasn't been built yet" description="Build it from the project page." />)}
 
@@ -506,6 +512,7 @@ export default function LessonPage() {
       <DocumentDialog open={!!docOpen} kind={docOpen || "worksheet"} lessonId={id} onClose={() => { setDocOpen(null); mutate(); }} />
       <Modal open={regenOpen} onClose={() => setRegenOpen(false)} title="Rebuild this lesson"
         footer={<><Button variant="ghost" onClick={() => setRegenOpen(false)}>Cancel</Button><Button onClick={regenerateLesson}><RotateCcw className="h-4 w-4" /> Rebuild</Button></>}>
+        <Alert tone="brand" title="A small edit costs less">Manual edits and restores use 0 generation credits. An AI edit to one slide costs {creditInfo?.costs?.slide ?? "the configured slide rate"}; this full rebuild costs about {creditInfo ? creditInfo.costs.slide * course.slides_per_lecture : "the slide count × the configured rate"} credits. For a wording or example change, cancel and edit the selected slide.</Alert>
         <Field label="What should change? (optional)" hint="e.g. make it suitable for Grade 6; more visual; add a practical activity; shorten to 35 minutes">
           <Textarea value={regenText} onChange={(e) => setRegenText(e.target.value)} />
         </Field>

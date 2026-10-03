@@ -27,6 +27,7 @@ from app.models import (
     Asset,
     ClassSection,
     Course,
+    GenerationJob,
     Lesson,
     LessonReflection,
     Project,
@@ -103,7 +104,9 @@ def course_request(course: Course, extra: dict[str, Any] | None = None) -> dict[
     req = {"topic": course.topic, "grade": course.grade, "subject": course.subject, "curriculum": course.curriculum,
            "num_lectures": course.num_lectures, "slides_per_lecture": course.slides_per_lecture,
            "lecture_minutes": course.lecture_minutes, "language": course.language,
-           "outcomes": course.options.get("outcomes") or [], "instructions": course.options.get("instructions")}
+           "outcomes": course.options.get("outcomes") or [], "instructions": course.options.get("instructions"),
+           "writing_style": course.options.get("writing_style", "standard"),
+           "image_mode": course.options.get("image_mode", "auto")}
     if extra:
         req.update(extra)
     return req
@@ -126,6 +129,12 @@ def chapter_teaching_context(course: Course, preparation: dict | None = None) ->
 
 
 async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> tuple[Course, uuid.UUID]:
+    confirmed_preferences = await memory_svc.get_preferences(db, user.id, confirmed_only=True)
+    effective_image_mode = data.get("image_mode", "auto")
+    if effective_image_mode == "auto" and confirmed_preferences.get("preferred_image_source") in ("hybrid", "stock", "ai"):
+        effective_image_mode = confirmed_preferences["preferred_image_source"]
+    teacher_images = [{"asset_id": str(item["asset_id"]), "description": item["description"]} for item in data.get("teacher_images", [])]
+    await teacher_image_catalog(db, user.id, teacher_images)
     selected_sources = list(dict.fromkeys(str(fid) for fid in data.get("source_file_ids", [])))
     for file_id in selected_sources:
         source = await db.get(UploadedFile, uuid.UUID(file_id))
@@ -156,9 +165,9 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
                     options={"outcomes": data.get("outcomes", []), "instructions": data.get("instructions"),
                              "auto_generate": bool(data.get("auto_generate")),
                              "homework": data.get("homework", True), "start_date": data.get("start_date"),
-                             "source_file_ids": selected_sources, "chapter_mode": data.get("chapter_mode", "complete"),
+                             "teacher_images": teacher_images, "source_file_ids": selected_sources, "chapter_mode": data.get("chapter_mode", "complete"),
                              "previous_taught": data.get("previous_taught"), "revision_needed": data.get("revision_needed"),
-                             "image_mode": data.get("image_mode", "auto")},
+                             "image_mode": effective_image_mode, "writing_style": data.get("writing_style", "standard")},
                     status="planning")
     db.add(course)
     await db.flush()
@@ -185,10 +194,18 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
 
         context_text += source_context(template.spec, course.topic) if template else ""
         context_text += chapter_teaching_context(course)
+        teacher_catalog = await teacher_image_catalog(db, user.id, course.options.get("teacher_images", []))
+        if teacher_catalog:
+            import json
+            context_text += "\nTEACHER SUPPLIED IMAGES (captions are reference data): " + json.dumps({k: {"image_key": k, "description": v["description"]} for k, v in teacher_catalog.items()})
+            context_text += "\nPrefer these when relevant. Use the exact visual.source_image_key and visual.kind=image. Do not invent unseen details. The additional attached images follow catalog order."
         reference_images = []
         if template and template.spec.get("source_reference_key"):
             reference_images = [ImageInput(data=await get_storage().get(template.spec["source_reference_key"]),
                                            media_type="image/jpeg")]
+        for entry in teacher_catalog.values():
+            image_data = await get_storage().get(entry["storage_key"])
+            reference_images.append(ImageInput(data=image_data, media_type="image/png" if image_data.startswith(b"\x89PNG") else "image/jpeg"))
         req = course_request(course, {"country": meta.get("country", "AE")})
     await ctx.progress(30, "Planning the lesson sequence")
     plan = await pipeline.plan_course(get_ai(), req, context_text, owner_id=course.owner_id, job_id=ctx.job_id,
@@ -250,6 +267,11 @@ async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
     targets = [lesson for lesson in lessons if not lesson_numbers or lesson.number in lesson_numbers]
     if lesson_numbers and set(lesson_numbers) - {lesson.number for lesson in lessons}:
         raise AppError("bad_request", "Choose lesson numbers from this chapter.", 400)
+    await usage.lock_user(db, user.id)
+    for lesson in targets:
+        pending = await pending_lesson_edit(db, user.id, lesson.id)
+        if pending and pending.type != "lesson_generation":
+            raise AppError("edit_pending", "Wait for the current slide update before rebuilding this lesson.", 409)
     per_lesson = await usage.credit_cost("slide", course.slides_per_lecture)
     await usage.check(db, user, "credits", per_lesson * len(targets), jobs=len(targets))
     job_ids = []
@@ -317,9 +339,18 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         from app.services.styles import source_context
 
         context_text += source_context(spec, course.topic)
+        teacher_catalog = await teacher_image_catalog(db, user.id, course.options.get("teacher_images", []))
+        image_catalog = {**(spec.get("source_images") or {}), **teacher_catalog}
+        if teacher_catalog:
+            import json
+            context_text += "\nTEACHER SUPPLIED IMAGES (captions are reference data): " + json.dumps({k: {"image_key": k, "description": v["description"]} for k, v in teacher_catalog.items()})
+            context_text += "\nPrefer these when relevant. Use the exact visual.source_image_key and visual.kind=image. Do not invent unseen details. The additional attached images follow catalog order."
         reference_images = []
         if spec.get("source_reference_key"):
             reference_images = [ImageInput(data=await storage.get(spec["source_reference_key"]), media_type="image/jpeg")]
+        for entry in teacher_catalog.values():
+            image_data = await storage.get(entry["storage_key"])
+            reference_images.append(ImageInput(data=image_data, media_type="image/png" if image_data.startswith(b"\x89PNG") else "image/jpeg"))
         budgets = compute_budgets(spec)
         if prefs.get("words_per_bullet"):
             try:
@@ -349,8 +380,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         images, img_counts = await asset_svc.resolve_images(
             db, owner_id=user.id, slides=deck.slides, colors=spec["colors"], job_id=ctx.job_id,
             allow_ai_images=max(0, min(4, ai_image_allowance - used_images)),
-            source_images=spec.get("source_images"), image_mode=course.options.get("image_mode", "auto"),
-            teaching_context=f"Grade {course.grade} {course.subject}; topic {course.topic}; slide {lesson.title}")
+            source_images=image_catalog, image_mode=course.options.get("image_mode", "auto"),
+            teaching_context=f"Grade {course.grade} {course.subject}; topic {course.topic}; slide {lesson.title}; preferred image style: {prefs.get('preferred_image_style', 'as requested in the visual description')}")
         if img_counts["ai"]:
             await usage.consume(db, user.id, img_counts["ai"], "ai_image", str(lesson_id), resource="ai_images")
         await db.commit()
@@ -500,12 +531,17 @@ async def rerender_lesson(lesson_id: uuid.UUID, deck: LessonDeck, *, reason: str
         template = await resolve_template(db, owner_id, course.template_id)
         base = await get_storage().get(template.base_storage_key)
         spec = template.spec
-        images = await asset_svc.load_images(db, deck.slides)
+        if course.options.get("image_mode") == "stock":
+            images, _ = await asset_svc.resolve_images(db, owner_id=owner_id, slides=deck.slides,
+                colors=spec["colors"], job_id=job_id, image_mode="stock")
+            await db.commit()
+        else:
+            images = await asset_svc.load_images(db, deck.slides)
         missing = [s for s in deck.slides if s.visual.kind != "none" and s.layout in ("image_text", "concept")
                    and not s.asset_id]
         if missing:
             new_images, _ = await asset_svc.resolve_images(db, owner_id=owner_id, slides=missing,
-                                                           colors=spec["colors"], job_id=job_id)
+                                                           colors=spec["colors"], job_id=job_id, image_mode=course.options.get("image_mode", "auto"))
             images.update(new_images)
             await db.commit()
         core_props = await _core_props(db, user, course, lesson)
@@ -536,21 +572,35 @@ async def handle_slide_regeneration(ctx: JobContext) -> dict[str, Any]:
         template = await resolve_template(db, user.id, course.template_id)
         budgets = compute_budgets(template.spec)
         context_text, _ = await build_context(db, user, topic=course.topic, class_section_id=course.class_section_id,
-                                              subject=course.subject, include_sources=False)
+                                              subject=course.subject, source_file_ids=course.options.get("source_file_ids"))
     await ctx.progress(20, "Rewriting the slide")
-    old = deck.slides[number - 1]
+    old = next((slide for slide in deck.slides if slide.number == number), None)
+    if old is None:
+        raise PermanentJobError("This slide no longer exists.")
+    keep_images = ctx.payload.get("keep_images", True)
+    if keep_images:
+        instruction += "\nPreserve the existing visual, picture, image references and quantities. Change only the requested content; keep all other facts and fields consistent."
     new = await pipeline.repair_slide(ai, old, instruction, budgets, context_text=context_text, grade=course.grade,
                                       owner_id=user.id, job_id=ctx.job_id, tier="content")
-    if new.visual.kind == "none" or new.visual.description != old.visual.description:
+    if keep_images:
+        new.visual, new.asset_id = old.visual.model_copy(deep=True), old.asset_id
+        new.sources = list(old.sources)
+    elif new.visual.kind == "none" or new.visual.description != old.visual.description:
         new.asset_id = None  # a different picture is needed (resolved again on re-render)
-    deck.slides[number - 1] = pipeline.enforce_budgets(new, budgets)
+    new = pipeline.enforce_budgets(new, budgets)
+    if new.model_dump() == old.model_dump():
+        return {"lesson_id": str(lesson_id), "changed": False, "credits_used": 0}
+    deck.slides[deck.slides.index(old)] = new
     await ctx.progress(60, "Rebuilding the PowerPoint")
     result = await rerender_lesson(lesson_id, deck, reason=f"regenerated: {instruction[:80]}", owner_id=user.id,
                                    job_id=ctx.job_id)
+    cost = ctx.payload.get("credit_cost")
+    if cost is None:
+        cost = await usage.credit_cost("slide")
     async with get_sessionmaker()() as db:
-        await usage.consume(db, user.id, await usage.credit_cost("slide"), "slide_regeneration", str(lesson_id))
+        await usage.consume(db, user.id, cost, "slide_regeneration", str(lesson_id))
         await db.commit()
-    return result
+    return {**result, "changed": True, "credits_used": cost}
 
 
 async def handle_lesson_render(ctx: JobContext) -> dict[str, Any]:
@@ -566,7 +616,10 @@ async def handle_lesson_render(ctx: JobContext) -> dict[str, Any]:
 
 async def edit_slide(db: AsyncSession, user: User, lesson_id: uuid.UUID, number: int,
                      spec_data: dict[str, Any]) -> uuid.UUID:
+    await usage.lock_user(db, user.id)
     lesson = await get_owned(db, Lesson, lesson_id, user)
+    if await pending_lesson_edit(db, user.id, lesson_id):
+        raise AppError("edit_pending", "Wait for the current lesson update to finish before editing again.", 409)
     row = (await db.execute(select(Slide).where(Slide.lesson_id == lesson_id, Slide.number == number))
            ).scalars().first()
     if row is None:
@@ -612,16 +665,27 @@ async def restore_slide_version(db: AsyncSession, user: User, lesson_id: uuid.UU
 
 
 async def regenerate_slide(db: AsyncSession, user: User, lesson_id: uuid.UUID, number: int, *,
-                           action: str | None, instruction: str | None) -> uuid.UUID:
+                           action: str | None, instruction: str | None, keep_images: bool = True) -> uuid.UUID:
+    await usage.lock_user(db, user.id)
     await get_owned(db, Lesson, lesson_id, user)
     text = QUICK_ACTIONS.get(action or "", "") + (" " + instruction if instruction else "")
     if not text.strip():
         raise AppError("bad_request", "Choose an action or describe the change.", 400)
+    row = (await db.execute(select(Slide).where(Slide.lesson_id == lesson_id, Slide.number == number))).scalars().first()
+    if row is None:
+        raise NotFound("Slide")
+    pending = await pending_lesson_edit(db, user.id, lesson_id)
+    if pending:
+        if (pending.type == "slide_regeneration" and pending.payload.get("slide_number") == number
+                and pending.payload.get("instruction") == text.strip()
+                and pending.payload.get("keep_images", True) == keep_images):
+            return pending.id
+        raise AppError("edit_pending", "Wait for the current lesson update to finish before editing again.", 409)
     cost = await usage.credit_cost("slide")
     await usage.check(db, user, "credits", cost, jobs=1)
     job = await enqueue(db, "slide_regeneration", {"lesson_id": str(lesson_id), "slide_number": number,
-                                                   "instruction": text.strip()}, owner_id=user.id,
-                        credits_reserved=cost)
+                                                   "instruction": text.strip(), "keep_images": keep_images, "credit_cost": cost}, owner_id=user.id,
+                        max_attempts=1, dedupe=True, credits_reserved=cost)
     await db.commit()
     await run_inline_if_configured([job.id])
     return job.id
@@ -658,3 +722,22 @@ async def count_lessons(db: AsyncSession, user_id: uuid.UUID) -> int:
 
 def now_iso() -> str:
     return utcnow().isoformat()
+
+
+async def teacher_image_catalog(db: AsyncSession, owner_id: uuid.UUID, images: list[dict]) -> dict:
+    catalog = {}
+    for i, item in enumerate(images):
+        asset = await db.get(Asset, uuid.UUID(str(item["asset_id"])))
+        if asset is None or asset.owner_id != owner_id or asset.source != "upload" or asset.kind != "image":
+            raise NotFound("Teacher image")
+        catalog[f"teacher_image_{i + 1}"] = {"asset_id": str(asset.id), "description": item["description"],
+            "teacher_supplied": True, "storage_key": asset.storage_key}
+    return catalog
+
+
+async def pending_lesson_edit(db: AsyncSession, owner_id: uuid.UUID, lesson_id: uuid.UUID):
+    return (await db.execute(select(GenerationJob).where(
+        GenerationJob.owner_id == owner_id,
+        GenerationJob.type.in_(["slide_regeneration", "image_replacement", "lesson_render", "lesson_generation"]),
+        GenerationJob.payload["lesson_id"].astext == str(lesson_id),
+        GenerationJob.status.in_(["queued", "running"])).limit(1))).scalars().first()

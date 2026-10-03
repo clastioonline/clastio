@@ -54,6 +54,14 @@ export default function AdminSettings() {
           </table>
           <p className="mt-2 text-xs text-muted">Monthly credits and storage are set per plan in Plans & trial.</p>
         </Panel>
+        <Panel title="Referral rewards" action={<Button size="sm" onClick={() => save("referrals")}>Save</Button>}>
+          <Toggle checked={!!s.referrals?.enabled} label="Teacher referral program" description="Both teachers receive a reward after the referred teacher's first paid subscription." onChange={(enabled) => setS({...s, referrals: {...s.referrals, enabled}})} />
+          <Field label="Media credits for each teacher"><Input type="number" min={1} max={10000} value={s.referrals?.reward_media_credits ?? 25} onChange={(e) => setS({...s, referrals: {...s.referrals, reward_media_credits: Number(e.target.value)}})} /></Field>
+        </Panel>
+        <Panel title="Coupon codes">
+          <p className="text-sm text-muted">Create discounts in your active payment provider's dashboard. Set expiry, redemption limits, eligible products, and discount duration there. Teachers can enter a code before checkout; the provider validates it and displays the final total.</p>
+          <div className="mt-4 flex gap-3"><a className="text-sm underline" href="https://dashboard.stripe.com/coupons" target="_blank" rel="noreferrer">Stripe discounts</a><a className="text-sm underline" href="https://app.dodopayments.com" target="_blank" rel="noreferrer">Dodo dashboard</a></div>
+        </Panel>
         <Panel title="Rate limits (per minute)" action={<Button size="sm" onClick={() => save("rate_limits")}>Save</Button>}>
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(s.rate_limits).map(([k, v]: any) => <Field key={k} label={k.replace(/_/g, " ")}><Input type="number" min={1} value={v} onChange={(e) => setS({ ...s, rate_limits: { ...s.rate_limits, [k]: Number(e.target.value) } })} /></Field>)}

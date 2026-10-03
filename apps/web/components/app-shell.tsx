@@ -162,10 +162,10 @@ function PlanBanner() {
   const pathname = usePathname();
   if (!data || pathname === "/billing") return null;
   const t = data.trial;
-  if (t?.active && t.days_left <= 3) {
+  if (t?.active) {
     return (
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent-50 px-4 py-3 text-sm text-ink-2">
-        <span>Your {data.plan.name} trial ends in <b>{t.days_left} day{t.days_left === 1 ? "" : "s"}</b>. Choose a plan to keep everything you've set up working.</span>
+        <span>Your {data.plan.name} trial ends in <b>{t.days_left} day{t.days_left === 1 ? "" : "s"}</b>. <b>{Math.max(0, (data.usage?.credits?.limit || 0) - (data.usage?.credits?.used || 0))} credits left</b> in your trial. No card on file; nothing is charged.</span>
         <Link href="/billing" className="rounded-full bg-brand-800 px-4 py-2 font-semibold text-white hover:brightness-110">Choose a plan</Link>
       </div>
     );

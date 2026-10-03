@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/brand";
 import { useApi } from "@/lib/hooks";
 
@@ -36,13 +36,15 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
 }
 
 export function OAuthButtons() {
+  const [referral, setReferral] = useState("");
+  useEffect(() => { try { setReferral(new URLSearchParams(window.location.search).get("ref") || sessionStorage.getItem("clastio:referral") || ""); } catch { /* optional */ } }, []);
   const { data } = useApi<{ providers: string[] }>("/auth/oauth/providers");
   const providers = data?.providers || [];
   if (!providers.length) return null;
   return (
     <div className="space-y-2">
       {providers.map((p) => (
-        <a key={p} href={`/api/v1/auth/oauth/${p}/start`}
+        <a key={p} href={`/api/v1/auth/oauth/${p}/start${referral ? `?ref=${encodeURIComponent(referral)}` : ""}`}
           className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface text-sm font-medium text-ink hover:bg-surface-2">
           Continue with {p === "google" ? "Google" : "Microsoft"}
         </a>
