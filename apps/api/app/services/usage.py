@@ -51,7 +51,17 @@ DEFAULT_PLANS: list[dict[str, Any]] = [
 
 def period_start(sub: Subscription | None) -> datetime:
     if sub and sub.current_period_start:
-        return sub.current_period_start
+        start = sub.current_period_start
+        if sub.provider == "trial":
+            return start
+        from dateutil.relativedelta import relativedelta
+
+        now = datetime.now(UTC)
+        months = max(0, (now.year - start.year) * 12 + now.month - start.month)
+        boundary = start + relativedelta(months=months)
+        if boundary > now and months:
+            boundary = start + relativedelta(months=months - 1)
+        return boundary
     now = datetime.now(UTC)
     return datetime(now.year, now.month, 1, tzinfo=UTC)
 
@@ -64,6 +74,9 @@ async def active_subscription(db: AsyncSession, user_id: uuid.UUID) -> Subscript
     return (await db.execute(
         select(Subscription).where(
             Subscription.user_id == user_id, Subscription.status.in_(ACTIVE_STATUSES),
+            # A failed renewal can use only the already-paid period; never
+            # turn an initial failed payment into unlimited paid-plan access.
+            or_(Subscription.status != "past_due", Subscription.current_period_end > func.now()),
             or_(Subscription.provider.notin_(SELF_EXPIRING), Subscription.current_period_end.is_(None),
                 Subscription.current_period_end > func.now()))
         .order_by(Subscription.created_at.desc()))).scalars().first()
@@ -260,14 +273,17 @@ async def warn_usage(db: AsyncSession, user_id: uuid.UUID, resource: str) -> int
     t = crossed[-1]
     key = f"usage:{resource}:{since.date().isoformat()}:{t}"
     trial = bool(sub and sub.provider == "trial")
-    period_label = "trial" if trial else "this month"
-    title = f"You've used all your {period_label} credits" if t >= 100 else f"You've used {t}% of your {period_label} credits"
+    if trial:
+        title = "You've used all your trial credits" if t >= 100 else f"You've used {t}% of your trial credits"
+    else:
+        title = "You've used all your credits this month" if t >= 100 else f"You've used {t}% of this month's credits"
     body = (f"Your {'trial' if trial else plan.name + ' plan'} includes {limit} credits {'for the entire trial' if trial else 'a month'}. "
             + (("Choose a plan to keep creating. Your existing work stays safe." if trial else
                 "New lessons will wait until next month unless you upgrade.") if t >= 100 else
                f"{max(0, int(limit) - spent)} are left."))
     if await notify(db, user_id, "usage", title, body, "/billing", dedupe_key=key) and t in EMAIL_THRESHOLDS:
-        queue_email(db, user, "usage_warning", link=f"{get_settings().public_web_url}/billing", percent=str(t),
+        queue_email(db, user, "trial_usage_warning" if trial else "usage_warning",
+                    link=f"{get_settings().public_web_url}/billing", percent=str(t),
                     plan=plan.name)
     return t
 
@@ -336,8 +352,15 @@ async def summary(db: AsyncSession, user: User) -> dict[str, Any]:
                                "current_period_end": sub.current_period_end.isoformat()
                                if sub.current_period_end else None,
                                "cancel_at_period_end": sub.cancel_at_period_end, "provider": sub.provider}
+    held = await reserved(db, user.id)
     for res in ("credits", "ai_images", "whatsapp_messages"):
-        out["usage"][res] = {"used": max(0, await used(db, user.id, res, since)), "limit": plan.limits.get(res)}
+        net_used = await used(db, user.id, res, since)
+        limit = plan.limits.get(res)
+        resource_held = held if res == "credits" else 0
+        # Keep display usage nonnegative while showing grants and in-flight
+        # reservations in the actual spendable balance, just as check() does.
+        out["usage"][res] = {"used": max(0, net_used), "limit": limit, "reserved": resource_held,
+            "available": max(0, int(limit) - net_used - resource_held) if limit not in (None, -1) else None}
     storage = (await db.execute(select(func.coalesce(func.sum(UploadedFile.size_bytes), 0)).where(
         UploadedFile.owner_id == user.id))).scalar_one()
     out["usage"]["storage_mb"] = {"used": round(storage / 1_048_576, 1), "limit": plan.limits.get("storage_mb")}

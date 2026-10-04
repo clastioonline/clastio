@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useSWRConfig } from "swr";
 
 const KEY = "clastio:cookie-consent";
 
 /* Clastio itself only sets essential cookies (the sign-in session). Optional analytics/marketing cookies are off
    unless the visitor opts in here; the choice is stored on this device and, when signed in, recorded as consent. */
 export function CookieBanner() {
+  const { cache } = useSWRConfig();
   const [show, setShow] = useState(false);
   const [custom, setCustom] = useState(false);
   const [analytics, setAnalytics] = useState(false);
@@ -17,7 +19,7 @@ export function CookieBanner() {
   }, []);
   const save = (choice: { analytics: boolean; marketing: boolean }) => {
     try { localStorage.setItem(KEY, JSON.stringify({ ...choice, at: new Date().toISOString() })); } catch { /* ignore */ }
-    api("/me/cookie-consent", { body: choice }).catch(() => {}); // only recorded when signed in
+    if (cache.get("/auth/me")?.data?.user) api("/me/cookie-consent", { body: choice }).catch(() => {});
     setShow(false);
   };
   if (!show) return null;

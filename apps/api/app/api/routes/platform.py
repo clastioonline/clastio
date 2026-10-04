@@ -23,6 +23,7 @@ from app.models import (
     Payment,
     Plan,
     Subscription,
+    TrialGrant,
     User,
     WhatsAppContact,
     WhatsAppMessage,
@@ -167,6 +168,33 @@ async def plans(db: DB):
 @router.get("/billing/subscription", tags=["billing"])
 async def subscription(user: CurrentUser, db: DB):
     summary = await usage.summary(db, user)
+    if summary["subscription"] is None:
+        # Keep payment recovery and cancellation reachable after paid access
+        # expires; this record does not change the user's Free entitlements.
+        pending = await billing.manageable_online_subscription(db, user.id)
+        if pending:
+            summary["subscription"] = {
+                "status": pending.status, "interval": pending.interval,
+                "current_period_end": pending.current_period_end.isoformat() if pending.current_period_end else None,
+                "cancel_at_period_end": pending.cancel_at_period_end, "provider": pending.provider,
+            }
+    await billing.lock_plan_changes(db, user.id)
+    pending = await billing.pending_checkout(db, user.id, reconcile_expiry=True)
+    await db.commit()
+    summary["pending_checkout"] = {
+        "id": str(pending.id), "provider": pending.provider, "status": pending.status,
+        "plan": pending.plan_code, "interval": pending.interval,
+        "url": pending.checkout_url, "expires_at": pending.expires_at.isoformat(),
+    } if pending else None
+    cfg = (await get_app_settings(["trial"]))["trial"]
+    summary["trial_available"] = bool(user.email_verified and user.role != "admin" and cfg.get("enabled")
+        and int(cfg.get("days", 0)) > 0 and not summary["subscription"] and not pending and not summary.get("trial"))
+    if summary["trial_available"]:
+        from app.api.routes.auth import normalised_email_hash
+
+        previous_trial = (await db.execute(select(TrialGrant.id).where(
+            TrialGrant.email_hash == normalised_email_hash(user.email)))).first()
+        summary["trial_available"] = previous_trial is None
     pays = (await db.execute(select(Payment).where(Payment.user_id == user.id).order_by(Payment.created_at.desc())
                              .limit(24))).scalars().all()
     summary["payments"] = [{"amount": float(p.amount), "currency": p.currency, "tax": float(p.tax_amount),
@@ -194,6 +222,12 @@ async def checkout(data: CheckoutIn, user: CurrentUser, db: DB):
 @router.post("/billing/portal", tags=["billing"])
 async def portal(user: CurrentUser, db: DB):
     return {"url": await billing.open_portal(db, user)}
+
+
+@router.post("/billing/checkout/cancel", tags=["billing"])
+async def cancel_checkout(user: CurrentUser, db: DB):
+    await billing.cancel_pending_checkout(db, user.id)
+    return {"ok": True}
 
 
 @router.post("/billing/cancel", tags=["billing"])
@@ -617,3 +651,68 @@ async def credit_estimates(user: CurrentUser, db: DB):
 async def referrals(user: CurrentUser, db: DB):
     from app.services.engagement import referral_summary
     return await referral_summary(db, user)
+
+# Single-use school / promotional plan licenses.
+class LicenseCreateIn(BaseModel):
+    plan: str = Field(pattern='^(teacher|pro|assistant)$')
+    months: int = Field(1, ge=1, le=36)
+    valid_days: int = Field(90, ge=1, le=365)
+
+class LicenseRedeemIn(BaseModel):
+    key: str = Field(min_length=10, max_length=100)
+
+@router.post('/admin/licenses')
+async def create_license(data: LicenseCreateIn, admin: Staff('billing.modify'), db: DB):
+    from datetime import timedelta
+
+    from app.core.db import utcnow
+    from app.services.licenses import generate_key, key_digest
+    if await db.get(Plan, data.plan) is None:
+        raise AppError('invalid_plan', 'Plan does not exist.', 422)
+    key, ident = generate_key(), uuid.uuid4()
+    await db.execute(text('''INSERT INTO plan_licenses
+        (id,key_hash,key_suffix,plan_code,months,expires_at,created_by)
+        VALUES (:id,:digest,:suffix,:plan,:months,:expires,:actor)'''),
+        dict(id=ident,digest=key_digest(key),suffix=key[-8:],plan=data.plan,
+             months=data.months,expires=utcnow()+timedelta(days=data.valid_days),actor=admin.id))
+    audit(db, admin.id, 'license.created', target_type='license', target_id=str(ident), plan=data.plan, months=data.months)
+    await db.commit()
+    return {'id': str(ident), 'key': key, 'plan': data.plan, 'months': data.months}
+
+@router.get('/admin/licenses')
+async def list_licenses(admin: Staff('billing.view'), db: DB):
+    rows = (await db.execute(text('''SELECT id,key_suffix,plan_code,months,expires_at,redeemed_at,revoked
+        FROM plan_licenses ORDER BY created_at DESC LIMIT 100'''))).mappings().all()
+    return {'items': [dict(row) for row in rows]}
+
+@router.delete('/admin/licenses/{license_id}')
+async def revoke_license(license_id: uuid.UUID, admin: Staff('billing.modify'), db: DB):
+    await db.execute(text('UPDATE plan_licenses SET revoked=true WHERE id=:id AND redeemed_at IS NULL'), {'id':license_id})
+    audit(db, admin.id, 'license.revoked', target_type='license', target_id=str(license_id))
+    await db.commit()
+    return {'ok': True}
+
+@router.post('/billing/licenses/redeem')
+async def redeem_license(data: LicenseRedeemIn, user: CurrentUser, db: DB):
+    from dateutil.relativedelta import relativedelta
+
+    from app.core.db import utcnow
+    from app.core.ratelimit import enforce
+    from app.services.licenses import key_digest
+    await enforce(f'license-redeem:{user.id}', 10, 3600)
+    if user.role == 'admin' or not user.email_verified:
+        raise AppError('license_ineligible', 'A verified teacher account is required.', 403)
+    # Serialize plan changes for this teacher, and atomically consume a valid key.
+    await billing.lock_plan_changes(db, user.id)
+    if await usage.active_subscription(db, user.id) or await billing.pending_checkout(db, user.id, reconcile_expiry=True) or await billing.manageable_online_subscription(db, user.id):
+        raise AppError('license_active_plan', 'Your current plan must end before you redeem a license. This avoids overlapping access or recurring charges.', 409)
+    row = (await db.execute(text('''UPDATE plan_licenses SET redeemed_by=:user,redeemed_at=now()
+        WHERE key_hash=:digest AND redeemed_at IS NULL AND revoked=false AND expires_at>now()
+        RETURNING plan_code,months'''), {'user':user.id,'digest':key_digest(data.key)})).mappings().first()
+    if row is None:
+        raise AppError('invalid_license', 'License is invalid, expired, revoked or already used.', 422)
+    now = utcnow()
+    db.add(Subscription(user_id=user.id,plan_code=row['plan_code'],status='active',provider='manual',
+        interval='month',current_period_start=now,current_period_end=now+relativedelta(months=row['months'])))
+    await db.commit()
+    return {'plan':row['plan_code'],'months':row['months']}

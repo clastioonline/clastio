@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from './browser.mjs';
+import { assertLocalTestBase } from './fixtures.mjs';
 const base = process.env.BASE_URL || 'http://localhost:3000';
-const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
+assertLocalTestBase(base);
+const browser = await launchBrowser();
 const context = await browser.newContext();
 const page = await context.newPage();
 const errors = [];
@@ -26,6 +28,9 @@ try {
     email: `budget-${Date.now()}@example.com`, name: 'Budget Review', password: 'budget-review-123', accept_terms: true,
   } });
   assert.equal(signup.status(), 200, await signup.text());
+  const usage = await teacher.request.get(`${base}/api/v1/me/usage`).then(response => response.json());
+  assert.equal(usage.plan.code, 'free');
+  assert.equal(usage.trial?.active || false, false);
   await teacher.request.post(`${base}/api/v1/me/onboarding/complete`);
   const estimatesResponse = await teacher.request.get(`${base}/api/v1/usage/estimates`);
   assert.equal(estimatesResponse.status(), 200);
@@ -34,8 +39,12 @@ try {
   teacherPage.on('pageerror', error => errors.push(error.message));
   await teacherPage.setViewportSize({ width: 390, height: 844 });
   await teacherPage.goto(`${base}/projects/new`);
-  await teacherPage.getByText(`About ${estimates.costs.course_plan + 50 * estimates.costs.slide} credits`, { exact: false }).waitFor();
-  await teacherPage.getByText('Build the slides straight after planning', { exact: true }).click();
+  const cookies = teacherPage.getByRole('button', { name: 'Essential only', exact: true });
+  if (await cookies.count()) await cookies.click();
+  await teacherPage.getByLabel('Number of lessons').selectOption('2');
+  await teacherPage.getByLabel('Slides per lesson').selectOption('10');
+  await teacherPage.getByText(`About ${estimates.costs.course_plan + 20 * estimates.costs.slide} credits`, { exact: false }).waitFor();
+  await teacherPage.getByRole('switch', { name: /^Build all chapter parts after planning/ }).click();
   await teacherPage.getByText(`About ${estimates.costs.course_plan} credits`, { exact: false }).waitFor();
   assert.ok(await teacherPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await teacher.close();

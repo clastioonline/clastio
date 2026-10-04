@@ -78,6 +78,7 @@ class User(TimestampMixin, Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    clerk_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     signup_source: Mapped[str | None] = mapped_column(String(40))  # web | google | microsoft | admin
     signup_meta: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)  # utm_*, referrer, landing page

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -229,7 +230,8 @@ async def test_live_router_never_silently_falls_back_offline(monkeypatch):
         await svc.structured(task="course_plan", tier="planning", system="s", prompt="p", schema=CoursePlan)
 
 
-async def test_openverse_search_records_license():
+async def test_openverse_search_records_license(monkeypatch):
+    from app.core.remote_images import download_public_image
     from app.services.assets import search_openverse
 
     png = io.BytesIO()
@@ -244,7 +246,14 @@ async def test_openverse_search_records_license():
                 "license": "by", "license_version": "4.0", "foreign_landing_url": "https://example/leaf"}]})
         return httpx.Response(200, content=png.getvalue())
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr("app.core.remote_images.validate_public_image_url", AsyncMock(return_value="93.184.216.34"))
+
+    async def download(url, max_bytes):
+        return await download_public_image(url, max_bytes, transport=transport)
+
+    monkeypatch.setattr("app.services.assets.download_public_image", download)
+    async with httpx.AsyncClient(transport=transport) as client:
         found = await search_openverse("leaf", client)
     assert found and found["license"] == "CC BY 4.0" and "Ana" in found["attribution"]
 

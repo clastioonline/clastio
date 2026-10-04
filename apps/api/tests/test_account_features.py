@@ -18,7 +18,10 @@ async def test_public_legal_pages(client):
     idx = (await client.get("/api/v1/legal")).json()["items"]
     assert {"terms", "privacy", "acceptable_use", "cookie", "refund"} <= {d["type"] for d in idx}
     terms = (await client.get("/api/v1/legal/terms")).json()
-    assert terms["version"] and "requires review by a qualified lawyer" in terms["content"]
+    assert terms["version"]
+    assert "requires review by a qualified lawyer" not in terms["content"]
+    assert "Clastio helps teachers plan lessons" in terms["content"]
+    assert "## 3. Plans, trials and payment" in terms["content"]
     assert (await client.get("/api/v1/legal/nonsense")).status_code == 404
 
 

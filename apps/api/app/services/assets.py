@@ -27,6 +27,7 @@ from app.ai.base import AIError
 from app.ai.service import get_ai
 from app.core.config import get_settings
 from app.core.logging import log
+from app.core.remote_images import download_public_image
 from app.core.storage import get_storage
 from app.engine.style.common import hex_to_rgb, mix
 from app.generation.specs import SlideSpec
@@ -124,10 +125,8 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
         if (item.get("width") or 0) < 640 or not item.get("url"):
             continue
         try:
-            img = await client.get(item["url"], timeout=12, follow_redirects=True)
-            if img.status_code != 200 or len(img.content) > MAX_IMAGE_BYTES:
-                continue
-            Image.open(io.BytesIO(img.content)).verify()
+            image_data = await download_public_image(item["url"], MAX_IMAGE_BYTES)
+            Image.open(io.BytesIO(image_data)).verify()
         except (httpx.HTTPError, OSError, ValueError):
             continue
         lic = f"CC {item.get('license', '').upper()} {item.get('license_version', '')}".strip()
@@ -135,7 +134,7 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
             f"\"{item.get('title') or 'Image'}\" by {item.get('creator') or 'unknown'} ({lic})")
         if item.get("foreign_landing_url"):
             attribution += f" — {item['foreign_landing_url']}"
-        return {"data": img.content, "license": lic, "attribution": attribution, "source_url":
+        return {"data": image_data, "license": lic, "attribution": attribution, "source_url":
                 item.get("foreign_landing_url")}
     return None
 

@@ -3,6 +3,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { adminLandingPath } from "@/lib/navigation";
 import { Alert, Button } from "@/components/ui";
 
 export default function ClerkCallback() {
@@ -21,8 +22,8 @@ function EnabledCallback() {
       const token = await getToken();
       let referral_code: string | undefined;
       try { referral_code = sessionStorage.getItem("clastio:referral") || undefined; } catch { /* optional */ }
-      const result = await api<{user: {onboarding_completed: boolean; role: string}}>("/auth/clerk", {body: {token, accept_terms: acceptTerms, referral_code}});
-      window.location.replace(result.user.role === "admin" ? "/admin" : !result.user.onboarding_completed ? "/onboarding" : "/dashboard");
+      const result = await api<{user: {onboarding_completed: boolean; role: string; permissions: string[]}}>("/auth/clerk", {body: {token, accept_terms: acceptTerms, referral_code}});
+      window.location.replace(result.user.role === "admin" ? adminLandingPath(result.user.permissions) : !result.user.onboarding_completed ? "/onboarding" : "/dashboard");
     } catch (err: any) {
       if (err.code === "terms_required") setNeedsTerms(true);
       else setError(err.message);

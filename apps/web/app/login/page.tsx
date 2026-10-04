@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthLayout, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
-import { safeInternalPath } from "@/lib/navigation";
+import { adminLandingPath, safeInternalPath } from "@/lib/navigation";
 import { api } from "@/lib/api";
 import { useSWRConfig } from "swr";
 
@@ -29,14 +29,14 @@ function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ user: { onboarding_completed: boolean; role: string } }>("/auth/login", { body: { email, password } });
+      const res = await api<{ user: { onboarding_completed: boolean; role: string; permissions: string[] } }>("/auth/login", { body: { email, password } });
       await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
       if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && params.get("legacy") === "1") {
         router.replace("/login");
         return;
       }
       const next = params.get("next");
-      router.replace(res.user.role === "admin" ? "/admin" : !res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next));
+      router.replace(res.user.role === "admin" ? adminLandingPath(res.user.permissions) : !res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next));
     } catch (err: any) {
       setError(err.message);
       setBusy(false);

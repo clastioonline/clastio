@@ -39,7 +39,7 @@ async def test_stripe_subscription_lifecycle(client):
     u = await make_user(client, plan="free")
     sub_id = f"sub_{uuid.uuid4().hex[:8]}"
     checkout = {"id": f"evt_{uuid.uuid4().hex[:8]}", "type": "checkout.session.completed", "data": {"object": {
-        "mode": "subscription", "subscription": sub_id, "customer": "cus_123", "client_reference_id": u["id"],
+        "mode": "subscription", "payment_status": "paid", "subscription": sub_id, "customer": "cus_123", "client_reference_id": u["id"],
         "metadata": {"user_id": u["id"], "plan_code": "pro", "interval": "month"}}}}
     r = await post_stripe(client, checkout)
     assert r.status_code == 200 and r.json()["result"] == "processed"

@@ -93,6 +93,9 @@ EVENTS: dict[str, Event] = {
                          "/media", None),
     "media_failed": Event("product", "Your {kind} couldn't be created", "Your media credits were refunded.",
                           "/media", None),
+    "review_invitation": Event("feedback", "How did your PPT turn out?",
+                               "Rate your experience and suggest what we should improve.", "/support?review=1",
+                               "review_invitation"),
     # --- legal
     "legal_updated": Event("legal", "We've updated our {title}", "{summary}", "/legal/{type}", None),
 }
@@ -112,6 +115,9 @@ TEMPLATES.update({
     "lesson_ready": ("Your PPT is ready: {title}", "Hi {name},\n\nYour teaching slides are complete. Preview and download them here: {link}\n"),
     "payment_receipt": ("Clastio payment received: {amount}", "Hi {name},\n\nThank you. View your payment and available invoice in Plan & billing: {link}\n"),
     "product_update": ("{title}", "Hi {name},\n\n{body}\n\nRead more: {link}\nManage update emails in Settings.\n"),
+    "review_invitation": ("How was your Clastio PPT?",
+                          "Hi {name},\n\nPlease rate your PPT experience and share suggestions to improve Clastio: {link}\n"
+                          "Manage review invitations in Settings.\n"),
     "referral_reward": ("Your Clastio referral reward is ready", "Hi {name},\n\nYou've earned {credits} media credits after a referred teacher's first paid subscription. Use them in Media studio: {link}\n"),
     "trial_ending": ("Your Clastio trial ends in {days} day{s}",
                      "Hi {name},\n\nYour free {plan} trial ends in {days} day{s}. Choose a plan to keep everything "
@@ -193,7 +199,7 @@ async def send(db: AsyncSession, user: User, event: str, *, dedupe_key: str | No
     created = True
     if cat["in_app"] or dedupe_key:  # the dedupe row also stops a repeat email
         created = await notify(db, user.id, ev.category, _fmt(ev.title, ctx)[:200], _fmt(ev.body, ctx), link,
-                               dedupe_key=dedupe_key)
+                               dedupe_key=dedupe_key, visible=cat["in_app"])
     if created and ev.email and cat["email"] and ev.email_default and user.status == "active":
         queue_email(db, user, ev.email, link=f"{get_settings().public_web_url}{link}",
                     **{k: str(v) for k, v in ctx.items() if k not in ("name", "link")})
@@ -255,7 +261,7 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, link: str | None
         if not (category["in_app"] or category["email"]):
             continue
         if await notify(db, uid, "announcement", title[:200], body, link,
-                        dedupe_key=f"{dedupe_key}:{uid}"):
+                        dedupe_key=f"{dedupe_key}:{uid}", visible=category["in_app"]):
             n += 1
             consents = await latest_consents(db, uid)
             user = await db.get(User, uid)
@@ -317,15 +323,16 @@ async def run_reminders() -> dict[str, int]:
                         else None
                     if left <= lead and await send(db, user, "renewal_upcoming",
                                                    dedupe_key=f"renewal:{sub.id}:{period}", plan=name, date=date,
-                                                   amount=_money(sub.price_aed or price)):
+                                                   amount=_money(sub.price_aed if sub.price_aed is not None else price)):
                         out["renewal_upcoming"] += 1
             elif sub.provider == "manual" and live and 0 < left <= 7:
                 days = 1 if left <= 1 else 7
-                if await send(db, user, "grant_expiring", dedupe_key=f"grant:{sub.id}:{days}", plan=name, date=date):
+                if await send(db, user, "grant_expiring", dedupe_key=f"grant:{sub.id}:{period}:{days}", plan=name, date=date):
                     out["grant_expiring"] += 1
         # Dunning: follow-ups 3 and 7 days after a subscription went past due.
         overdue = (await db.execute(select(Subscription, User).join(User, User.id == Subscription.user_id).where(
-            Subscription.status == "past_due", User.status == "active",
+            Subscription.status == "past_due", Subscription.provider.in_(("stripe", "dodo")),
+            User.status == "active", User.role != "admin",
             Subscription.updated_at < now - timedelta(days=1)))).all()
         for sub, user in overdue:
             days = int((now - sub.updated_at).total_seconds() // 86400)
@@ -341,6 +348,8 @@ async def run_reminders() -> dict[str, int]:
 async def _has_newer_paid(db: AsyncSession, trial: Subscription) -> bool:
     return (await db.execute(select(Subscription.id).where(
         Subscription.user_id == trial.user_id, Subscription.provider.in_(("stripe", "dodo", "manual")),
+        Subscription.status.in_(("active", "trialing", "past_due")), Subscription.plan_code != "free",
+        (Subscription.current_period_end.is_(None)) | (Subscription.current_period_end > utcnow()),
         Subscription.created_at >= trial.created_at))).first() is not None
 
 
@@ -402,11 +411,7 @@ async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | N
                 return
             await send(db, user, event, dedupe_key=key, **ctx)
             if ok and job_type == "lesson_generation":
-                prefs = await get_prefs(db, user.id)
-                if prefs["feedback"]["in_app"]:
-                    await notify(db, user.id, "feedback", "How did your PPT turn out?",
-                                 "Rate your experience and suggest what we should improve.", "/support?review=1",
-                                 dedupe_key=f"review:{utcnow().strftime('%Y-%m')}")
+                await send(db, user, "review_invitation", dedupe_key=f"review:{utcnow().strftime('%Y-%m')}")
             await db.commit()
     except Exception as e:  # noqa: BLE001
         log(logger, logging.WARNING, "job_notification_failed", job_type=job_type, error=str(e)[:200])

@@ -39,7 +39,7 @@ async def test_invalid_clerk_tokens_fail_before_database_or_network(monkeypatch,
 async def test_resend_worker_payload_and_retry(monkeypatch, status):
     settings = get_settings()
     monkeypatch.setattr(settings, 'resend_api_key', 're_fake')
-    row = SimpleNamespace(id=uuid.uuid4(), attempts=0, to_email='recipient@example.com',
+    row = SimpleNamespace(id=uuid.uuid4(), user_id=None, attempts=0, to_email='recipient@example.com',
                           subject='Welcome', body_text='Hello', status='queued', template='welcome')
     db = AsyncMock()
     db.__aenter__.return_value = db

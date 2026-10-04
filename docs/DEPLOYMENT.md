@@ -1,5 +1,7 @@
 # Deployment
 
+For the deployed Render/Railway setup, use [the hosted launch guide](RENDER_RAILWAY_LAUNCH_GUIDE.md) and [current launch audit](LAUNCH_AUDIT.md). The server setup below is an alternative.
+
 The cheapest production setup that works is one Linux VM running the Docker Compose stack behind a TLS reverse proxy. Everything in it (Postgres, the job queue, pgvector, file storage) scales out later without code changes.
 
 ## 1. Single server (recommended to start)
@@ -49,7 +51,7 @@ teach.example.com {
 
 The proxy must set `X-Forwarded-For` to the client address (Caddy does by default; with nginx use `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`). The web app forwards it unchanged and the API trusts it only from private-network proxies (`FORWARDED_ALLOW_IPS`, set in the API image). This is what makes per-IP rate limits and the audit log see real client addresses. Set generous proxy timeouts (≥ 120 s) and turn off response buffering for `/api/v1/jobs/*/events` and `/api/v1/assistant/messages` so server-sent events stream.
 
-Sign up with an address listed in `ADMIN_EMAILS` to get the admin role. Admin accounts run the platform: they see only the admin area and never have a plan or billing. Teachers sign up themselves, start a free trial (set it in **Admin → Plans & trial**), and buy inside the app.
+With Clerk configured, grant staff roles in trusted Clerk public metadata (`{"role":"admin","admin_role":"super_admin"}` for the owner), then sign in through Clerk. Only deployments without Clerk use `ADMIN_EMAILS` for staff signup. Admin accounts run the platform: they see only the admin area and never have a plan or billing. Teachers sign up themselves, start a free trial (set it in **Admin → Plans & trial**), and buy inside the app.
 
 ## 2. Configure integrations
 
@@ -72,7 +74,7 @@ The customer portal (the "Manage payment" button) and cancellation at the end of
 
 ### Stripe (alternative)
 1. Create products and monthly/annual prices for the paid plans. Put their ids in `STRIPE_PRICES`, e.g. `{"teacher_monthly":"price_…","pro_monthly":"price_…","assistant_monthly":"price_…"}`.
-2. Add a webhook endpoint `https://teach.example.com/api/v1/webhooks/stripe` for `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+2. Add a webhook endpoint `https://teach.example.com/api/v1/webhooks/stripe` for `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
 3. Enable the Customer Portal in the Stripe dashboard (used by "Manage payment" on the billing page).
 
 Media packs sold through Stripe use each pack's AED price from the admin page. Plan limits and prices shown in the app are rows in the `plans` table, so change them there, not in code.
@@ -93,7 +95,7 @@ Teachers link their number from the WhatsApp page with a one-time `LINK <code>` 
 
 ### Sign-in and email
 - Google / Microsoft: create OAuth clients with redirect URI `https://teach.example.com/api/v1/auth/oauth/google/callback` (or `…/microsoft/callback`) and set the client id and secret.
-- Email (magic links, notices): set `SMTP_URL`. Without it, links are written to the API log.
+- Email (application notices): set `RESEND_API_KEY` with verified sender addresses, or `SMTP_URL` as fallback, and run the scheduler. Production messages remain queued when neither provider is configured. Clerk authentication emails use Clerk settings.
 
 ### File storage
 Local storage lives in the `storage` Docker volume. For anything beyond one server, use S3-compatible storage (AWS S3, Cloudflare R2, MinIO): `STORAGE_BACKEND=s3` plus the `S3_*` settings. Downloads are always short-lived signed URLs.

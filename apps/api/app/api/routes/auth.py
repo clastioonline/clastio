@@ -128,30 +128,54 @@ async def _create_user(db, email: str, name: str, password: str | None, *, sourc
     db.add(TeacherProfile(user_id=user.id))
     await legal.accept(db, user, list(legal.SIGNUP_REQUIRED), request=request, method="signup_checkbox")
     track(db, "signup", user_id=user.id, source=source, **{k: v for k, v in (signup_meta or {}).items() if k.startswith("utm_")})
-    await _maybe_start_trial(db, user, request)
     return user
 
 
-async def _maybe_start_trial(db, user: User, request: Request | None) -> None:
+async def _maybe_start_trial(db, user: User, request: Request | None) -> bool:
     """One free trial per person: keyed on the normalised email, remembered even after account deletion."""
     from sqlalchemy.dialects.postgresql import insert
 
-    from app.services.usage import start_trial
+    from app.models import Plan
+    from app.services.settings import get_setting
+    from app.services.usage import active_subscription, start_trial
 
-    if user.role == "admin":
-        return
+    cfg = await get_setting("trial")
+    if user.role == "admin" or not cfg.get("enabled") or int(cfg.get("days", 0)) <= 0:
+        return False
+    if not user.email_verified:
+        raise AppError("email_unverified", "Please verify your email before starting your trial.", 403)
+    # Share the license redemption lock so these two explicit plan choices
+    # cannot grant overlapping access to the same teacher concurrently.
+    from app.services.billing import lock_plan_changes, manageable_online_subscription, pending_checkout
+
+    await lock_plan_changes(db, user.id)
+    if await active_subscription(db, user.id) or await pending_checkout(db, user.id, reconcile_expiry=True) or await manageable_online_subscription(db, user.id):
+        return False
+    if await db.get(Plan, cfg.get("plan", "pro")) is None:
+        raise AppError("trial_unavailable", "Trial plan is not configured.", 503)
     domain = user.email.split("@")[-1]
     if domain in DISPOSABLE_DOMAINS:
         security_event(db, "trial_abuse", user_id=user.id, request=request, reason="disposable_email")
-        return
+        return False
     res = await db.execute(insert(TrialGrant).values(id=uuid.uuid4(), email_hash=normalised_email_hash(user.email),
                                                      user_id=user.id, created_at=utcnow())
                            .on_conflict_do_nothing(index_elements=["email_hash"]))
     if not res.rowcount:
         security_event(db, "trial_abuse", user_id=user.id, request=request, reason="trial_already_used")
-        return
+        return False
     if await start_trial(db, user):
         track(db, "trial_started", user_id=user.id)
+        return True
+    return False
+
+
+@router.post("/trial", dependencies=[Depends(rate_limit("trial_start", 5, 3600))])
+async def choose_trial(request: Request, user: CurrentUser, db: DB):
+    started = await _maybe_start_trial(db, user, request)
+    await db.commit()
+    if not started:
+        raise AppError("trial_not_available", "A trial is unavailable or has already been used. You can continue on Free.", 409)
+    return {"started": True}
 
 
 @router.post("/signup", dependencies=[Depends(rate_limit("signup", 30, 3600, by_user=False))])
@@ -448,7 +472,9 @@ async def oauth_callback(provider: str, request: Request, db: DB, code: str = ""
         raise AppError("oauth_failed", "Your account did not share an email address.", 400)
     link = (await db.execute(select(OAuthAccount).where(OAuthAccount.provider == provider,
                                                           OAuthAccount.subject == subject))).scalars().first()
-    verified = info.get("email_verified") in (True, "true") or provider == "microsoft"
+    # Microsoft email/preferred_username claims are mutable and are not proof
+    # of inbox ownership. New links require the verified OIDC email claim.
+    verified = info.get("email_verified") in (True, "true")
     if link:
         user = await db.get(User, link.user_id)
     else:
@@ -526,6 +552,8 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
     if not result.is_success:
         raise AppError("clerk_unavailable", "Could not verify your account. Please try again.", 503)
     info = result.json()
+    if info.get("banned"):
+        raise AppError("clerk_account_unavailable", "This account is not available. Contact support.", 403)
     primary = next((e for e in info.get("email_addresses", [])
                     if e["id"] == info.get("primary_email_address_id")), None)
     if not primary or primary.get("verification", {}).get("status") != "verified":
@@ -565,6 +593,12 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
     # unsafe_metadata or carry forward privileges from a password account.
     from app.services.clerk_roles import apply_clerk_role
     apply_clerk_role(user, info)
+    user.clerk_checked_at = utcnow()
+    # The verified Clerk identity has proved ownership of the local account's
+    # email, including when an unverified password account was linked above.
+    if user.email == email:
+        user.email_verified = True
+        user.email_verified_at = user.email_verified_at or utcnow()
     user.last_login_at = utcnow()
     await sessions.start_session(db, user, request, response, method="clerk")
     security_event(db, "login_success", user_id=user.id, request=request, method="clerk")

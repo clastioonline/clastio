@@ -55,7 +55,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
         <Tabs tabs={[{ value: "month", label: "Monthly" }, { value: "year", label: "Yearly" }]} value={interval} onChange={setInterval} />
         {mode === "public" && trial?.enabled && (
           <p className="flex items-center gap-1.5 text-sm text-ink-2"><Sparkles className="h-4 w-4 text-accent-500" />
-            Every new account starts with a {trial.days}-day free trial of {data?.items.find((p) => p.code === trial.plan)?.name || "a paid plan"}, with {trial.credits} trial credits. No card needed.</p>
+            Choose a {trial.days}-day free trial of {data?.items.find((p) => p.code === trial.plan)?.name || "a paid plan"}, with {trial.credits} trial credits. No card needed.</p>
         )}
       </div>
       {mode === "app" && <div className="mx-auto mb-6 max-w-sm"><Field label="Have a coupon code?" hint="Your discount and final total are confirmed on the secure payment page."><Input value={couponCode} maxLength={100} onChange={(e) => setCouponCode(e.target.value)} placeholder="Enter coupon code" autoComplete="off" /></Field></div>}
@@ -67,7 +67,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
           return (
             <div key={p.code} className={cn("relative flex flex-col rounded-3xl p-6",
               popular ? "ui-hero bg-brand-800 text-white" : "bg-surface ring-1 ring-line")}>
-              {popular && <span className="absolute -top-3 start-6 rounded-full bg-accent-400 px-3 py-1 text-xs font-bold text-[#141414]">Most popular</span>}
+              {popular && <span className="absolute -top-3 start-6 rounded-full bg-accent-400 px-3 py-1 text-xs font-bold text-[#141414]">Recommended</span>}
               <h3 className={cn("text-lg font-semibold", popular ? "text-white" : "text-ink")}>{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-1">
                 <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-ink")}>{p.price_monthly_aed ? `AED ${Math.round(monthly)}` : "Free"}</span>
@@ -93,11 +93,11 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
                 {mode === "public" ? (
                   <Link href="/signup" className={cn("flex h-12 items-center justify-center rounded-full font-semibold",
                     popular ? "bg-white text-brand-800 hover:bg-white/90" : "bg-[#141414] text-white hover:bg-black")}>
-                    {p.code === "free" ? "Start free" : trial?.enabled ? "Start free trial" : `Get ${p.name}`}
+                    {p.code === "free" ? "Start free" : `Choose ${p.name}`}
                   </Link>
                 ) : p.code === "free" ? (
                   <p className="flex h-12 items-center justify-center rounded-full bg-surface-2 text-sm font-medium text-muted">
-                    {currentPlan === "free" ? "Your plan" : "Where you land after a trial"}
+                    {currentPlan === "free" ? "Your plan" : "Free plan"}
                   </p>
                 ) : (
                   <button disabled={current || !canPay || busy !== null} onClick={() => choose(p.code, interval, couponCode)}

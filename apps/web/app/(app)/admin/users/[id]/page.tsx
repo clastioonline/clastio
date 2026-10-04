@@ -8,6 +8,7 @@ import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Field, Input, Select, Skeleton, Tabs, Textarea } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
 import { useApi, useCan } from "@/lib/hooks";
+import { quotaAvailable } from "@/lib/usage";
 
 type Tab = "overview" | "billing" | "security" | "activity" | "notes";
 type Action = null | { kind: "status"; status: string } | { kind: "logout" } | { kind: "verification"; action: string }
@@ -70,7 +71,7 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
             ? <Button variant="ghost" onClick={() => setAction({ kind: "verification", action: "mark_unverified" })}><MailCheck className="h-4 w-4" /> Reset verification</Button>
             : <><Button variant="ghost" onClick={() => api(`/admin/users/${id}/verification`, { body: { action: "resend" } }).then(() => done("Verification email sent"))}>Resend verification</Button>
                 <Button variant="ghost" onClick={() => setAction({ kind: "verification", action: "mark_verified" })}>Mark verified</Button></>}
-          {can("admins.manage") && <Button variant="ghost" onClick={() => setAction({ kind: "role" })}>Staff role…</Button>}
+          {can("admins.manage") && !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && <Button variant="ghost" onClick={() => setAction({ kind: "role" })}>Staff role…</Button>}
         </section>
       )}
 
@@ -95,7 +96,7 @@ export default function AdminUserPage({ params }: { params: Promise<{ id: string
             <h2 className="font-semibold text-ink">Plan & usage — {data.usage.plan.name}{data.usage.trial?.active && ` (trial, ${data.usage.trial.days_left} days left)`}</h2>
             <div className="grid gap-3 sm:grid-cols-4">
               {Object.entries(usage).map(([k, v]: any) => (
-                <div key={k} className="rounded-xl bg-surface-2 p-3"><div className="text-xs text-muted">{k.replace("_", " ")}</div><div className="font-semibold tabular-nums">{v.used} / {v.limit === -1 ? "∞" : v.limit ?? "—"}</div></div>
+                <div key={k} className="rounded-xl bg-surface-2 p-3"><div className="text-xs text-muted">{k.replace("_", " ")}</div><div className="font-semibold tabular-nums">{v.used} / {v.limit === -1 ? "∞" : v.limit ?? "—"}</div>{["credits", "ai_images", "whatsapp_messages"].includes(k) && <div className="mt-1 text-xs text-muted">{quotaAvailable(v) === null ? "Unlimited" : `${quotaAvailable(v)} available`}{v.reserved > 0 && ` · ${v.reserved} reserved`}</div>}</div>
               ))}
               <div className="rounded-xl bg-surface-2 p-3"><div className="text-xs text-muted">media credits</div><div className="font-semibold tabular-nums">{data.media_credits}</div></div>
               <div className="rounded-xl bg-surface-2 p-3"><div className="text-xs text-muted">AI cost this period</div><div className="font-semibold tabular-nums">${data.usage.ai_cost_usd}</div></div>

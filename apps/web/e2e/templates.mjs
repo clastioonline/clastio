@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from './browser.mjs';
+import { assertLocalTestBase, verifyTestTeacher } from './fixtures.mjs';
 
 const base = process.env.BASE_URL || 'http://localhost:3000';
-const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
+assertLocalTestBase(base);
+const browser = await launchBrowser();
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();
 const errors = [];
@@ -20,6 +22,7 @@ try {
     email: `templates-${Date.now()}@example.com`, name: 'Design Review', password: 'template-test-123', accept_terms: true,
   } });
   assert.equal(signup.status(), 200, await signup.text());
+  await verifyTestTeacher(browser, context, base);
   await context.request.post(`${base}/api/v1/me/onboarding/complete`);
   await page.goto(`${base}/templates`);
   await page.getByRole('button', { name: 'Essential only' }).click();

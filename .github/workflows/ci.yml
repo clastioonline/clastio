@@ -28,8 +28,15 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 3s --health-timeout 3s --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s --health-timeout 3s --health-retries 30
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/teacher_assistant_test
+      CAPACITY_REDIS_TEST_URL: redis://localhost:6379/15
     defaults:
       run:
         working-directory: apps/api
@@ -50,14 +57,14 @@ jobs:
           python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; print(chr(10).join(p['dependencies'] + p['optional-dependencies']['dev']))" > /tmp/requirements.txt
           pip install -r /tmp/requirements.txt -c constraints.txt
       - name: Lint
-        run: ruff check app tests
+        run: ruff check app tests unit_tests
       - name: Migrations apply and match the models
         run: |
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE migrations_check"
           DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/migrations_check alembic upgrade head
           DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/migrations_check alembic check
       - name: Tests
-        run: python -m pytest -q
+        run: python -m pytest tests unit_tests -q
 
   web:
     name: Web · typecheck, build
@@ -86,7 +93,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Start the stack
-        run: docker compose up -d --build --wait
+        run: |
+          cat > /tmp/clastio-e2e.env <<'EOF'
+          AI_OFFLINE_MODE=true
+          OPENVERSE_ENABLED=false
+          SEED_DEMO=true
+          EOF
+          APP_ENV_FILE=/tmp/clastio-e2e.env docker compose up -d --build --wait
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -106,6 +119,12 @@ jobs:
       - name: Templates, responsive layouts and request recovery
         working-directory: apps/web
         run: npm run e2e:templates && npm run e2e:ux && npm run e2e:admin-responsive && npm run e2e:video
+      - name: Launch journeys, public metadata and assistant image changes
+        working-directory: apps/web
+        env:
+          BASE_URL: http://localhost:3000
+          EXPECTED_SITE_URL: http://localhost:3000
+        run: npm run e2e:launch-readiness && npm run e2e:smart-assistant-seo
       - name: Service logs
         if: failure()
         run: docker compose logs --no-color --tail 300

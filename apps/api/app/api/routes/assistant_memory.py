@@ -14,7 +14,15 @@ from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.jobs.queue import enqueue, run_inline_if_configured
-from app.models import Conversation, ConversationMessage, GenerationJob, TeacherMemory, TeacherPreference, Lesson, Slide
+from app.models import (
+    Conversation,
+    ConversationMessage,
+    GenerationJob,
+    Lesson,
+    Slide,
+    TeacherMemory,
+    TeacherPreference,
+)
 from app.services import assistant
 from app.services import memory as memory_svc
 

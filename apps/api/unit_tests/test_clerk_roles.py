@@ -1,5 +1,7 @@
 from types import SimpleNamespace
+
 import pytest
+
 from app.services.clerk_roles import apply_clerk_role
 
 

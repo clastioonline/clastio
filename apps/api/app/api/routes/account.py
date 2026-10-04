@@ -117,13 +117,16 @@ async def cookie_consent(data: CookieIn, user: CurrentUser, request: Request, db
 @router.get("/me/notifications", tags=["notifications"])
 async def notifications(user: CurrentUser, db: DB, cursor: str | None = None, limit: int = 20,
                         unread: bool = False):
-    q = select(Notification).where(Notification.user_id == user.id)
+    from app.services.notify import EMAIL_DEDUPE_TYPE
+
+    q = select(Notification).where(Notification.user_id == user.id, Notification.type != EMAIL_DEDUPE_TYPE)
     if unread:
         q = q.where(Notification.read_at.is_(None))
     limit = clamp(limit, 20)
     rows, nxt = page(list((await db.execute(keyset(q, Notification, cursor, limit))).scalars().all()), limit)
     count = (await db.execute(select(func.count()).select_from(Notification).where(
-        Notification.user_id == user.id, Notification.read_at.is_(None)))).scalar_one()
+        Notification.user_id == user.id, Notification.type != EMAIL_DEDUPE_TYPE,
+        Notification.read_at.is_(None)))).scalar_one()
     return {"items": [{"id": str(n.id), "type": n.type, "title": n.title, "body": n.body, "link": n.link,
                        "read": n.read_at is not None, "created_at": n.created_at.isoformat()} for n in rows],
             "unread": count, "next_cursor": nxt}
@@ -136,7 +139,10 @@ class ReadIn(BaseModel):
 
 @router.post("/me/notifications/read", tags=["notifications"])
 async def mark_read(data: ReadIn, user: CurrentUser, db: DB):
-    q = update(Notification).where(Notification.user_id == user.id, Notification.read_at.is_(None))
+    from app.services.notify import EMAIL_DEDUPE_TYPE
+
+    q = update(Notification).where(Notification.user_id == user.id, Notification.type != EMAIL_DEDUPE_TYPE,
+                                  Notification.read_at.is_(None))
     if not data.all:
         if not data.ids:
             return {"updated": 0}
@@ -174,8 +180,16 @@ async def update_notification_prefs(data: PrefsIn, user: CurrentUser, db: DB):
 async def delete_notification(notification_id: uuid.UUID, user: CurrentUser, db: DB):
     from sqlalchemy import delete
 
-    res = await db.execute(delete(Notification).where(Notification.id == notification_id,
-                                                      Notification.user_id == user.id))
+    from app.services.notify import EMAIL_DEDUPE_TYPE
+
+    owned = (Notification.id == notification_id, Notification.user_id == user.id,
+             Notification.type != EMAIL_DEDUPE_TYPE)
+    # Keep the delivery marker after a teacher dismisses a scheduled reminder. Removing its key would
+    # make the next scheduler tick recreate the notification and send the same email again.
+    res = await db.execute(update(Notification).where(*owned, Notification.dedupe_key.is_not(None)).values(
+        type=EMAIL_DEDUPE_TYPE, title="", body="", link=None, read_at=utcnow()))
+    if not res.rowcount:
+        res = await db.execute(delete(Notification).where(*owned, Notification.dedupe_key.is_(None)))
     await db.commit()
     if not res.rowcount:
         raise NotFound("Notification")

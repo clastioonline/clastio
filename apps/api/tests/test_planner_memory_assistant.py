@@ -125,15 +125,36 @@ async def _chat(client, h, text):
     return out, actions
 
 
-async def test_assistant_creates_lessons_and_plans(client, teacher):
+async def test_assistant_reviews_drafts_and_plans(client, teacher, monkeypatch):
+    from types import SimpleNamespace
+
+    from app.services import assistant
+
+    ai = assistant.get_ai()
+    original_structured = ai.structured
+    brief = assistant.PPTBrief(topic="the water cycle", grade="7", subject="Science",
+                               num_lectures=2, slides_per_lecture=6,
+                               instructions="Explain evaporation, condensation and precipitation with an exit ticket.")
+
+    async def structured(**kwargs):
+        if kwargs["task"] == "ppt_playground":
+            return assistant.PlaygroundReply(reply="Review your water cycle draft before generating.", brief=brief)
+        return await original_structured(**kwargs)
+
+    monkeypatch.setattr(assistant, "get_ai", lambda: SimpleNamespace(structured=structured))
     h = teacher["headers"]
     await _setup_class_and_timetable(client, h)
     text, actions = await _chat(client, h, "Create 2 lessons on the water cycle for grade 7 science, 6 slides each")
     assert "water cycle" in text
-    assert any(a["type"] == "job" for a in actions)
+    assert any(a["type"] == "open" and "brief=" in a["href"] for a in actions)
+    assert not any(a["type"] == "job" for a in actions), "discussing a draft cannot start paid generation"
     projects = (await client.get("/api/v1/projects", headers=h)).json()["items"]
-    wc = next(p for p in projects if p["course"]["topic"] == "the water cycle")
-    assert wc["lessons_ready"] == 2
+    assert not any(p.get("course", {}).get("topic") == "the water cycle" for p in projects)
+    # The teacher explicitly approves settings in the chapter form before work is queued.
+    created = await client.post("/api/v1/courses", headers=h, json=brief.model_dump())
+    assert created.status_code == 200, created.text
+    project = (await client.get(f"/api/v1/projects/{created.json()['course']['project_id']}", headers=h)).json()
+    assert len(project["lessons"]) == 2
     text, _ = await _chat(client, h, "What should I teach today?")
     assert "8A" in text or "no classes" in text.lower() or "holiday" in text.lower()
     convs = (await client.get("/api/v1/assistant/conversations", headers=h)).json()["items"]

@@ -3,18 +3,25 @@
 import { ArrowLeft, ArrowRight, Check, Plus, Sparkles, Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ActivityButton } from "@/components/activity-center";
+import { ActivityButton, ActivityProvider } from "@/components/activity-center";
 import { Logo } from "@/components/brand";
+import { LoadError } from "@/components/load-error";
+import { PricingTable } from "@/components/pricing-table";
 import { useToast } from "@/components/toast";
 import { Alert, Button, Card, Chips, Field, Input, Select, Textarea, Toggle } from "@/components/ui";
 import { UploadDropzone } from "@/components/upload";
-import { api } from "@/lib/api";
-import { useMe } from "@/lib/hooks";
+import { api, ApiError } from "@/lib/api";
+import { useApi, useMe } from "@/lib/hooks";
+import { adminLandingPath } from "@/lib/navigation";
 import { CURRICULA, DAYS, GRADES, SUBJECTS, cn } from "@/lib/utils";
 
-const STEPS = ["About you", "Your slides", "How you teach", "Your classes", "Ready"];
+const STEPS = ["About you", "Your slides", "How you teach", "Your classes", "Choose a plan", "Ready"];
 
-export default function Onboarding() {
+export default function OnboardingPage() {
+  return <ActivityProvider><Onboarding /></ActivityProvider>;
+}
+
+function Onboarding() {
   const router = useRouter();
   const { notify } = useToast();
   const { user, error, mutate: refreshMe } = useMe();
@@ -32,11 +39,23 @@ export default function Onboarding() {
     local_context: true, bilingual_vocabulary: false,
   });
   const [classes, setClasses] = useState([{ name: "8A", grade: "8", subject: "Science" }]);
+  const { data: plans } = useApi<{ trial: { enabled: boolean; days: number } }>("/billing/plans");
+  const { data: billing } = useApi<any>(user ? "/billing/subscription" : null);
+  const hasBillingInProgress = billing?.pending_checkout || (billing?.subscription && ["stripe", "dodo", "manual"].includes(billing.subscription.provider));
+  const continueWithTrial = async () => {
+    setSaving(true);
+    try {
+      await api("/auth/trial", { method: "POST" });
+      setStep(5);
+    } catch (e) {
+      notify({ tone: "error", title: "Couldn't start trial", body: (e as Error).message });
+    } finally { setSaving(false); }
+  };
 
   useEffect(() => {
-    if (error) router.replace("/login?next=/onboarding");
+    if (error instanceof ApiError && error.status === 401) router.replace("/login?next=/onboarding");
     if (user?.role === "admin") {
-      router.replace("/admin");
+      router.replace(adminLandingPath(user.permissions));
       return;
     }
     if (user) setBasics((b) => ({ ...b, name: b.name || user.name }));
@@ -79,6 +98,8 @@ export default function Onboarding() {
       setSaving(false);
     }
   };
+
+  if (error) return <main className="mx-auto max-w-3xl p-6"><LoadError label="your account" retry={refreshMe} /></main>;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -222,6 +243,19 @@ export default function Onboarding() {
         )}
 
         {step === 4 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Choose your plan</h2>
+            <p className="text-muted">Your account is on Free until you start a trial or complete payment. Coupons can be entered below before checkout.</p>
+            {hasBillingInProgress ? <div className="rounded-2xl bg-surface p-6 ring-1 ring-line"><p className="mb-4 text-sm text-muted">Your account already has plan access or a checkout in progress. Review it in Plan & billing before starting another checkout.</p><Button href="/billing">Review plan and billing</Button></div>
+              : <PricingTable mode="app" currentPlan={billing?.plan.code || "free"} onTrial={!!billing?.trial?.active} />}
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setStep(5)} variant="outline">{billing?.trial?.active ? "Continue with your trial" : billing?.plan.code && billing.plan.code !== "free" ? "Continue with your plan" : "Continue on Free"}</Button>
+              {plans?.trial.enabled && billing?.trial_available !== false && !billing?.subscription && !billing?.pending_checkout && <Button loading={saving} disabled={!user?.email_verified} onClick={continueWithTrial}>Start {plans.trial.days}-day free trial</Button>}
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
           <Card className="p-8 text-center">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600"><Sparkles className="h-7 w-7" /></div>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink">Clastio is ready</h2>

@@ -103,6 +103,7 @@ class FakeCheckoutSessions:
 
         class R:
             checkout_url = "https://test.checkout.dodopayments.com/session/cks_123"
+            session_id = "cks_123"
         return R()
 
 
@@ -114,8 +115,13 @@ class FakeDodo:
 
     async def retrieve(self, product_id):
         from types import SimpleNamespace
+
         from app.services.usage import DEFAULT_PLANS
-        amount = next(p["price_monthly_aed"] for p in DEFAULT_PLANS if p["code"] == "pro")
+        if product_id == "pdt_starter":
+            return SimpleNamespace(is_recurring=False, price=SimpleNamespace(price=1900, currency="AED",
+                type="one_time_price", pay_what_you_want=False))
+        plan_code = "teacher" if product_id == "pdt_teacher_m" else "pro"
+        amount = next(p["price_monthly_aed"] for p in DEFAULT_PLANS if p["code"] == plan_code)
         return SimpleNamespace(price=SimpleNamespace(price=amount * 100, currency="AED", type="recurring_price",
                                                      payment_frequency_interval="month", payment_frequency_count=1))
 
@@ -137,14 +143,22 @@ async def test_dodo_checkout_uses_admin_product_ids(client, monkeypatch):
     assert plans["online_payments"] and plans["payment_provider"] == "dodo"
 
     r = await client.post("/api/v1/billing/checkout", headers=u["headers"], json={"plan": "teacher"})
-    assert r.json()["url"].startswith("https://test.checkout.dodopayments.com/")
+    assert r.status_code == 200, r.text
+    checkout_url = r.json()["url"]
+    assert checkout_url.startswith("https://test.checkout.dodopayments.com/")
     call = FakeCheckoutSessions.calls[-1]
     assert call["product_cart"] == [{"product_id": "pdt_teacher_m", "quantity": 1}]
     assert call["metadata"]["user_id"] == u["id"] and call["metadata"]["plan_code"] == "teacher"
     assert call["customer"]["email"] == u["email"]
-    # A plan without a Dodo product is refused clearly instead of charging the wrong amount.
+    # A second plan choice resumes the one existing checkout, preventing a
+    # second purchase while the first payment is still outstanding.
     r = await client.post("/api/v1/billing/checkout", headers=u["headers"], json={"plan": "pro", "interval": "year"})
-    assert r.status_code == 503
+    assert r.status_code == 200 and r.json()["url"] == checkout_url
+    assert len(FakeCheckoutSessions.calls) == 1
+    # A new teacher cannot check out a plan without its configured product.
+    another = await make_user(client, plan="free")
+    r = await client.post("/api/v1/billing/checkout", headers=another["headers"], json={"plan": "pro", "interval": "year"})
+    assert r.status_code == 503 and r.json()["error"]["code"] == "billing_not_configured"
 
     # Media pack checkout needs its product id too.
     r = await client.post("/api/v1/media/packs/starter/checkout", headers=u["headers"])

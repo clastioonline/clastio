@@ -375,6 +375,7 @@ export default function Dashboard() {
     <div className="space-y-5">
       <DashHeader title="Dashboard" subtitle={`${greeting(user?.name)}. Plan, prepare and teach with ease.`}
         actions={<>
+          <PillButton variant="outline" href="/billing#license">Redeem license key</PillButton>
           <PillButton href="/projects/new"><Plus className="h-5 w-5" /> New lessons</PillButton>
           <PillButton variant="outline" onClick={() => prepare("week")} disabled={busy === "week"}>
             <CalendarCheck className="h-5 w-5" /> {busy === "week" ? "Preparing…" : "Prepare my week"}

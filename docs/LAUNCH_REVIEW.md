@@ -1,3 +1,5 @@
+> Historical review of earlier revisions. For the 4 October 2026 audit and current production gates, see [LAUNCH_AUDIT.md](LAUNCH_AUDIT.md). Old test counts and preview URLs below do not certify the current release.
+
 # Launch review — updated 1 October 2026
 
 This review improves deployment safety and verifies local behavior. It does not certify a live production deployment or external integrations.

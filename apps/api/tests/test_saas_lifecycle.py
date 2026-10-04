@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from tests.conftest import make_user
+from tests.conftest import make_user, start_trial_for_user
 
 
 async def _signup(client, email=None):
@@ -14,9 +14,13 @@ async def _signup(client, email=None):
     return r.json(), {"Authorization": f"Bearer {r.json()['token']}"}
 
 
-async def test_new_teacher_gets_a_no_card_trial_that_ends_on_free(client):
+async def test_new_teacher_chooses_verified_no_card_trial_that_ends_on_free(client):
     data, h = await _signup(client)
     assert data["user"]["onboarding_completed"] is False
+    usage = (await client.get("/api/v1/me/usage", headers=h)).json()
+    assert usage["plan"]["code"] == "free" and usage["trial"] is None
+    assert (await client.post("/api/v1/auth/trial", headers=h)).status_code == 403
+    await start_trial_for_user(client, data["user"]["id"], data["user"]["email"], h)
     usage = (await client.get("/api/v1/me/usage", headers=h)).json()
     assert usage["plan"]["code"] == "pro" and usage["trial"]["active"] and usage["trial"]["days_left"] == 7
     assert usage["subscription"]["provider"] == "trial"
@@ -76,10 +80,11 @@ async def test_admin_extends_trial_but_never_overrides_a_paid_plan(client):
     admin = await make_admin(client)
     data, h = await _signup(client)
     uid = data["user"]["id"]
+    await start_trial_for_user(client, uid, data["user"]["email"], h)
     r = await client.post(f"/api/v1/admin/users/{uid}/plan", headers=admin["headers"],
                           json={"extend_trial_days": 7, "reason": "Asked for more time"})
     assert r.status_code == 200
-    assert (await client.get("/api/v1/me/usage", headers=h)).json()["trial"]["days_left"] == 21
+    assert (await client.get("/api/v1/me/usage", headers=h)).json()["trial"]["days_left"] == 14
 
     from app.core.db import get_sessionmaker
     from app.models import Subscription

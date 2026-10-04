@@ -29,7 +29,7 @@ async def _emails(uid: str) -> list[str]:
 async def test_trial_ending_reminder_is_sent_once(client):
     from app.services.notifications import run_reminders
 
-    u = await make_user(client, plan=None)  # on the sign-up trial
+    u = await make_user(client, plan="trial")
     async with get_sessionmaker()() as db:
         await db.execute(update(Subscription).where(Subscription.user_id == uuid.UUID(u["id"]),
                                                     Subscription.provider == "trial")

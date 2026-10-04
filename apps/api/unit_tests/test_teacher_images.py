@@ -1,12 +1,14 @@
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
 import pytest
-from app.api.routes.content import CourseIn
+from test_stock_presentations import environment as environment
+from test_stock_presentations import slide
+
 from app.core.errors import NotFound
-from app.services.courses import teacher_image_catalog
 from app.services import assets
-from test_stock_presentations import environment, slide
+from app.services.courses import teacher_image_catalog
 
 
 async def test_catalog_rejects_other_users_and_generated_assets():

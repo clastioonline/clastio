@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from './browser.mjs';
+import { assertLocalTestBase } from './fixtures.mjs';
 const base = process.env.BASE_URL || 'http://localhost:3000';
-const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
+assertLocalTestBase(base);
+const browser = await launchBrowser();
 const context = await browser.newContext();
 const page = await context.newPage();
 const errors = [];
@@ -26,7 +28,8 @@ try {
   await page.getByText('Only while a file is transferring.', { exact: false }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('navigation', { name: 'Explore Clastio' }).getByRole('link', { name: 'FAQ' }).click();
-  assert.equal(new URL(page.url()).hash, '#faq');
+  await page.waitForURL('**/faq');
+  await page.getByRole('heading', { name: 'How does the seven-day trial work?', exact: true }).waitFor();
   console.log('✓ Landing examples, FAQ, mobile navigation and 320–1920px layouts passed.');
 
   const signup = await context.request.post(`${base}/api/v1/auth/signup`, { data: {

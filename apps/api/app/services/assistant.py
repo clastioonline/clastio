@@ -319,8 +319,8 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
         db.add(ConversationMessage(conversation_id=conv.id, role="user", content=text))
     await db.commit()
     yield {"event": "conversation", "data": {"id": str(conv.id)}}
-    from app.services.teacher_signals import explicit_preferences, image_change_signal
     from app.services import memory as memory_svc
+    from app.services.teacher_signals import explicit_preferences, image_change_signal
     for key, value in explicit_preferences(text).items():
         await memory_svc.set_preference(db, user.id, key, value, source="stated")
     await db.commit()

@@ -270,7 +270,7 @@ async def test_credit_adjustment_needs_permission_and_reason_and_is_typed(client
     finance = await make_staff(client, "finance")
     support = await make_staff(client, "support")
     u = await make_user(client, plan="free")
-    before = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()["usage"]["credits"]["used"]
+    before = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()["usage"]["credits"]
     body = {"resource": "credits", "amount": 25, "reason": "Goodwill after outage"}
     assert (await client.post(f"/api/v1/admin/users/{u['id']}/credits", headers=support["headers"],
                               json=body)).status_code == 403
@@ -278,11 +278,25 @@ async def test_credit_adjustment_needs_permission_and_reason_and_is_typed(client
                               json={**body, "reason": ""})).status_code == 422
     r = await client.post(f"/api/v1/admin/users/{u['id']}/credits", headers=finance["headers"], json=body)
     assert r.status_code == 200 and r.json()["ledger"]["event_type"] == "CREDIT_ADMIN_GRANT"
-    after = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()["usage"]["credits"]["used"]
-    assert after == before - 25
+    after = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()["usage"]["credits"]
+    assert after["used"] == before["used"] == 0
+    assert after["available"] == before["available"] + 25
+    # The grant must increase the server-enforced balance too, not just its UI.
+    from app.core.errors import LimitExceeded
+    from app.services import usage
+
+    token = create_access_token(uuid.UUID(u["id"]), extra={"typ": "verify", "em": u["email"]})
+    assert (await client.post("/api/v1/auth/verify-email", json={"token": token})).status_code == 200
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, uuid.UUID(u["id"]))
+        await usage.check(db, user, "credits", after["available"])
+        with pytest.raises(LimitExceeded):
+            await usage.check(db, user, "credits", after["available"] + 1)
     r = await client.post(f"/api/v1/admin/users/{u['id']}/credits", headers=finance["headers"],
                           json={"resource": "credits", "amount": -5, "reason": "Duplicate grant"})
     assert r.json()["ledger"]["event_type"] == "CREDIT_ADJUSTMENT"
+    adjusted = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()["usage"]["credits"]
+    assert adjusted["available"] == before["available"] + 20
     async with get_sessionmaker()() as db:
         rows = (await db.execute(select(CreditLedger).where(CreditLedger.owner_id == uuid.UUID(u["id"]),
                                                             CreditLedger.actor_id.is_not(None)))).scalars().all()

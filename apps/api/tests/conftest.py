@@ -98,21 +98,25 @@ async def make_user(client: httpx.AsyncClient, *, plan: str | None = "assistant"
     headers = {"Authorization": f"Bearer {data['token']}"}
     from app.core.db import get_sessionmaker
 
-    if plan == "free":  # end the sign-up trial so the account is on the Free plan
-        from sqlalchemy import update
-
-        from app.models import Subscription
-
-        async with get_sessionmaker()() as db:
-            await db.execute(update(Subscription).where(Subscription.user_id == uuid.UUID(data["user"]["id"]),
-                                                        Subscription.provider == "trial").values(status="canceled"))
-            await db.commit()
-    elif plan:
+    if plan == "trial":
+        await start_trial_for_user(client, data["user"]["id"], email, headers)
+    elif plan and plan != "free":
         from app.services.billing import set_manual_plan
 
         async with get_sessionmaker()() as db:
             await set_manual_plan(db, uuid.UUID(data["user"]["id"]), plan, months=1)
     return {"email": email, "headers": headers, "id": data["user"]["id"], "token": data["token"]}
+
+
+async def start_trial_for_user(client, user_id: str, email: str, headers: dict) -> None:
+    """Trials are an explicit choice after inbox verification, never a signup side effect."""
+    from app.core.security import create_access_token
+
+    token = create_access_token(uuid.UUID(user_id), extra={"typ": "verify", "em": email})
+    verified = await client.post("/api/v1/auth/verify-email", json={"token": token})
+    assert verified.status_code == 200, verified.text
+    trial = await client.post("/api/v1/auth/trial", headers=headers)
+    assert trial.status_code == 200, trial.text
 
 
 async def make_staff(client: httpx.AsyncClient, admin_role: str = "super_admin") -> dict:

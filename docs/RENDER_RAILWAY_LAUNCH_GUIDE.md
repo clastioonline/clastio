@@ -4,6 +4,8 @@ This guide matches this repository and the public domain `clastio.online`. The c
 
 This document is a deployment runbook. Writing it does not deploy code, create provider resources, update DNS or verify production credentials.
 
+See [the latest launch audit](LAUNCH_AUDIT.md) for verified results and remaining release checks. The older launch review describes previous revisions and does not certify the current production deployment.
+
 ## 1. What runs where
 
 ```text
@@ -143,7 +145,7 @@ sh -c 'uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2 --li
 Pre-deploy Command:
 
 ```sh
-alembic upgrade head && python -m app.seed --skip-embeddings
+sh -c 'alembic upgrade head && python -u -m app.seed --skip-embeddings'
 ```
 
 Healthcheck Path:
@@ -153,6 +155,10 @@ Healthcheck Path:
 ```
 
 Run migrations on the API service only. Railway executes pre-deploy commands with the service's environment and private network access; a failed command blocks that deployment. [Railway pre-deploy documentation](https://docs.railway.com/deployments/pre-deploy-command)
+
+Keep the explicit `sh -c` wrapper: both migration and seeding must run. Confirm seed output in the deployment logs; seeing only Alembic output does not establish that plans and templates were seeded.
+
+The API image explicitly trusts Railway's `100.64.0.0/10` edge peers for forwarded HTTPS/client headers. After deployment, inspect API/security logs from two independent clients. If both resolve to Render's public egress IP, teacher IP limits are still shared and need authenticated frontend-to-API forwarding. Do not set `FORWARDED_ALLOW_IPS=*` or trust arbitrary public proxies. See [Railway edge networking](https://docs.railway.com/networking/edge-networking) and [Render proxy guidance](https://render.com/articles/fastapi-production-best-practices).
 
 Generate/confirm the API's public HTTPS domain under Networking. For this deployment it is:
 
@@ -205,26 +211,20 @@ Copy the issuer and PEM from the production instance; do not assume the issuer f
 
 Existing app users should use the existing-account connection flow described in `deploy/HOSTED_SETUP.md`, rather than creating a second identity with unrelated account data. A Clerk webhook is not required for the current sign-in exchange; payment webhooks are a separate integration.
 
-### First administrator
+### First administrator: Clerk metadata only
 
-Before the owner's first application signup, set this on the Railway API:
+In Clerk **Users → your verified owner → Public metadata**, set:
 
-```env
-ADMIN_EMAILS=["YOUR_VERIFIED_OWNER_EMAIL"]
+```json
+{
+  "role": "admin",
+  "admin_role": "super_admin"
+}
 ```
 
-Use that exact verified email when signing up. New accounts matching this list receive the app's super-admin role and go to `/admin`. A Clerk dashboard role alone does not grant Clastio administration.
+Save, then sign in through Clerk or refresh the application account. The backend reads this metadata directly from Clerk, persists the role, and bypasses teacher onboarding. Other supported `admin_role` values are `admin`, `support`, `analyst`, `finance`, and `moderator`; their landing pages follow their permissions.
 
-Adding an already-existing teacher to `ADMIN_EMAILS` does not automatically promote the existing database row. Use an existing app administrator's user management to grant the role. If there is no administrator and you own the deployment, bootstrap only your verified owner account in the database console:
-
-```sql
-UPDATE users
-SET role = 'admin', admin_role = 'super_admin'
-WHERE email = 'your-actual-owner-email@example.com'
-  AND email_verified = true;
-```
-
-Replace the email with your own existing verified account and confirm exactly one intended row changed. Sign out and sign in again. Do not enable demo accounts to obtain production admin access.
+With Clerk configured, `ADMIN_EMAILS`, local role edits, and database bootstrap edits do not establish staff access. Staff must have a Clerk-authenticated application session. Do not put privileges in `unsafe_metadata`, which is client-editable. Removing the trusted role in Clerk removes staff permissions on the next authenticated staff request.
 
 ## 7. Configure Resend email
 
@@ -235,9 +235,16 @@ On Railway API, worker and scheduler:
 ```env
 RESEND_API_KEY=YOUR_RESEND_KEY
 EMAIL_FROM=Clastio <notifications@clastio.online>
+EMAIL_FROM_BILLING=Clastio Billing <invoices@clastio.online>
+EMAIL_FROM_ALERTS=Clastio Alerts <alerts@clastio.online>
+EMAIL_FROM_NOTIFICATIONS=Clastio Notifications <notifications@clastio.online>
+EMAIL_FROM_UPDATES=Clastio Updates <updates@clastio.online>
+EMAIL_FROM_REMINDERS=Clastio Reminders <reminders@clastio.online>
 ```
 
 Redeploy those services after changing environment values. Resend here sends application welcome/reminder/billing emails; Clerk's own authentication emails are configured in Clerk. Confirm the scheduler runs, a queued email becomes `sent`, and the test message is received. Without a verified sender domain and an active scheduler, the email pipeline is not ready.
+
+Purpose-specific senders are optional and fall back to `EMAIL_FROM`. All sender addresses need a verified domain. Daily PPT-ready updates and review invitations follow teacher email preferences; promotional updates also require marketing consent. Without Resend/SMTP configured, production messages remain queued instead of being marked delivered.
 
 ## 8. Configure Render and the custom domain
 
@@ -328,7 +335,7 @@ Register this HTTPS webhook endpoint with **snapshot** event payloads:
 https://clastio.online/api/v1/webhooks/stripe
 ```
 
-Subscribe to `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Copy the endpoint's own signing secret, not a local CLI listener secret. Enable the Stripe customer portal for payment management. [Stripe webhook instructions](https://docs.stripe.com/webhooks)
+Subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, and `invoice.payment_failed`. Include the asynchronous events when delayed payment methods are enabled. Expiry events clear confirmed expired checkout reservations. Copy the endpoint's own signing secret, not a local CLI listener secret. Enable the Stripe customer portal for payment management. [Stripe webhook instructions](https://docs.stripe.com/webhooks)
 
 ### Dodo
 
@@ -344,13 +351,15 @@ Subscribe to `subscription.active`, `subscription.renewed`, `subscription.update
 
 ### Payment verification
 
-The app verifies mapped gateway amount/currency/billing frequency against the catalogue and rejects stale mappings with `billing_price_mismatch`. Configure the final tax treatment in the gateway and verify the final total. Test successful checkout, verified webhook receipt, plan activation, coupon application, cancellation and duplicate event delivery in test mode. Confirm a duplicate event does not create another payment/reward.
+The app verifies mapped gateway amount/currency/billing frequency against the catalogue and rejects stale mappings with `billing_price_mismatch`. Dodo media packs also require the exact displayed AED price and a fixed one-time product. Configure the final tax treatment in the gateway and verify the final total. Test successful checkout, verified webhook receipt, plan activation, coupon application, cancellation and duplicate event delivery in test mode. Confirm a duplicate event does not create another payment/reward.
+
+Subscription checkout persists one pending reservation per teacher and resumes its existing URL, even across repeated requests. Trials, licenses and manual grants cannot overlap a pending purchase. Stripe uses a stable idempotency key; provider-confirmed expiry releases the reservation. If Dodo might have created a checkout but its response was lost, staff must reconcile it with Dodo before releasing the hold. The app intentionally avoids a blind second purchase that could double-charge the teacher.
 
 A browser return to the success URL alone does not prove a paid subscription was activated. Check the webhook and subscription state. Existing gateway subscriptions are not repriced by changing the catalogue. Keep historical provider products/mappings where existing renewals need them. See `docs/ENGAGEMENT_AND_BILLING.md` for fee scenarios and rollout details.
 
 ## 12. Trial, engagement and optional integrations
 
-In **Admin → Plans & trial**, confirm the seven-day trial and finite credit/image allowances. In admin settings, confirm referrals, reminders, feature flags and the active payment gateway. Payment reminders and email delivery require the scheduler. Referral rewards require a verified account and a qualifying signed paid-payment webhook.
+In **Admin → Plans & trial**, enable the seven-day trial and confirm finite credit/image allowances. New teachers begin on Free. They can explicitly choose Start free trial after verification, or remain on Free and start an eligible trial later from billing. No card is required for the trial; an active or unresolved paid subscription blocks overlapping grants. In admin settings, confirm referrals, reminders, feature flags and the active payment gateway. Payment reminders and email delivery require the scheduler. Referral rewards require a verified account and a qualifying signed paid-payment webhook.
 
 WhatsApp is optional. If you want live WhatsApp, configure `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a non-default `WHATSAPP_VERIFY_TOKEN` on Railway. Configure the Meta webhook at `https://clastio.online/api/v1/webhooks/whatsapp`, the phone number, approved templates and messaging permissions for your Meta account. If not using WhatsApp, leave its provider credentials unset and do not promise live WhatsApp service. Its feature flag is not a global scheduler kill switch: the scheduler still runs its WhatsApp tick and processes any verified, opted-in contacts. Review existing opt-ins before launch. The current app still contains simulator/navigation surfaces; removing those pages or fully disabling scheduled WhatsApp work requires separate implementation.
 
@@ -361,7 +370,7 @@ Video generation, media-credit packs and other paid features should be enabled o
 Use separate owner/admin and teacher accounts. Complete this journey on the actual public domain:
 
 1. Open the homepage, pricing, FAQ and one guide on mobile and desktop. Confirm new monthly prices, annual totals and a working `/favicon.ico`.
-2. Start an eligible teacher account and confirm seven-day trial status and finite allowances.
+2. Create an eligible teacher account, confirm it starts on Free, explicitly start the trial, and confirm seven-day status and finite allowances. Confirm the Clerk administrator skips teacher onboarding.
 3. Upload a source and image, discuss a lesson in the playground, approve the plan and generate a small live PPT.
 4. Verify text, calculations, diagram details, sources, preview and editable PPTX/PDF downloads.
 5. Make a manual correction, then an AI single-slide edit. Discuss an image change, review its brief and confirm one replacement. Check credit usage and memory consent.

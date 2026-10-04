@@ -11,7 +11,7 @@ import logging
 import signal
 
 from app.core.config import get_settings
-from app.core.logging import configure_logging, log
+from app.core.logging import configure_logging, log, redact_sentry_event
 from app.jobs.queue import recover_stale, worker_loop
 
 logger = logging.getLogger("worker")
@@ -61,7 +61,9 @@ async def main(concurrency: int, queues: list[str] | None, with_scheduler: bool,
         import sentry_sdk
 
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.1,
-                        send_default_pii=False, release=settings.app_version)
+                        send_default_pii=False, max_request_body_size="never", include_local_variables=False,
+                        before_send=redact_sentry_event, before_send_transaction=redact_sentry_event,
+                        release=settings.app_version)
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

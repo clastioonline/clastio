@@ -1,10 +1,12 @@
 # Trial, referrals, coupons, and payment reminders
 
-These changes are local. Redeploy the Render frontend and Railway API, worker, and scheduler to activate them. No new database migration is needed; referral attribution and rewards use the existing user fields and credit ledger.
+These changes are local. Redeploy the Render frontend and Railway API, worker, and scheduler to activate them. Referral attribution uses existing user fields, but licenses and durable checkout tracking require the latest migrations through `e205checkout01`.
+
+For the current release evidence and production gates, see [the launch audit](LAUNCH_AUDIT.md).
 
 ## Free trials
 
-The existing trial defaults to 7 days of Pro features with no card required. The new allowance defaults are **50 lesson credits, 5 AI images, and 20 WhatsApp messages for the entire trial**. Limits never exceed the corresponding paid-plan allowance. They are enforced by the same server checks and queued-job reservations as paid-plan limits. Trial expiry returns users to Free automatically; existing content remains accessible. One trial per normalized email is still enforced.
+New teachers start on Free and explicitly choose their eligible trial; signup does not start it automatically. When enabled by an administrator, the trial defaults to 7 days of Pro features with no card required. The new allowance defaults are **50 lesson credits, 5 AI images, and 20 WhatsApp messages for the entire trial**. Limits never exceed the corresponding paid-plan allowance. They are enforced by the same server checks and queued-job reservations as paid-plan limits. Trial expiry returns users to Free automatically; existing content remains accessible. One trial per normalized email is still enforced.
 
 Administrators can adjust duration and allowances in `/admin/plans`. Duration affects new trials; allowance changes affect active trials too. Trial days remaining use rounding up, so a partial day does not appear as an ended trial. The app banner, Plan & billing, and public pricing display the allowance. Existing usage warnings use the trial allowance and now explain trial exhaustion rather than promising a monthly reset.
 
@@ -26,7 +28,7 @@ References: [Stripe Checkout discounts](https://docs.stripe.com/payments/checkou
 
 ## Reminders
 
-Existing trial-ending reminders run at 3 days and 1 day, followed by an expiry notice. Upcoming monthly renewals are announced within 3 days and annual renewals within 7 days. Cancelled and school-granted plans also receive expiry notices. Failed-payment follow-ups now run at 1, 3, and 7 days, with deduplication scoped to the subscription period. Failed-payment alerts are mandatory; ordinary billing reminders follow notification preferences. The scheduler runs reminders hourly and the worker drains queued email through Resend/SMTP. These services must be running for emails to arrive.
+Existing trial-ending reminders run at 3 days and 1 day, followed by an expiry notice. Upcoming monthly renewals are announced within 3 days and annual renewals within 7 days. Cancelled and school-granted plans also receive expiry notices. Failed-payment follow-ups now run at 1, 3, and 7 days, with deduplication scoped to the subscription period. Failed-payment alerts are mandatory; ordinary billing reminders follow notification preferences. The dedicated scheduler runs reminders hourly and drains queued email through Resend/SMTP. These services must be running for emails to arrive.
 
 ## Validation and launch checks
 
@@ -132,3 +134,24 @@ After a completed PPT, teachers receive an optional in-app review invitation at 
 Help & support includes a 1–5 rating and suggestions form. Reviews are saved as support tickets of kind
 `review`, visible to staff in the support queue and available for replies. These are private feedback,
 not automatically published testimonials. Disable invitations under notification preferences.
+
+## Explicit onboarding plan selection
+
+New accounts now start on Free, without automatically consuming their trial.
+After teaching-profile setup, onboarding shows current plans, a coupon field and secure provider checkout,
+plus Continue on Free and Start free trial actions. Trial activation uses POST /api/v1/auth/trial with
+per-email uniqueness, active-subscription checks and rate limits. Existing trials/subscriptions are preserved.
+Coupons are provider-backed: configure Stripe promotion codes or Dodo discount codes; the app forwards and
+validates them through checkout. Paid access activates through verified provider webhooks, not the browser return.
+
+## Plan license keys
+
+Admin → Plans & trial includes creation and revocation of single-use plan licenses.
+Choose Teacher, Pro or Assistant and 1–36 months. Keys expire for redemption after 90 days;
+plan access starts at redemption and expires independently. Keys are displayed once and stored
+only as SHA-256 digests. Share the key privately with the intended teacher.
+Teachers redeem under Plan & billing. Verified teacher accounts are required; an active subscription
+blocks redemption to avoid overlapping paid access or ongoing recurring charges. An unused revoked,
+expired or redeemed key cannot be used. Issuing/revoking a key is audited. Revocation applies to
+unused keys only; existing grants continue until their end date.
+Deploy migration `d204license01` using `alembic upgrade head` before using these screens.

@@ -18,7 +18,9 @@
     "e2e:video": "node e2e/product-video.mjs",
     "video:render": "node e2e/render-product-video.mjs",
     "e2e:ai-budget": "node e2e/ai-budget.mjs",
-    "e2e:walkthrough": "node e2e/walkthrough.mjs"
+    "e2e:walkthrough": "node e2e/walkthrough.mjs",
+    "e2e:launch-readiness": "node e2e/launch-readiness.mjs",
+    "e2e:smart-assistant-seo": "node e2e/smart-assistant-seo.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.10",

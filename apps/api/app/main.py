@@ -12,7 +12,7 @@ from app.api.routes import account, admin, assistant_memory, auth, content, medi
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.core.http import capture_route, platform_middleware
-from app.core.logging import configure_logging, log
+from app.core.logging import configure_logging, log, redact_sentry_event
 
 logger = logging.getLogger("api")
 
@@ -26,7 +26,9 @@ async def lifespan(app: FastAPI):
         import sentry_sdk
 
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.1,
-                        send_default_pii=False, release=settings.app_version)
+                        send_default_pii=False, max_request_body_size="never", include_local_variables=False,
+                        before_send=redact_sentry_event, before_send_transaction=redact_sentry_event,
+                        release=settings.app_version)
     import app.jobs.handlers  # noqa: F401  register job handlers (inline execution)
     import app.services.assistant  # noqa: F401  register offline intent generator
     from app.ai.service import get_ai

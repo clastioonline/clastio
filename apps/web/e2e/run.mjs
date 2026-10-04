@@ -1,16 +1,15 @@
 // End-to-end browser test of the core teacher journey against a running web + API + worker
 // (demo accounts seeded, so run `python -m app.seed --demo` or use docker compose).
 //   BASE_URL=http://localhost:3000 node e2e/run.mjs
-import { chromium } from "playwright-core";
+import { launchBrowser } from "./browser.mjs";
+import { assertLocalTestBase, verifyTestTeacher } from "./fixtures.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
+assertLocalTestBase(BASE);
 const OUT = process.env.OUT || path.resolve("e2e/screenshots");
 const SAMPLE = process.env.SAMPLE || path.resolve("../../samples/science_ms_sara.pptx");
-// Use CHROME if given, else a preinstalled Chromium if present, else Playwright's own (`npx playwright-core install chromium`).
-const PREINSTALLED = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
-const CHROME = process.env.CHROME || (fs.existsSync(PREINSTALLED) ? PREINSTALLED : undefined);
 fs.mkdirSync(OUT, { recursive: true });
 
 const step = (name) => console.log(`\n▶ ${name}`);
@@ -20,7 +19,7 @@ function assert(cond, msg) {
   ok(msg);
 }
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ["--no-sandbox"] });
+const browser = await launchBrowser();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
 const page = await ctx.newPage();
 const errors = [];
@@ -60,7 +59,11 @@ try {
   ok("redirected to onboarding");
 
   const usage = await page.request.get(BASE + "/api/v1/me/usage").then((r) => r.json());
-  assert(usage.trial?.active && usage.trial.days_left > 0, `new teacher starts a no-card trial (${usage.plan.name}, ${usage.trial?.days_left} days)`);
+  assert(usage.plan.code === "free" && !usage.trial?.active, "new teacher starts on Free without an automatic trial");
+  const unverifiedTrial = await page.request.post(BASE + "/api/v1/auth/trial");
+  assert(unverifiedTrial.status() === 403, "email verification is required before an explicit trial");
+  await verifyTestTeacher(browser, ctx, BASE);
+  await page.reload();
 
   step("Onboarding: basics");
   await page.getByRole("heading", { name: /Welcome to Clastio/ }).waitFor();
@@ -80,10 +83,16 @@ try {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByText("Add your classes").waitFor();
   await page.getByRole("button", { name: "Finish setup" }).click();
+  await page.getByRole("heading", { name: "Choose your plan", exact: true }).waitFor();
+  const beforeTrial = await page.request.get(BASE + "/api/v1/me/usage").then((r) => r.json());
+  assert(beforeTrial.plan.code === "free" && !beforeTrial.trial?.active, "onboarding does not grant paid access or start a trial implicitly");
+  await page.getByRole("button", { name: /^Start \d+-day free trial$/ }).click();
   await page.getByText("Clastio is ready").waitFor();
+  const trialUsage = await page.request.get(BASE + "/api/v1/me/usage").then((r) => r.json());
+  assert(trialUsage.trial?.active && trialUsage.trial.days_left > 0, "teacher explicitly started a no-card trial");
   ok("onboarding complete");
 
-  step("Create a course (Free plan: 2 lessons × 10 slides)");
+  step("Create a course (chosen trial: 2 lessons × 10 slides)");
   await page.getByRole("link", { name: "Create my first lessons" }).click();
   await page.waitForURL("**/projects/new");
   await page.getByPlaceholder("e.g. Photosynthesis").fill(process.env.TOPIC || "Photosynthesis");
@@ -93,10 +102,10 @@ try {
   await field("Number of lessons").selectOption("2");
   await field("Slides per lesson").selectOption("10");
   await shot("05-new-course");
-  await page.getByRole("button", { name: /Plan and build lessons/ }).click();
+  await page.getByRole("button", { name: "Plan & build complete chapter", exact: true }).click();
   await page.waitForURL("**/projects/*");
   ok("project created");
-  await page.getByText("2 / 2 ready").or(page.getByRole("link", { name: /Open/ }).nth(1)).waitFor({ timeout: 180_000 });
+  await page.getByText("2 / 2 ready").or(page.getByRole("link", { name: /Open/ }).nth(1)).first().waitFor({ timeout: 180_000 });
   await page.waitForFunction(() => document.querySelectorAll('a[href^="/lessons/"]').length >= 2, null, { timeout: 180_000 });
   await page.waitForTimeout(1500);
   await shot("06-project");
@@ -105,12 +114,12 @@ try {
   step("Lesson editor");
   await page.locator('a[href^="/lessons/"]').first().click();
   await page.waitForURL("**/lessons/*");
-  await page.getByText("QC passed").or(page.getByText(/QC notes/)).waitFor();
+  await page.getByText("QC passed").or(page.getByText(/QC notes/)).first().waitFor();
   const thumbs = await page.locator('button:has(img[alt^="Slide "])').count();
   assert(thumbs === 10, `lesson has 10 slide thumbnails (got ${thumbs})`);
   await shot("07-lesson-editor");
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("link", { name: "PowerPoint" }).click();
+  await page.getByRole("link", { name: "Download editable PPT", exact: true }).click();
   const dl = await downloadPromise;
   const pptxPath = path.join(OUT, "lesson1.pptx");
   await dl.saveAs(pptxPath);
@@ -154,7 +163,7 @@ try {
 
   step("Assistant");
   await page.goto(BASE + "/assistant");
-  await page.getByPlaceholder(/Ask anything/).fill("What did I teach last week?");
+  await page.getByPlaceholder(/^Ask about teaching/).fill("What did I teach last week?");
   await page.keyboard.press("Enter");
   await page.getByText(/covered recently|you prepared these lessons|couldn.t find any lessons/).first().waitFor({ timeout: 30_000 });
   await shot("09-assistant");
@@ -274,7 +283,7 @@ try {
   await page.waitForURL(/admin\/users\/[0-9a-f-]+/);
   await page.getByRole("button", { name: "Suspend" }).waitFor();
   await shot("25-admin-user");
-  await page.getByRole("tab", { name: "Sessions & security" }).click();
+  await page.getByRole("tab", { name: "Sessions & security", exact: true }).click();
   await page.getByText("login success").first().waitFor();
   await page.getByRole("tab", { name: "Notes & audit" }).click();
   const adminNote = `Demo account — do not suspend. Review ${Date.now()}`;

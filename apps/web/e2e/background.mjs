@@ -4,11 +4,13 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from './browser.mjs';
+import { assertLocalTestBase, verifyTestTeacher } from './fixtures.mjs';
 
 const base = process.env.BASE_URL || 'http://localhost:3000';
+assertLocalTestBase(base);
 const worker = process.env.BACKGROUND_WORKER_CONTAINER;
-const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
+const browser = await launchBrowser();
 const out = path.resolve('e2e/screenshots');
 fs.mkdirSync(out, { recursive: true });
 let context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -21,6 +23,7 @@ try {
     email: `background-${Date.now()}@example.com`, name: 'Background Teacher', password: 'background-test-123', accept_terms: true,
   } });
   assert.equal(signup.status(), 200, await signup.text());
+  await verifyTestTeacher(browser, context, base);
   await context.request.post(`${base}/api/v1/me/onboarding/complete`);
   if (worker) execFileSync('docker', ['stop', worker], { stdio: 'pipe' });
   await page.goto(`${base}/lessons?tab=documents`);
@@ -39,7 +42,7 @@ try {
   if (worker) assert.equal(document.document.status, 'queued');
   await dialog.getByRole('button', { name: /Continue in background|Done/ }).click();
   await page.goto(`${base}/assistant`);
-  await page.getByPlaceholder(/Ask anything/).fill('What did I teach last week?');
+  await page.getByPlaceholder(/^Ask about teaching/).fill('What did I teach last week?');
   const assistantResponse = page.waitForResponse((r) => r.url().endsWith('/api/v1/assistant/tasks') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const replyResponse = await assistantResponse;

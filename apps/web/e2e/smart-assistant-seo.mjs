@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from './browser.mjs';
 const base = process.env.BASE_URL || 'http://localhost:3100';
-const browser = await chromium.launch({executablePath: process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const site = (process.env.EXPECTED_SITE_URL || 'https://clastio.online').replace(/\/+$/, '');
+const browser = await launchBrowser();
 const page = await browser.newPage();
 const errors = []; page.on('pageerror', e => errors.push({url:page.url(),message:e.message}));
 let phase = 0, confirmBody, startBody, authRequests = 0, pricingUnavailable = false;
@@ -14,6 +15,8 @@ await page.route('**/api/v1/**', async route => {
     data={items:[{code:'free',name:'Free',price_monthly_aed:0,price_annual_aed:0,limits:{credits:60,max_lectures:3},features:[]}, ...[['teacher','Teacher',149],['pro','Teacher Pro',249],['assistant','Genie Assistant',399]].map(([code,name,price])=>({code,name,price_monthly_aed:price,price_annual_aed:price*10,features:['Editable PowerPoints'],limits:{credits:800,max_lectures:10}}))],vat_rate:0.05,online_payments:true,payment_provider:'stripe',trial:{enabled:true,plan:'pro',days:7,credits:50}};
   }
   if (path === '/auth/me') authRequests++;
+  if (path.startsWith('/legal/')) data={title:'Published policy',version:'1.0',content:'Current published policy content.',versions:[]};
+  if (path === '/status') data={status:'operational',components:{web_app:'operational',api:'operational'},notices:[],updated_at:new Date().toISOString()};
   if (path === '/auth/me') data = {user:{id:'review',email:'teacher@example.com',name:'Test Teacher',role:'teacher',permissions:[],status:'active',email_verified:true,locale:'en',timezone:'Asia/Dubai',onboarding_completed:true},pending_legal:[]};
   if (path === '/me/usage') data={plan:{code:'pro',name:'Pro'},usage:{credits:{used:0,limit:50}},trial:{active:false}};
   if (path === '/usage/estimates') data = {costs:{slide:1,course_plan:2},remaining:50,reset_at:'2026-11-01'};
@@ -25,13 +28,27 @@ await page.route('**/api/v1/**', async route => {
   await route.fulfill({status:200,json:data});
 });
 try {
+  const homeResponse=await page.goto(base,{waitUntil:'networkidle'});
+  const csp=homeResponse.headers()['content-security-policy'];
+  const scripts=csp.split(';').find(directive=>directive.trim().startsWith('script-src '));
+  assert.ok(scripts.includes('https://clerk.clastio.online')&&scripts.includes('https://*.protect.clerk.com'));
+  assert.ok(!scripts.includes("'unsafe-eval'")&&!scripts.includes('clerk.accounts.dev')&&!/\shttps:\s/.test(scripts),'production scripts allow specific providers');
+  assert.equal(homeResponse.headers()['x-content-type-options'],'nosniff');
+  assert.equal(homeResponse.headers()['x-frame-options'],'DENY');
+  const organization=JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent())['@graph'].find(item=>item['@type']==='Organization');
+  assert.equal(organization.logo,`${site}/brand/clastio-original.png`);
+  const faviconPath=await page.locator('link[rel="icon"][type="image/png"]').first().getAttribute('href');
+  const favicon=await page.request.get(new URL(faviconPath,base).href);
+  assert.equal(favicon.status(),200);assert.ok(favicon.headers()['content-type'].includes('image/png'));
+  const image=await page.evaluate(async src=>{const image=new Image();image.src=src;await image.decode();return {width:image.naturalWidth,height:image.naturalHeight};},faviconPath);
+  assert.ok(image.width===image.height&&image.width>48,'search favicon is a crawlable square at Google\'s recommended size');
   const guides=['ai-ppt-maker-for-teachers-uae','lesson-planning-for-uae-teachers','eal-lessons-uae','british-curriculum-lesson-planning','cbse-lesson-planning-uae','edit-ppt-without-regenerating','personal-ai-teaching-assistant','worksheet-maker-for-uae-teachers','quiz-and-exit-ticket-maker','differentiated-lesson-presentations','turn-teaching-notes-into-powerpoint','reuse-school-powerpoint-design','stock-images-for-teaching-presentations'];
   for (const slug of guides) {
     const response=await page.goto(`${base}/solutions/${slug}`, {waitUntil: "networkidle"});assert.equal(response.status(),200);
     await page.getByRole('heading', {name: 'Example teacher prompt'}).waitFor();
     await page.getByRole('dialog', {name: 'Cookie preferences'}).waitFor();
     assert.equal(await page.locator('h1').count(),1);
-    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`https://clastio.online/solutions/${slug}`);
+    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`${site}/solutions/${slug}`);
     assert.equal(JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent())['@graph'][0]['@type'],'Article');
     assert.ok((await response.text()).includes('Example teacher prompt'));
     for (const width of [390,1440]) {await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${slug} fits ${width}`);}
@@ -39,11 +56,13 @@ try {
   for (const path of ['/how-it-works','/for-schools','/faq']) {
     const response=await page.goto(`${base}${path}`, {waitUntil:'networkidle'}); assert.equal(response.status(),200);
     assert.equal(await page.locator('h1').count(),1);
-    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`https://clastio.online${path}`);
+    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`${site}${path}`);
     assert.ok((await response.text()).includes('Explore next'));
     for (const width of [390,1440]) {await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${path} fits ${width}`);}
   }
   await page.goto(`${base}/pricing`);
+  assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`${site}/pricing`);
+  assert.ok(!(await page.locator('body').innerText()).includes('Every new account starts'));
   for(const price of [149,249,399]) await page.getByText(`AED ${price}`,{exact:true}).waitFor();
   await page.getByRole('tab',{name:'Yearly',exact:true}).click();
   await page.getByText('AED 1490 billed yearly · +5% VAT',{exact:true}).waitFor();
@@ -53,8 +72,15 @@ try {
   pricingUnavailable=false;
   await page.getByRole('button',{name:'Retry pricing',exact:true}).click();
   await page.getByText('AED 149',{exact:true}).waitFor();
+  for(const path of ['/legal/terms','/legal/privacy','/legal/acceptable_use','/legal/cookie','/legal/refund','/status']) {
+    const response=await page.goto(`${base}${path}`,{waitUntil:'networkidle'});assert.equal(response.status(),200);
+    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),`${site}${path}`);
+    assert.equal(await page.locator('h1').count(),1);
+  }
+  assert.equal((await page.request.get(`${base}/legal/not-a-policy`)).status(),404);
+  assert.equal((await page.request.get(`${base}/legal/toString`)).status(),404);
   const sitemap=await(await page.request.get(`${base}/sitemap.xml`)).text();assert.ok(guides.every(slug=>sitemap.includes(`/solutions/${slug}`)));assert.ok(!sitemap.includes('/login')&&!sitemap.includes('/assistant'));
-  const robots=await(await page.request.get(`${base}/robots.txt`)).text();assert.ok(robots.includes('Disallow: /teacher-memory')&&robots.includes('https://clastio.online/sitemap.xml'));
+  const robots=await(await page.request.get(`${base}/robots.txt`)).text();assert.ok(robots.includes('Disallow: /teacher-memory')&&robots.includes(`${site}/sitemap.xml`));
   assert.ok((await(await page.request.get(`${base}/llms.txt`)).text()).includes('## Public resources'));
   assert.equal((await page.request.get(`${base}/solutions/not-a-real-guide`)).status(),404);
   assert.equal(authRequests,0,'public guides do not start authenticated polling');
@@ -78,5 +104,5 @@ try {
   assert.ok(await dialog.isVisible(), 'clicking inside a dialog keeps it open');
   await dialog.getByRole('button', {name: 'Keep exploring'}).click();
   assert.deepEqual(errors,[]);
-  console.log('13 guides, three product pages, launch prices, pricing retry, server HTML, canonical/structured data, sitemap, robots, 404, responsive layouts and clarify/confirm/remember flow passed.');
+  console.log('13 guides, three product pages, legal/status metadata, launch prices, pricing retry, production CSP, favicon/logo, canonical/structured data, sitemap, robots, 404, responsive layouts and clarify/confirm/remember flow passed.');
 } finally {await browser.close();}

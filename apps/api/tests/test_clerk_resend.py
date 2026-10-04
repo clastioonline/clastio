@@ -78,6 +78,7 @@ async def test_existing_account_requires_original_session(client, clerk, monkeyp
     result = await client.post('/api/v1/auth/clerk', json={'token': clerk(sub='user_existing')})
     assert result.status_code == 200, result.text
     assert result.json()['user']['id'] == user['id']
+    assert result.json()['user']['email_verified'] is True
 
 
 async def test_clerk_rejects_unverified_email(client, clerk, monkeypatch):

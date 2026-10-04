@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.db import get_db
+from app.core.db import get_db, utcnow
 from app.core.logging import user_id_var
 from app.core.permissions import permissions_for
 from app.core.security import COOKIE_NAME, decode_token
@@ -41,11 +42,17 @@ async def get_current_user(request: Request, db: DB) -> User:
     if user.status not in USABLE_STATUSES:
         raise HTTPException(status_code=403, detail="This account is not available. Contact support.")
     from app.core.config import get_settings
-    if get_settings().clerk_secret_key and (user.role == "admin" or request.url.path == "/api/v1/auth/me"):
+    checked = getattr(user, "clerk_checked_at", None)
+    refresh_clerk = (user.role == "admin" or request.url.path == "/api/v1/auth/me"
+                     or checked is None or utcnow() - checked >= timedelta(seconds=60))
+    if get_settings().clerk_secret_key and refresh_clerk:
+        if user.role == "admin" and sess.method != "clerk":
+            raise HTTPException(status_code=403, detail="Sign in through Clerk for admin access")
         # Refresh roles when loading the current account, including promotions,
         # and recheck privileged sessions before granting admin access.
         import httpx
         from sqlalchemy import select
+
         from app.models import OAuthAccount
         from app.services.clerk_roles import apply_clerk_role
         identity = (await db.execute(select(OAuthAccount).where(
@@ -58,13 +65,28 @@ async def get_current_user(request: Request, db: DB) -> User:
                     result = await client.get(f"https://api.clerk.com/v1/users/{identity.subject}",
                         headers={"Authorization": f"Bearer {get_settings().clerk_secret_key}"})
             except httpx.HTTPError:
-                raise HTTPException(status_code=503, detail="Could not verify Clerk staff access") from None
+                raise HTTPException(status_code=503, detail="Could not verify your Clerk account") from None
             if result.status_code == 404:
+                await sessions.revoke(db, user.id, reason="clerk_deleted")
+                await db.commit()
                 raise HTTPException(status_code=403, detail="Clerk account unavailable")
             if not result.is_success:
-                raise HTTPException(status_code=503, detail="Could not verify Clerk staff access")
-            apply_clerk_role(user, result.json())
-            await db.flush()
+                raise HTTPException(status_code=503, detail="Could not verify your Clerk account")
+            info = result.json()
+            if info.get("banned"):
+                await sessions.revoke(db, user.id, reason="clerk_banned")
+                await db.commit()
+                raise HTTPException(status_code=403, detail="Clerk account unavailable")
+            apply_clerk_role(user, info)
+            user.clerk_checked_at = utcnow()
+            # Persist account status verification at most once per minute for
+            # teachers; staff and account refresh always check Clerk directly.
+            await db.commit()
+            if user.role == "admin" and sess.method != "clerk":
+                raise HTTPException(status_code=403, detail="Sign in through Clerk for admin access")
+        else:
+            user.clerk_checked_at = utcnow()
+            await db.commit()
     request.state.user_id = user.id
     request.state.session_id = sess.id
     user_id_var.set(str(user.id))

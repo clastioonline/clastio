@@ -13,9 +13,9 @@ from app.ai.offline_provider import register_structured
 from app.ai.service import get_ai
 from app.core.errors import AppError, NotFound
 from app.core.storage import get_storage
-from app.jobs.queue import enqueue, run_inline_if_configured, PermanentJobError
+from app.jobs.queue import PermanentJobError, enqueue, run_inline_if_configured
 from app.models import Asset, Conversation, ConversationMessage, Course, Lesson, Slide, User
-from app.services import courses, memory, usage, assets
+from app.services import assets, courses, memory, usage
 from app.services.context import build_context
 
 
@@ -148,7 +148,6 @@ async def confirm(db, user, conv_id, message_id, *, remember_style=False):
 
 async def replace(ctx):
     from app.core.db import get_sessionmaker
-    from app.generation.specs import SlideSpec
     brief = ImageBrief.model_validate(ctx.payload['brief'])
     lesson_id = uuid.UUID(ctx.payload['lesson_id'])
     await ctx.progress(10, 'Preparing the confirmed image replacement')

@@ -1,12 +1,14 @@
 "use client";
+import { LicensePanel } from "@/components/license-panel";
 
 import { Gift } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DashHeader, Panel, PillButton } from "@/components/dash";
+import { LoadError } from "@/components/load-error";
 import { errorMessage, useToast } from "@/components/toast";
 import { Field, Input, Select, Skeleton, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
-import { useApi } from "@/lib/hooks";
+import { useApi, useCan } from "@/lib/hooks";
 
 /* Limits admins most often tune. -1 means unlimited. */
 const LIMITS: { key: string; label: string }[] = [
@@ -20,7 +22,7 @@ const LIMITS: { key: string; label: string }[] = [
   { key: "media_credits_monthly", label: "Media cr./mo" },
 ];
 
-function PlanEditor({ plan, onSaved }: { plan: any; onSaved: () => void }) {
+function PlanEditor({ plan, onSaved, readOnly = false }: { plan: any; onSaved: () => void; readOnly?: boolean }) {
   const { notify } = useToast();
   const [p, setP] = useState(plan);
   const [busy, setBusy] = useState(false);
@@ -42,12 +44,12 @@ function PlanEditor({ plan, onSaved }: { plan: any; onSaved: () => void }) {
   const free = p.code === "free";
   return (
     <Panel title={<span className="flex flex-wrap items-baseline gap-2">{p.name}<span className="text-sm font-normal text-muted">{p.code}</span></span>}
-      action={!free && (
+      action={!free && !readOnly && (
         <label className="flex shrink-0 items-center gap-2 text-sm text-ink-2">
           <input type="checkbox" className="h-4 w-4 accent-[var(--color-brand-600)]" checked={p.active !== false} onChange={(e) => setP({ ...p, active: e.target.checked })} />On sale
         </label>
       )}>
-      <div className="space-y-4">
+      <fieldset className="space-y-4" disabled={readOnly}>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Name"><Input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} /></Field>
           <Field label="AED / month"><Input type="number" min={0} disabled={free} value={p.price_monthly_aed} onChange={(e) => setP({ ...p, price_monthly_aed: e.target.value })} /></Field>
@@ -64,16 +66,18 @@ function PlanEditor({ plan, onSaved }: { plan: any; onSaved: () => void }) {
         <Field label="Features shown on pricing" hint="One per line">
           <Textarea className="min-h-[132px]" value={(p.features || []).join("\n")} onChange={(e) => setP({ ...p, features: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) })} />
         </Field>
-        <div className="flex justify-end"><PillButton onClick={save} disabled={busy}>{busy ? "Saving…" : "Save plan"}</PillButton></div>
-      </div>
+        {!readOnly && <div className="flex justify-end"><PillButton onClick={save} disabled={busy}>{busy ? "Saving…" : "Save plan"}</PillButton></div>}
+      </fieldset>
     </Panel>
   );
 }
 
 export default function AdminPlans() {
   const { notify } = useToast();
-  const { data, mutate } = useApi<any>("/admin/plans");
-  const { data: settings, mutate: mutateSettings } = useApi<any>("/admin/settings");
+  const can = useCan();
+  const canManageTrial = can("settings.modify");
+  const { data, error, mutate } = useApi<any>("/admin/plans");
+  const { data: settings, error: settingsError, mutate: mutateSettings } = useApi<any>(canManageTrial ? "/admin/settings" : null);
   const [trial, setTrial] = useState<any>(null);
   useEffect(() => { if (settings) setTrial(settings.trial); }, [settings]);
 
@@ -87,11 +91,15 @@ export default function AdminPlans() {
     }
   };
 
-  if (!data || !trial) return <Skeleton className="h-96 rounded-3xl" />;
+  if (error) return <LoadError label="plans" retry={mutate} />;
+  if (!data) return <Skeleton className="h-96 rounded-3xl" />;
   return (
     <div className="space-y-5">
-      <DashHeader title="Plans & trial" subtitle="What teachers can buy, what each plan includes, and the free trial new teachers get. -1 means unlimited." />
-      <section className="ui-hero rounded-3xl bg-brand-800 p-6 text-white">
+      <DashHeader title="Plans & trial" subtitle="What teachers can buy, what each plan includes, and the free trial teachers can choose. -1 means unlimited." />
+      <LicensePanel admin />
+      {canManageTrial && settingsError && <LoadError label="trial settings" retry={mutateSettings} />}
+      {canManageTrial && !settingsError && !trial && <Skeleton className="h-40 rounded-3xl" />}
+      {canManageTrial && trial && <section className="ui-hero rounded-3xl bg-brand-800 p-6 text-white">
         <div className="flex flex-wrap items-end gap-4">
           <div className="me-auto">
             <h2 className="flex items-center gap-2 text-xl font-semibold"><Gift className="h-5 w-5" />Free trial for new teachers</h2>
@@ -109,9 +117,9 @@ export default function AdminPlans() {
           {[["credits", "Trial credits"], ["ai_images", "AI images"], ["whatsapp_messages", "WhatsApp messages"]].map(([key, label]) => <label key={key} className="text-sm">{label}<Input className="mt-1 w-24 text-ink" type="number" min={0} max={100000} value={trial[key] ?? 0} onChange={(e) => setTrial({...trial, [key]: Number(e.target.value)})} /></label>)}
           <button onClick={saveTrial} className="h-10 rounded-full bg-white px-5 text-sm font-semibold text-brand-800 hover:bg-white/90">Save trial</button>
         </div>
-      </section>
+      </section>}
       <div className="grid gap-5 xl:grid-cols-2">
-        {data.items.map((p: any) => <PlanEditor key={p.code} plan={p} onSaved={mutate} />)}
+        {data.items.map((p: any) => <PlanEditor key={p.code} plan={p} onSaved={mutate} readOnly={!can("billing.modify")} />)}
       </div>
     </div>
   );

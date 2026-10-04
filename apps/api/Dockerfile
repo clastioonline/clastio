@@ -43,8 +43,9 @@ USER app
 ENV HOME=/home/app
 
 EXPOSE 8000
-# Trust X-Forwarded-For only from proxies on private networks (the web container, an internal load balancer);
-# uvicorn uses the right-most address not in this list. The web app passes X-Forwarded-For through unchanged,
-# so in production put a TLS proxy in front of it that sets the header (see docs/DEPLOYMENT.md).
-ENV FORWARDED_ALLOW_IPS="127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+# Railway's HTTP edge reaches the container from 100.64.0.0/10; local/internal proxies use RFC1918.
+# Uvicorn selects the right-most untrusted X-Forwarded-For hop, ignoring client-prepended spoofed IPs.
+# Keep this list scoped to actual proxy networks; never use '*'. A frontend on another provider needs
+# its own authenticated forwarding boundary before its public egress addresses can be trusted.
+ENV FORWARDED_ALLOW_IPS="127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

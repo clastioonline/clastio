@@ -67,3 +67,46 @@ def test_annual_price_and_decimal_minor_units():
     plan = SimpleNamespace(price_monthly_aed="149.99", price_annual_aed=1490)
     assert billing._plan_amount_minor(plan, "month") == 14999
     billing._check_catalogue_price(plan, "year", amount=149000, currency="AED", frequency="month", count=12)
+
+
+@pytest.mark.parametrize("overrides,is_recurring", [
+    ({"price": 5900}, False), ({"price": None}, False), ({"currency": "USD"}, False),
+    ({"type": "recurring_price"}, True), ({}, True), ({"pay_what_you_want": True}, False),
+])
+async def test_dodo_wrong_one_time_product_never_creates_checkout(overrides, is_recurring):
+    provider = billing.DodoProvider.__new__(billing.DodoProvider)
+    provider.settings = SimpleNamespace(public_web_url="https://clastio.online")
+    create = AsyncMock()
+    price = dict(price=1900, currency="AED", type="one_time_price", pay_what_you_want=False) | overrides
+    provider.client = SimpleNamespace(products=SimpleNamespace(retrieve=AsyncMock(return_value=SimpleNamespace(
+        is_recurring=is_recurring, price=SimpleNamespace(**price)))), checkout_sessions=SimpleNamespace(create=create))
+    with pytest.raises(AppError) as error:
+        await provider.checkout_one_time(SimpleNamespace(id="teacher", email="teacher@example.com", name="Teacher"),
+            name="Starter", amount_aed=19, product_id="pdt_wrong", metadata={"kind": "media_pack", "pack_code": "starter"})
+    assert error.value.code == "billing_price_mismatch"
+    create.assert_not_called()
+
+
+async def test_dodo_matching_one_time_pack_preserves_metadata_and_decimal_price():
+    provider = billing.DodoProvider.__new__(billing.DodoProvider)
+    provider.settings = SimpleNamespace(public_web_url="https://clastio.online")
+    create = AsyncMock(return_value=SimpleNamespace(checkout_url="https://checkout.example/pack"))
+    provider.client = SimpleNamespace(products=SimpleNamespace(retrieve=AsyncMock(return_value=SimpleNamespace(
+        is_recurring=False, price=SimpleNamespace(price=1999, currency="aed", type="one_time_price")))),
+        checkout_sessions=SimpleNamespace(create=create))
+    url = await provider.checkout_one_time(SimpleNamespace(id="teacher", email="teacher@example.com", name="Teacher"),
+        name="Starter", amount_aed=19.99, product_id="pdt_starter", metadata={"kind": "media_pack", "pack_code": "starter"})
+    assert url == "https://checkout.example/pack"
+    assert create.await_args.kwargs["product_cart"] == [{"product_id": "pdt_starter", "quantity": 1}]
+    assert create.await_args.kwargs["metadata"] == {"user_id": "teacher", "kind": "media_pack", "pack_code": "starter"}
+
+
+async def test_stripe_one_time_decimal_price_uses_exact_minor_units():
+    provider = billing.StripeProvider.__new__(billing.StripeProvider)
+    provider.settings = SimpleNamespace(public_web_url="https://clastio.online")
+    create = AsyncMock(return_value=SimpleNamespace(url="https://checkout.example/pack"))
+    provider.client = SimpleNamespace(v1=SimpleNamespace(checkout=SimpleNamespace(sessions=SimpleNamespace(create_async=create))))
+    await provider.checkout_one_time(SimpleNamespace(id="teacher", email="teacher@example.com"), name="Starter",
+        amount_aed=19.99, product_id=None, metadata={"kind": "media_pack", "pack_code": "starter"})
+    params = create.await_args.kwargs["params"]
+    assert params["line_items"][0]["price_data"]["unit_amount"] == 1999

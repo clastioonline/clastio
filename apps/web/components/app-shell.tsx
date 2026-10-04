@@ -40,13 +40,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AppWalkthrough } from "@/components/app-walkthrough";
 import { ActivityButton } from "@/components/activity-center";
 import { Logo } from "@/components/brand";
+import { LoadError } from "@/components/load-error";
 import { LegalGate } from "@/components/legal-gate";
 import { AnnouncementBanners, MaintenanceBanner, NotificationBell, VerifyEmailBanner } from "@/components/notification-center";
 import { Spinner } from "@/components/ui";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { useApi, useCan, useMe } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n";
+import { adminLandingPath } from "@/lib/navigation";
+import { quotaAvailable } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; key: string; label: string; icon: any; badge?: string | number | null };
@@ -137,6 +140,7 @@ function PlanCard() {
   const { data } = useApi<any>("/me/usage", { refreshInterval: 30_000 });
   if (!data) return null;
   const c = data.usage.credits;
+  const available = quotaAvailable(c);
   const pct = c.limit && c.limit > 0 ? Math.min(100, (c.used / c.limit) * 100) : 0;
   const trial = data.trial?.active ? data.trial : null;
   return (
@@ -149,6 +153,7 @@ function PlanCard() {
           <div className="mt-1.5 text-[11px] text-white/70">{c.used} / {c.limit} credits this month</div>
         </>
       )}
+      <div className="mt-2 text-xs text-white/90">{available === null ? "Unlimited credits" : `${available} credits available`}{c.reserved > 0 && <span className="block text-white/70">{c.reserved} reserved for queued work</span>}</div>
       <Link href="/billing" className="mt-3 block rounded-full bg-white/95 py-2 text-center text-sm font-semibold text-brand-800 hover:bg-white">
         {trial ? "Choose a plan" : data.plan.code === "free" ? "Upgrade" : "Manage plan"}
       </Link>
@@ -162,10 +167,11 @@ function PlanBanner() {
   const pathname = usePathname();
   if (!data || pathname === "/billing") return null;
   const t = data.trial;
+  const available = quotaAvailable(data.usage.credits);
   if (t?.active) {
     return (
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-accent-50 px-4 py-3 text-sm text-ink-2">
-        <span>Your {data.plan.name} trial ends in <b>{t.days_left} day{t.days_left === 1 ? "" : "s"}</b>. <b>{Math.max(0, (data.usage?.credits?.limit || 0) - (data.usage?.credits?.used || 0))} credits left</b> in your trial. No card on file; nothing is charged.</span>
+        <span>Your {data.plan.name} trial ends in <b>{t.days_left} day{t.days_left === 1 ? "" : "s"}</b>. <b>{available === null ? "Unlimited credits" : `${available} credits left`}</b> in your trial. No card on file; nothing is charged.</span>
         <Link href="/billing" className="rounded-full bg-brand-800 px-4 py-2 font-semibold text-white hover:brightness-110">Choose a plan</Link>
       </div>
     );
@@ -258,7 +264,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
           <kbd className="absolute end-3 top-1/2 -translate-y-1/2 rounded-md bg-surface-2 px-2 py-1 text-xs text-muted">⌘ K</kbd>
         </form>
       )}
-      <div className="shrink-0 lg:hidden"><Logo href="/dashboard" className="[&>span]:hidden sm:[&>span]:inline" /></div>
+      <div className="shrink-0 lg:hidden"><Logo href={admin ? adminLandingPath(user.permissions) : "/dashboard"} className="[&>span]:hidden sm:[&>span]:inline" /></div>
       <div className="ms-auto flex items-center gap-2">
         <button onClick={() => setLocale(locale === "ar" ? "en" : "ar")} aria-label="Switch language" title={locale === "ar" ? "English" : "العربية"}
           className="focus-ring hidden h-11 w-11 place-items-center rounded-full bg-surface text-ink-2 hover:text-ink sm:grid">
@@ -287,7 +293,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, error, isLoading } = useMe();
+  const { user, error, isLoading, mutate } = useMe();
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
@@ -296,14 +302,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: sysHealth } = useApi<any>(user?.role === "admin" && can("system.logs.view") ? "/admin/system/health" : null, { refreshInterval: 120_000 });
 
   useEffect(() => {
-    if (error) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (error instanceof ApiError && error.status === 401) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
   }, [error, pathname, router]);
   const admin = user?.role === "admin";
   useEffect(() => {
     if (!user) return;
     if (admin) {
       // Admins run the platform; the teacher product is not theirs to use or pay for.
-      if (!pathname.startsWith("/admin") && !ADMIN_ALLOWED.includes(pathname)) {
+      if ((!pathname.startsWith("/admin") && !ADMIN_ALLOWED.includes(pathname)) || (pathname === "/admin" && !user.permissions.includes("analytics.view"))) {
         const first = ADMIN_GROUPS.flatMap((g) => g.items).find((i) => !i.perm || user.permissions?.includes(i.perm));
         router.replace(first?.href || "/settings");
       }
@@ -315,6 +321,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [user, admin, pathname, router]);
   useEffect(() => setOpen(false), [pathname]);
 
+  if (error && !(error instanceof ApiError && error.status === 401)) {
+    return <main className="mx-auto max-w-3xl p-6"><LoadError label="your account" retry={mutate} /></main>;
+  }
   if (isLoading || !user) {
     return <div className="grid min-h-screen place-items-center"><Spinner className="h-7 w-7" /></div>;
   }
@@ -328,7 +337,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sidebar = (
     <div className="flex h-full flex-col gap-5 overflow-hidden p-4">
       <div className="flex items-center justify-between px-2 pt-2">
-        <Logo href={user.role === "admin" ? "/admin" : "/dashboard"} />
+        <Logo href={user.role === "admin" ? adminLandingPath(user.permissions) : "/dashboard"} />
         <button className="rounded-full p-2 text-muted hover:bg-surface lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu"><X className="h-5 w-5" /></button>
       </div>
       <nav className="-mx-4 flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4" aria-label="Main">

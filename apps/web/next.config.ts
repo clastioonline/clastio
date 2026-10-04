@@ -7,16 +7,16 @@ const DEV = process.env.NODE_ENV !== "production";
 // Allow Turnstile and configured Clerk authentication resources alongside first-party assets.
 // Headers are baked into the build. Keep the allowed authentication domains stable
 // even when the publishable key is supplied only to the running service.
-const clerkSources = " https://clerk.clastio.online https://*.clerk.accounts.dev https://*.protect.clerk.com https://clerk-telemetry.com https://*.clerk-telemetry.com";
+const clerkFrontendSources = ` https://clerk.clastio.online${DEV ? " https://*.clerk.accounts.dev" : ""}`;
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com${clerkSources}`,
+  `script-src 'self' 'unsafe-inline'${DEV ? " 'unsafe-eval'" : ""} https://challenges.cloudflare.com${clerkFrontendSources} https://*.protect.clerk.com`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self'${DEV ? " ws:" : ""}${clerkSources}${clerkSources ? " https://*.protect.clerk.com:*" : ""}`,
-  `frame-src https://challenges.cloudflare.com${clerkSources}`,
+  `connect-src 'self'${DEV ? " ws:" : ""}${clerkFrontendSources} https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.clerk-telemetry.com`,
+  `frame-src 'self' https://challenges.cloudflare.com${clerkFrontendSources} https://*.protect.clerk.com`,
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",

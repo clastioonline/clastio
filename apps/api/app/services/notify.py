@@ -1,7 +1,8 @@
 """In-app notifications and queued transactional email.
 
 Emails are written to email_outbox inside the caller's transaction and sent by the worker with retries, so a slow
-or failing mail server never blocks a request. Without RESEND_API_KEY or SMTP_URL the worker logs the email instead of sending it.
+or failing mail server never blocks a request. Production queues wait for a configured provider; development
+without RESEND_API_KEY or SMTP_URL logs the email instead of sending it.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from app.models import EmailOutbox, Notification, User
 logger = logging.getLogger("notify")
 
 MAX_EMAIL_ATTEMPTS = 5
+EMAIL_DEDUPE_TYPE = "_email_dedupe"
 
 
 def sender_for(template: str) -> str:
@@ -72,6 +74,9 @@ TEMPLATES: dict[str, tuple[str, str]] = {
     "usage_warning": ("You've used {percent}% of your monthly credits",
                       "Hi {name},\n\nYou've used {percent}% of this month's credits on your {plan} plan. When they run "
                       "out, new lessons wait until next month unless you upgrade: {link}\n"),
+    "trial_usage_warning": ("You've used {percent}% of your trial credits",
+                            "Hi {name},\n\nYou've used {percent}% of the credits for your entire {plan} trial. "
+                            "Choose a paid plan to keep creating when they run out. Your existing work stays safe: {link}\n"),
     "deletion_scheduled": ("Your Clastio account will be deleted",
                            "Hi {name},\n\nYour account is scheduled for deletion on {date}. Until then you can cancel "
                            "by contacting support. After that date your content is permanently removed.\n"),
@@ -96,10 +101,14 @@ def queue_email(db: AsyncSession, user: User | None, template: str, *, to: str |
 
 
 async def notify(db: AsyncSession, user_id: uuid.UUID, type_: str, title: str, body: str = "", link: str | None = None,
-                 dedupe_key: str | None = None) -> bool:
+                 dedupe_key: str | None = None, *, visible: bool = True) -> bool:
     """Create an in-app notification. With a dedupe_key it is created at most once. Returns True if new."""
-    stmt = insert(Notification).values(id=uuid.uuid4(), user_id=user_id, type=type_, title=title, body=body,
-                                       link=link, dedupe_key=dedupe_key, created_at=utcnow())
+    now = utcnow()
+    stmt = insert(Notification).values(id=uuid.uuid4(), user_id=user_id,
+                                       type=type_ if visible else EMAIL_DEDUPE_TYPE,
+                                       title=title if visible else "", body=body if visible else "",
+                                       link=link if visible else None, dedupe_key=dedupe_key,
+                                       read_at=None if visible else now, created_at=now)
     if dedupe_key:
         stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "dedupe_key"])
     res = await db.execute(stmt)
@@ -118,6 +127,33 @@ def _smtp_send(msg: EmailMessage) -> None:
         server.send_message(msg)
 
 
+async def _delivery_restriction(db: AsyncSession, row: EmailOutbox) -> str | None:
+    """Recheck mutable choices at delivery, including emails queued before a consent withdrawal."""
+    if not row.user_id:
+        return "Recipient removed" if "@" not in row.to_email else None
+    user = await db.get(User, row.user_id)
+    if not user or user.status == "deleted" or user.email.lower() != row.to_email.lower():
+        return "Recipient removed or email changed"
+    # These notices must reach accounts locked by their own security/deletion action.
+    if user.status != "active" and row.template not in {"account_suspended", "deletion_scheduled"}:
+        return "Recipient account is inactive"
+    from app.services.notifications import EVENTS, get_prefs
+
+    category = next((event.category for event in EVENTS.values() if event.email == row.template), None)
+    category = category or {"product_update": "announcement", "usage_warning": "usage", "trial_usage_warning": "usage",
+                            "ticket_reply": "support", "subscription_confirmed": "billing",
+                            "subscription_cancelled": "billing"}.get(row.template)
+    if category and not (await get_prefs(db, user.id))[category]["email"]:
+        return "Recipient disabled this email category"
+    if row.template == "product_update":
+        from app.services.legal import latest_consents
+
+        consents = await latest_consents(db, user.id)
+        if not user.email_verified or not consents.get("marketing_email", {}).get("granted"):
+            return "Marketing consent not granted"
+    return None
+
+
 async def send_pending_emails(limit: int = 20) -> int:
     """Worker tick: send queued emails, retrying with backoff; gives up after MAX_EMAIL_ATTEMPTS."""
     s = get_settings()
@@ -128,16 +164,30 @@ async def send_pending_emails(limit: int = 20) -> int:
                                  .order_by(EmailOutbox.created_at).limit(limit).with_for_update(skip_locked=True))
                 ).scalars().all()
         for row in rows:
-            row.attempts += 1
             if not s.smtp_url and not s.resend_api_key:
-                row.status, row.sent_at, row.last_error = "logged", utcnow(), "Email provider not configured; email not sent"
-                log(logger, logging.INFO, "email_logged", template=row.template, to_domain=row.to_email.split("@")[-1])
+                row.last_error = "Email provider not configured; email not sent"
+                if s.environment == "production":
+                    # Configuration can be repaired without losing pending receipts and reminders.
+                    row.send_after = utcnow() + timedelta(minutes=5)
+                    log(logger, logging.WARNING, "email_provider_missing", template=row.template)
+                else:
+                    row.status, row.sent_at = "logged", utcnow()
+                    log(logger, logging.INFO, "email_logged", template=row.template,
+                        to_domain=row.to_email.split("@")[-1])
                 continue
-            msg = EmailMessage()
-            sender = sender_for(row.template)
-            msg["From"], msg["To"], msg["Subject"] = sender, row.to_email, row.subject
-            msg.set_content(row.body_text)
+            row.attempts += 1
             try:
+                restriction = await _delivery_restriction(db, row)
+                if restriction:
+                    row.status, row.last_error = "logged", f"Email suppressed: {restriction}"
+                    continue
+                msg = EmailMessage()
+                sender = sender_for(row.template)
+                # Lesson titles and announcement text can contain line breaks. A malformed header must
+                # never stop the entire batch or inject additional headers.
+                subject = " ".join(row.subject.splitlines())
+                msg["From"], msg["To"], msg["Subject"] = sender, row.to_email, subject
+                msg.set_content(row.body_text)
                 if s.resend_api_key:
                     async with httpx.AsyncClient(timeout=20) as client:
                         result = await client.post(
@@ -145,7 +195,7 @@ async def send_pending_emails(limit: int = 20) -> int:
                             headers={"Authorization": f"Bearer {s.resend_api_key}",
                                      "Idempotency-Key": f"outbox/{row.id}"},
                             json={"from": sender, "to": [row.to_email],
-                                  "subject": row.subject, "text": row.body_text},
+                                  "subject": subject, "text": row.body_text},
                         )
                         if not result.is_success:
                             # Never persist request headers / API keys in outbox errors.

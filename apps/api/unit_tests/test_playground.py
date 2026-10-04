@@ -1,8 +1,10 @@
 import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
 import pytest
 from pydantic import ValidationError
+
 from app.services import assistant
 
 
