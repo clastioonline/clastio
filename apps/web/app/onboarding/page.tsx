@@ -35,6 +35,10 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (error) router.replace("/login?next=/onboarding");
+    if (user?.role === "admin") {
+      router.replace("/admin");
+      return;
+    }
     if (user) setBasics((b) => ({ ...b, name: b.name || user.name }));
   }, [user, error, router]);
 

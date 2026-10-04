@@ -41,29 +41,30 @@ async def get_current_user(request: Request, db: DB) -> User:
     if user.status not in USABLE_STATUSES:
         raise HTTPException(status_code=403, detail="This account is not available. Contact support.")
     from app.core.config import get_settings
-    if user.role == "admin" and get_settings().clerk_secret_key:
-        # Recheck privileged sessions so removing a Clerk role revokes access
-        # without waiting for an application session to expire.
+    if get_settings().clerk_secret_key and (user.role == "admin" or request.url.path == "/api/v1/auth/me"):
+        # Refresh roles when loading the current account, including promotions,
+        # and recheck privileged sessions before granting admin access.
         import httpx
         from sqlalchemy import select
         from app.models import OAuthAccount
         from app.services.clerk_roles import apply_clerk_role
         identity = (await db.execute(select(OAuthAccount).where(
             OAuthAccount.user_id == user.id, OAuthAccount.provider == "clerk"))).scalars().first()
-        if identity is None:
+        if identity is None and user.role == "admin":
             raise HTTPException(status_code=403, detail="Sign in through Clerk for admin access")
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                result = await client.get(f"https://api.clerk.com/v1/users/{identity.subject}",
-                    headers={"Authorization": f"Bearer {get_settings().clerk_secret_key}"})
-        except httpx.HTTPError:
-            raise HTTPException(status_code=503, detail="Could not verify Clerk staff access") from None
-        if result.status_code == 404:
-            raise HTTPException(status_code=403, detail="Clerk account unavailable")
-        if not result.is_success:
-            raise HTTPException(status_code=503, detail="Could not verify Clerk staff access")
-        apply_clerk_role(user, result.json())
-        await db.flush()
+        if identity is not None:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    result = await client.get(f"https://api.clerk.com/v1/users/{identity.subject}",
+                        headers={"Authorization": f"Bearer {get_settings().clerk_secret_key}"})
+            except httpx.HTTPError:
+                raise HTTPException(status_code=503, detail="Could not verify Clerk staff access") from None
+            if result.status_code == 404:
+                raise HTTPException(status_code=403, detail="Clerk account unavailable")
+            if not result.is_success:
+                raise HTTPException(status_code=503, detail="Could not verify Clerk staff access")
+            apply_clerk_role(user, result.json())
+            await db.flush()
     request.state.user_id = user.id
     request.state.session_id = sess.id
     user_id_var.set(str(user.id))
