@@ -10,6 +10,7 @@ import {
   CircleHelp,
   FileText,
   Gauge,
+  Gift,
   KeyRound,
   LifeBuoy,
   Megaphone,
@@ -72,6 +73,7 @@ const GENERAL: Item[] = [
   { href: "/support", key: "nav.support", label: "Help & support", icon: LifeBuoy },
   { href: "/tutorials", key: "nav.tutorials", label: "Tutorials & help", icon: CircleHelp },
   { href: "/billing", key: "nav.billing", label: "Plan & billing", icon: CreditCard },
+  { href: "/rewards", key: "", label: "Earn credits", icon: Gift },
   { href: "/settings", key: "nav.settings", label: "Settings", icon: Settings },
 ];
 type AdminItem = Item & { perm?: string };
@@ -89,6 +91,7 @@ const ADMIN_GROUPS: { title: string; items: AdminItem[] }[] = [
     { href: "/admin/billing", key: "", label: "Subscriptions & payments", icon: Wallet, perm: "billing.view" },
     { href: "/admin/plans", key: "", label: "Plans & trial", icon: CreditCard, perm: "billing.view" },
     { href: "/admin/media", key: "", label: "Media packs", icon: ImagePlay, perm: "billing.view" },
+    { href: "/admin/rewards", key: "", label: "Credit tasks", icon: Gift, perm: "billing.view" },
   ] },
   { title: "Usage", items: [
     { href: "/admin/api-usage", key: "", label: "API usage", icon: Gauge, perm: "api_usage.view" },
@@ -179,7 +182,7 @@ function PlanBanner() {
   if (t?.ended) {
     return (
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-ink-2">
-        <span>Your free trial has ended and you're on the Free plan. Your lessons and designs are safe. Upgrade to keep building full units.</span>
+        <span>Your free trial has ended and you're on the Free plan. Your lessons and designs are safe. {available === null ? "Unlimited credits available." : `${available} credits available.`} Earlier usage still counts this month; your Free allowance resets on the first of next month.</span>
         <Link href="/billing" className="rounded-full bg-brand-800 px-4 py-2 font-semibold text-white hover:brightness-110">See plans</Link>
       </div>
     );
@@ -299,6 +302,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const can = useCan();
+  const { data: teacherUsage } = useApi<any>(user?.role === "teacher" ? "/me/usage" : null, { refreshInterval: 60_000 });
   const { data: sysHealth } = useApi<any>(user?.role === "admin" && can("system.logs.view") ? "/admin/system/health" : null, { refreshInterval: 120_000 });
 
   useEffect(() => {
@@ -348,7 +352,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Section title="Menu">{MENU.map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}</Section>
         )}
         <Section title="General">
-          {(admin ? GENERAL.filter((i) => ADMIN_ALLOWED.includes(i.href)) : GENERAL).map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}
+          {(admin ? GENERAL.filter((i) => ADMIN_ALLOWED.includes(i.href)) : GENERAL.filter((i) => i.href !== "/rewards" || teacherUsage?.plan?.code === "free")).map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}
           <button onClick={logout} className="focus-ring group flex items-center gap-3 rounded-xl px-3 py-2 text-start text-[15px] text-muted hover:bg-surface hover:text-ink">
             <LogOut className="h-5 w-5 group-hover:text-brand-600" />{t("nav.signout", "Logout")}
           </button>

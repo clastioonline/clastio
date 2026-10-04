@@ -82,11 +82,11 @@ async def active_subscription(db: AsyncSession, user_id: uuid.UUID) -> Subscript
         .order_by(Subscription.created_at.desc()))).scalars().first()
 
 
-async def start_trial(db: AsyncSession, user: User) -> Subscription | None:
+async def start_trial(db: AsyncSession, user: User, *, cfg: dict | None = None) -> Subscription | None:
     """Give a new teacher the admin-configured free trial (no card). Returns None when trials are off."""
     from app.core.db import utcnow
 
-    cfg = await get_setting("trial")
+    cfg = cfg if cfg is not None else await get_setting("trial")
     if not cfg.get("enabled") or user.role == "admin" or int(cfg.get("days", 0)) <= 0:
         return None
     now = utcnow()

@@ -166,7 +166,7 @@ async def plans(db: DB):
 
 
 @router.get("/billing/subscription", tags=["billing"])
-async def subscription(user: CurrentUser, db: DB):
+async def subscription(request: Request, user: CurrentUser, db: DB):
     summary = await usage.summary(db, user)
     if summary["subscription"] is None:
         # Keep payment recovery and cancellation reachable after paid access
@@ -195,6 +195,12 @@ async def subscription(user: CurrentUser, db: DB):
         previous_trial = (await db.execute(select(TrialGrant.id).where(
             TrialGrant.email_hash == normalised_email_hash(user.email)))).first()
         summary["trial_available"] = previous_trial is None
+        if summary["trial_available"]:
+            from app.services.trial_device import COOKIE, cookie_digest, device_used
+
+            summary["trial_available"] = not await device_used(db, user.id, cookie_digest(request.cookies.get(COOKIE)))
+            if not summary["trial_available"]:
+                summary["trial_unavailable_reason"] = "This browser already used a trial. Continue on Free or contact support for a shared school device."
     pays = (await db.execute(select(Payment).where(Payment.user_id == user.id).order_by(Payment.created_at.desc())
                              .limit(24))).scalars().all()
     summary["payments"] = [{"amount": float(p.amount), "currency": p.currency, "tax": float(p.tax_amount),
@@ -531,6 +537,8 @@ async def admin_set_setting(key: str, value: dict[str, Any], admin: Staff("setti
                             db: DB):
     if key not in DEFAULTS:
         raise AppError("bad_request", "Unknown setting", 400)
+    if key == "rewards":
+        raise AppError("bad_request", "Use Credit tasks to update reward limits with validation and a reason.", 400)
     _validate_setting(key, value)
     before = (await get_app_settings([key]))[key]
     await set_setting(key, value)

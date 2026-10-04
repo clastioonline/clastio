@@ -10,7 +10,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.core.config import get_settings
 from app.core.db import utcnow
@@ -30,6 +30,7 @@ from app.models import OAuthAccount, TeacherProfile, TrialGrant, User, UserSessi
 from app.services import legal, sessions
 from app.services.events import security_event, track
 from app.services.notify import queue_email
+from app.services.trial_device import ensure_cookie
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -131,7 +132,7 @@ async def _create_user(db, email: str, name: str, password: str | None, *, sourc
     return user
 
 
-async def _maybe_start_trial(db, user: User, request: Request | None) -> bool:
+async def _maybe_start_trial(db, user: User, request: Request | None, *, device_hash: str | None = None) -> bool:
     """One free trial per person: keyed on the normalised email, remembered even after account deletion."""
     from sqlalchemy.dialects.postgresql import insert
 
@@ -157,24 +158,32 @@ async def _maybe_start_trial(db, user: User, request: Request | None) -> bool:
     if domain in DISPOSABLE_DOMAINS:
         security_event(db, "trial_abuse", user_id=user.id, request=request, reason="disposable_email")
         return False
-    res = await db.execute(insert(TrialGrant).values(id=uuid.uuid4(), email_hash=normalised_email_hash(user.email),
+    grant_id = uuid.uuid4()
+    res = await db.execute(insert(TrialGrant).values(id=grant_id, email_hash=normalised_email_hash(user.email),
                                                      user_id=user.id, created_at=utcnow())
                            .on_conflict_do_nothing(index_elements=["email_hash"]))
     if not res.rowcount:
         security_event(db, "trial_abuse", user_id=user.id, request=request, reason="trial_already_used")
         return False
-    if await start_trial(db, user):
+    from app.services.trial_device import claim_device
+
+    if not await claim_device(db, user.id, device_hash):
+        # A refused browser claim must not consume this teacher's email grant.
+        await db.execute(delete(TrialGrant).where(TrialGrant.id == grant_id))
+        security_event(db, "trial_abuse", user_id=user.id, request=request, reason="browser_trial_already_used")
+        return False
+    if await start_trial(db, user, cfg=cfg):
         track(db, "trial_started", user_id=user.id)
         return True
     return False
 
 
 @router.post("/trial", dependencies=[Depends(rate_limit("trial_start", 5, 3600))])
-async def choose_trial(request: Request, user: CurrentUser, db: DB):
-    started = await _maybe_start_trial(db, user, request)
+async def choose_trial(request: Request, response: Response, user: CurrentUser, db: DB):
+    started = await _maybe_start_trial(db, user, request, device_hash=ensure_cookie(request, response, strict=True))
     await db.commit()
     if not started:
-        raise AppError("trial_not_available", "A trial is unavailable or has already been used. You can continue on Free.", 409)
+        raise AppError("trial_not_available", "A trial is unavailable or this email/browser has already used one. Continue on Free, or contact support if you share a school device.", 409)
     return {"started": True}
 
 
@@ -202,6 +211,7 @@ async def signup(data: SignupIn, request: Request, response: Response, db: DB):
     user.last_login_at = utcnow()
     queue_email(db, user, "verify_email", link=verification_link(user))
     queue_email(db, user, "welcome", link=f"{get_settings().public_web_url}/dashboard")
+    ensure_cookie(request, response)
     _, token = await sessions.start_session(db, user, request, response, method="password")
     security_event(db, "login_success", user_id=user.id, request=request, method="signup")
     await db.commit()
@@ -235,6 +245,7 @@ async def login(data: LoginIn, request: Request, response: Response, db: DB):
         await db.commit()
         raise err
     user.last_login_at = utcnow()
+    ensure_cookie(request, response)
     _, token = await sessions.start_session(db, user, request, response, method="password")
     security_event(db, "login_success", user_id=user.id, request=request)
     track(db, "login", user_id=user.id)
@@ -285,7 +296,8 @@ async def revoke_session(session_id: uuid.UUID, user: CurrentUser, request: Requ
 
 
 @router.get("/me")
-async def me(user: CurrentUser, db: DB):
+async def me(request: Request, response: Response, user: CurrentUser, db: DB):
+    ensure_cookie(request, response)
     user = await _load(db, user.id)
     # Staff operate the platform; customer policy re-acceptance applies to teachers.
     pending = [] if user.role == "admin" else await legal.pending_acceptance(db, user)
@@ -405,6 +417,7 @@ async def magic(data: MagicIn, request: Request, response: Response, db: DB):
     user = await _load(db, uuid.UUID(payload["sub"]))
     if user.status != "active":
         raise HTTPException(status_code=403, detail="Account unavailable")
+    ensure_cookie(request, response)
     await sessions.start_session(db, user, request, response, method="magic")
     await db.commit()
     return {"user": user_out(user), "redirect": "/admin" if user.role == "admin" else payload.get("r", "/dashboard")}
@@ -495,6 +508,7 @@ async def oauth_callback(provider: str, request: Request, db: DB, code: str = ""
     user.last_login_at = utcnow()
     destination = "/admin" if user.role == "admin" else "/dashboard"
     resp = RedirectResponse(f"{s.public_web_url}{destination}")
+    ensure_cookie(request, resp)
     await sessions.start_session(db, user, request, resp, method=provider)
     security_event(db, "login_success", user_id=user.id, request=request, method=provider)
     await db.commit()
@@ -600,6 +614,7 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
         user.email_verified = True
         user.email_verified_at = user.email_verified_at or utcnow()
     user.last_login_at = utcnow()
+    ensure_cookie(request, response)
     await sessions.start_session(db, user, request, response, method="clerk")
     security_event(db, "login_success", user_id=user.id, request=request, method="clerk")
     await db.commit()

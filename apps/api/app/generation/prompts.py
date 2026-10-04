@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-natural-stock-v5"
+PROMPT_VERSION = "2026-10-classroom-quality-v6"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
@@ -17,6 +17,7 @@ WRITING_RULES = """Writing rules (apply to every piece of student-facing and tea
 - No filler, hype or clichés ("delve", "unlock", "in today's fast-paced world", "let's dive in", "journey").
 - Headings are short and informative; never repeat the same heading twice in a deck.
 - Be factually careful. If a fact is uncertain or contested, leave it out rather than guess.
+- Treat named school details, official curriculum codes, statistics and citations as facts only when supplied by the teacher's material. A UAE theme is not proof of school or curriculum approval.
 - Never claim the content was written by a human, and do not add AI-detection-evasion tricks."""
 
 NATURAL_CLASSROOM_STYLE = """NATURAL CLASSROOM STYLE
@@ -96,6 +97,8 @@ Deck rules:
 - Exit tickets and guided practice must state actual problems with explicit numbers and teacher-note answers.
   Never ask to solve "the problem" without supplying it. Define bounds for open tasks (e.g. total at most 10).
 - Every slide's timing_minutes must sum to the requested duration; put timing only in that field.
+- Double-check each quiz answer against all four distinct options. Calculate numeric examples and answer keys; never guess an answer index. Put the reason and expected answer in teacher notes.
+- Never pad a requested deck with repeated generic discussion slides. Every slide must advance the stated objectives or check a taught idea.
 - The lesson plan phases must add up to the lesson duration and match the slides.
 - Differentiation must be practical: support (scaffolds), core, extension (stretch), EAL (vocabulary, sentence
   frames) and SEND (students of determination: chunking, visuals, extra time).

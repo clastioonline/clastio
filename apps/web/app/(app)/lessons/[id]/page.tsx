@@ -378,6 +378,7 @@ export default function LessonPage() {
       </div>
 
       {Number(lesson.qc?.images?.placeholder || 0) > 0 && <Alert tone="warn" title="Some images need replacement">A real illustration was unavailable for {lesson.qc.images.placeholder} slide(s). Use Upload / replace image in the manual editor, or rebuild with live AI illustrations enabled.</Alert>}
+      {lesson.qc?.content_quality && <Alert title="Review before teaching">Quiz structure and answer keys have been checked where possible. Review subject facts, examples and curriculum alignment before class.{Number(lesson.qc.content_quality.reference_count || 0) === 0 && " Add your textbook or syllabus as reference material for closer alignment."}</Alert>}
 
       {lesson.carry_over?.text && <Alert tone="accent" title="Carried over from the last lesson">{lesson.carry_over.text}</Alert>}
       {(jobId || generating) && (

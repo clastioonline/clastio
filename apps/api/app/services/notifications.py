@@ -155,7 +155,8 @@ PREF_KEY = "notification_prefs"
 
 
 def default_prefs() -> dict[str, dict[str, bool]]:
-    return {c: {"in_app": True, "email": c not in ("product",)} for c in CATEGORIES}
+    # Push still requires a separate user-gesture browser opt-in; marketing/review pushes start off.
+    return {c: {"in_app": True, "email": c not in ("product",), "push": c not in ("announcement", "feedback")} for c in CATEGORIES}
 
 
 async def get_prefs(db: AsyncSession, user_id: uuid.UUID) -> dict[str, dict[str, bool]]:
@@ -164,21 +165,22 @@ async def get_prefs(db: AsyncSession, user_id: uuid.UUID) -> dict[str, dict[str,
     prefs = default_prefs()
     for cat, val in ((row.value if row else None) or {}).items():
         if cat in prefs and isinstance(val, dict):
-            prefs[cat].update({k: bool(v) for k, v in val.items() if k in ("in_app", "email")})
+            prefs[cat].update({k: bool(v) for k, v in val.items() if k in ("in_app", "email", "push")})
     for cat, (_, mandatory) in CATEGORIES.items():
         if mandatory:
-            prefs[cat] = {"in_app": True, "email": True}
+            prefs[cat].update({"in_app": True, "email": True})
     return prefs
 
 
 async def set_prefs(db: AsyncSession, user_id: uuid.UUID, changes: dict[str, dict[str, bool]]) -> dict:
     current = await get_prefs(db, user_id)
     for cat, val in changes.items():
-        if cat in current and not CATEGORIES[cat][1]:
-            current[cat].update({k: bool(v) for k, v in val.items() if k in ("in_app", "email")})
+        if cat in current:
+            current[cat].update({k: bool(v) for k, v in val.items()
+                                 if k == "push" or k in ("in_app", "email") and not CATEGORIES[cat][1]})
     row = (await db.execute(select(TeacherPreference).where(TeacherPreference.user_id == user_id,
                                                             TeacherPreference.key == PREF_KEY))).scalars().first()
-    stored = {c: v for c, v in current.items() if not CATEGORIES[c][1]}
+    stored = current
     if row:
         row.value = stored
     else:
@@ -197,7 +199,7 @@ async def send(db: AsyncSession, user: User, event: str, *, dedupe_key: str | No
     cat = prefs.get(ev.category, {"in_app": True, "email": True})
     link = _fmt(ev.link, ctx)
     created = True
-    if cat["in_app"] or dedupe_key:  # the dedupe row also stops a repeat email
+    if cat["in_app"] or cat.get("push") or dedupe_key:  # the hidden row also deduplicates device/email delivery
         created = await notify(db, user.id, ev.category, _fmt(ev.title, ctx)[:200], _fmt(ev.body, ctx), link,
                                dedupe_key=dedupe_key, visible=cat["in_app"])
     if created and ev.email and cat["email"] and ev.email_default and user.status == "active":
@@ -258,7 +260,7 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, link: str | None
     for uid in (await db.execute(q)).scalars().all():
         prefs = await get_prefs(db, uid)
         category = prefs["announcement"]
-        if not (category["in_app"] or category["email"]):
+        if not (category["in_app"] or category["email"] or category.get("push")):
             continue
         if await notify(db, uid, "announcement", title[:200], body, link,
                         dedupe_key=f"{dedupe_key}:{uid}", visible=category["in_app"]):

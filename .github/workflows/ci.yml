@@ -125,6 +125,16 @@ jobs:
           BASE_URL: http://localhost:3000
           EXPECTED_SITE_URL: http://localhost:3000
         run: npm run e2e:launch-readiness && npm run e2e:smart-assistant-seo
+      - name: Activity follows teacher and staff roles
+        working-directory: apps/web
+        env:
+          BASE_URL: http://localhost:3000
+        run: npm run e2e:admin-activity
+      - name: UAE templates, reviewed Free rewards and mobile notification settings
+        working-directory: apps/web
+        env:
+          BASE_URL: http://localhost:3000
+        run: npm run e2e:uae-templates && npm run e2e:free-rewards && npm run e2e:mobile-push
       - name: Service logs
         if: failure()
         run: docker compose logs --no-color --tail 300

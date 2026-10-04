@@ -80,13 +80,15 @@ export default function TemplateDetail() {
     <div className="min-w-0 space-y-6">
       <Button href="/templates" variant="ghost">← All designs</Button>
       <PageHeader eyebrow={data.builtin ? "Built-in style" : data.mode === "native" ? "From your PowerPoint (exact master)" : "Reconstructed from PDF"}
-        title={data.name}
+        title={data.name} subtitle={data.description}
         actions={
           <>
+            <Button href={`/projects/new?template=${encodeURIComponent(id)}`}>Use for a lesson</Button>
             {data.is_default ? <Badge tone="success"><CircleCheck className="h-3.5 w-3.5" /> Default</Badge> : <Button variant="outline" onClick={makeDefault} loading={action === "default"} disabled={!!action}>Use as default</Button>}
             {editable && <Button variant="ghost" size="icon" onClick={remove} disabled={!!action || busy || refreshing} aria-label="Delete template"><Trash className="h-4 w-4" /></Button>}
           </>
         } />
+      {data.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{data.tags.map((tag: string) => <Badge key={tag}>{tag}</Badge>)}</div>}
       {refreshing && <Alert>Refreshing your previews. You can leave this page and follow progress in <a href="/activity" className="underline">Activity</a>.</Alert>}
       {data.job?.status === "failed" && !refreshing && <Alert tone="danger">Your design is saved, but previews could not refresh. Save again to retry.</Alert>}
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">

@@ -106,11 +106,12 @@ function Billing() {
   else if (paid && !confirmed) line = "Your payment subscription needs attention. Review payment status in the secure billing portal.";
   else if (paid) line = sub.cancel_at_period_end ? `Cancelled · access until ${fmt(sub.current_period_end)}` : `Billed ${sub.interval === "year" ? "yearly" : "monthly"} · renews ${fmt(sub.current_period_end)}`;
   else if (sub?.provider === "manual") line = `Provided by your school or Clastio${sub.current_period_end ? ` until ${fmt(sub.current_period_end)}` : ""}.`;
-  else line = trial?.ended ? "Your free trial has ended. Upgrade any time to unlock full units and more credits." : "Free forever, with limited credits each month.";
+  else line = trial?.ended ? "Your trial has ended. Earlier usage still counts this month; your Free allowance resets on the first of next month. Earn approved task credits or upgrade any time." : "Free forever, with limited credits each month.";
 
   return (
     <div className="space-y-5">
       <DashHeader title="Plan & billing" subtitle="Prices in AED; taxes and discounts are confirmed at checkout. Upgrade, change or cancel any time." />
+      {data.trial_unavailable_reason && <p className="rounded-2xl bg-accent-50 px-4 py-3 text-sm">{data.trial_unavailable_reason} <Link href="/support" className="underline">Contact support</Link></p>}
       {pending && <Panel title="Checkout in progress">
         <p className="text-sm text-muted">{pending.status === "processing" ? "Your payment is awaiting confirmation. Your current plan stays in place until payment is confirmed." : "You have an unfinished checkout. Resume it or wait for it to close before choosing a different plan, trial or license."}</p>
         <div className="mt-4 flex flex-wrap gap-3">

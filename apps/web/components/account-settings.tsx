@@ -75,7 +75,7 @@ export function SecurityCard() {
 export function NotificationPrefsCard() {
   const { notify } = useToast();
   const { data, mutate } = useApi<{ items: any[] }>("/me/notification-preferences");
-  const set = async (category: string, channel: "in_app" | "email", value: boolean) => {
+  const set = async (category: string, channel: "in_app" | "email" | "push", value: boolean) => {
     try {
       const next = await api("/me/notification-preferences", { method: "PUT", body: { categories: { [category]: { [channel]: value } } } });
       mutate(next, false);
@@ -85,19 +85,19 @@ export function NotificationPrefsCard() {
   };
   return (
     <Card id="notifications">
-      <CardHeader title="Notifications" subtitle="Choose what reaches you in the app and by email." />
+      <CardHeader title="Notifications" subtitle="Choose what reaches you in the app, by email and on opted-in devices." />
       <div className="p-5">
         {!data ? <Skeleton className="h-40" /> : (
           <table className="w-full text-sm">
-            <thead className="text-xs uppercase tracking-wide text-muted"><tr><th className="py-2 text-start font-medium">Type</th><th className="py-2 font-medium">In app</th><th className="py-2 font-medium">Email</th></tr></thead>
+            <thead className="text-xs uppercase tracking-wide text-muted"><tr><th className="py-2 text-start font-medium">Type</th><th className="py-2 font-medium">In app</th><th className="py-2 font-medium">Email</th><th className="py-2 font-medium">Push</th></tr></thead>
             <tbody className="divide-y divide-line">
               {data.items.map((p) => (
                 <tr key={p.category}>
-                  <td className="py-2.5 pe-3 text-ink">{p.label}{p.mandatory && <span className="block text-xs text-muted">Always on</span>}</td>
-                  {(["in_app", "email"] as const).map((ch) => (
+                  <td className="py-2.5 pe-3 text-ink">{p.label}{p.mandatory && <span className="block text-xs text-muted">In app and email always on</span>}</td>
+                  {(["in_app", "email", "push"] as const).map((ch) => (
                     <td key={ch} className="py-2.5 text-center">
-                      <input type="checkbox" aria-label={`${p.label}: ${ch === "email" ? "email" : "in app"}`} className="h-4 w-4 accent-[var(--color-brand-600)]"
-                        checked={p[ch]} disabled={p.mandatory} onChange={(e) => set(p.category, ch, e.target.checked)} />
+                      <input type="checkbox" aria-label={`${p.label}: ${ch === "in_app" ? "in app" : ch}`} className="h-4 w-4 accent-[var(--color-brand-600)]"
+                        checked={Boolean(p[ch])} disabled={p.mandatory && ch !== "push"} onChange={(e) => set(p.category, ch, e.target.checked)} />
                     </td>
                   ))}
                 </tr>

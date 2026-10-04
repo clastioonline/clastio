@@ -21,6 +21,7 @@ from app.ai.service import AIService
 from app.core.logging import log
 from app.engine.render.renderer import DeckRenderer
 from app.generation import prompts
+from app.generation.quality import ContentQualityError, quiz_errors
 from app.generation.specs import (
     LAYOUT_KINDS,
     CoursePlan,
@@ -56,16 +57,31 @@ async def plan_course(ai: AIService, req: dict[str, Any], context_text: str, *, 
     plan = await ai.structured(task="course_plan", tier="planning", system=prompts.COURSE_SYSTEM, prompt=prompt,
                                schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id,
                                offline_context=req, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
-    issues = await progression_issues(ai, plan)
+    issues = course_structure_issues(plan, req) + await progression_issues(ai, plan, owner_id=owner_id)
     if issues and ai.mode == "live":
         feedback = "\n".join(f"- {i}" for i in issues)
         plan = await ai.structured(
             task="course_plan", tier="planning", system=prompts.COURSE_SYSTEM,
-            prompt=prompt + f"\n\nYour previous plan repeated content across lectures:\n{feedback}\n"
-                            "Revise so each lecture introduces distinct concepts.",
+            prompt=prompt + f"\n\nCorrect these issues in the previous plan:\n{feedback}\n"
+                            "Return the complete requested lecture sequence with assessable goals and only supplied outcome codes.",
             schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id, offline_context=req,
             prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
+    if course_structure_issues(plan, req):
+        raise ContentQualityError("The chapter plan did not meet its lesson-count or learning-goal checks. Review the brief and try again.")
     return fix_course_plan(plan, req)
+
+
+def course_structure_issues(plan: CoursePlan, req: dict[str, Any]) -> list[str]:
+    issues = []
+    if len(plan.lectures) != int(req["num_lectures"]):
+        issues.append(f"Return exactly {req['num_lectures']} lectures, without missing or extra lectures.")
+    allowed_codes = {str(outcome.get("code")) for outcome in (req.get("outcomes") or []) if isinstance(outcome, dict) and outcome.get("code")}
+    if any(outcome.code and outcome.code not in allowed_codes for outcome in plan.learning_outcomes):
+        issues.append("Remove invented outcome codes; only codes supplied in the request are allowed.")
+    for lecture in plan.lectures:
+        if not lecture.title.strip() or not any(value.strip() for value in lecture.objectives) or not any(value.strip() for value in lecture.success_criteria):
+            issues.append(f"Lecture {lecture.number} needs a title, assessable objectives and success criteria.")
+    return issues
 
 
 def fix_course_plan(plan: CoursePlan, req: dict[str, Any]) -> CoursePlan:
@@ -81,7 +97,7 @@ def _norm_concept(c: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", c.lower()).strip()
 
 
-async def progression_issues(ai: AIService, plan: CoursePlan) -> list[str]:
+async def progression_issues(ai: AIService, plan: CoursePlan, *, owner_id: uuid.UUID | None = None) -> list[str]:
     issues: list[str] = []
     seen: dict[str, int] = {}
     for lec in plan.lectures:
@@ -93,7 +109,7 @@ async def progression_issues(ai: AIService, plan: CoursePlan) -> list[str]:
     titles = [lec.title for lec in plan.lectures]
     if len(titles) > 1:
         try:
-            vecs = await ai.embed(titles)
+            vecs = await ai.embed(titles, owner_id=owner_id)
             for i in range(len(vecs)):
                 for j in range(i + 1, len(vecs)):
                     sim = sum(a * b for a, b in zip(vecs[i], vecs[j], strict=False))
@@ -122,8 +138,33 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
                                schema=LessonDeck, effort="low", max_tokens=24000, owner_id=owner_id, job_id=job_id,
                                offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION,
                                images=reference_images, cache=True)
+    structural = deck_structure_issues(deck, req)
+    if structural and ai.mode == "live":
+        deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM,
+            prompt=prompt + "\n\nCorrect these issues and return the complete lesson without filler slides:\n" + "\n".join(structural),
+            schema=LessonDeck, effort="low", max_tokens=24000, owner_id=owner_id, job_id=job_id,
+            offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
+    if deck_structure_issues(deck, req):
+        raise ContentQualityError("The lesson did not meet its slide-count or learning-goal checks. Review the brief and try again.")
     return normalize_deck(deck, req=req, lecture_number=lecture_number, total=len(course.lectures),
                           lecture_title=lecture.title)
+
+
+def deck_structure_issues(deck: LessonDeck, req: dict[str, Any]) -> list[str]:
+    issues = []
+    if len(deck.slides) != int(req["slides_per_lecture"]):
+        issues.append(f"Return exactly {req['slides_per_lecture']} purposeful slides, including one opening cover.")
+    if not deck.slides or deck.slides[0].layout != "cover" or sum(slide.layout == "cover" for slide in deck.slides) != 1:
+        issues.append("The first slide must be the only cover slide.")
+    allowed_codes = {str(outcome.get("code")) for outcome in (req.get("outcomes") or []) if isinstance(outcome, dict) and outcome.get("code")}
+    if any(code not in allowed_codes for slide in deck.slides for code in slide.outcome_codes):
+        issues.append("Use only outcome codes supplied in the request; do not invent curriculum alignment.")
+    plan = deck.lesson_plan
+    if not any(value.strip() for value in plan.objectives) or not any(value.strip() for value in plan.success_criteria):
+        issues.append("Include assessable objectives and success criteria in the lesson plan.")
+    if not plan.phases or any(phase.minutes < 0 for phase in plan.phases) or sum(phase.minutes for phase in plan.phases) <= 0:
+        issues.append("Include a lesson sequence with usable phase timings.")
+    return issues
 
 
 def normalize_deck(deck: LessonDeck, *, req: dict[str, Any], lecture_number: int, total: int,
@@ -151,12 +192,7 @@ def normalize_deck(deck: LessonDeck, *, req: dict[str, Any], lecture_number: int
         s.language = req.get("language", "en")
     cover = slides[0]
     cover.subtitle = cover.subtitle or f"Grade {req['grade']} {req['subject']} • Lesson {lecture_number} of {total}"
-    for s in slides:
-        if s.quiz:
-            opts = [o for o in s.quiz.options if o.strip()][:4]
-            s.quiz.options = opts
-            if not 0 <= s.quiz.answer_index < len(opts):
-                s.quiz.answer_index = 0
+    # Keep quiz options/index intact: removing options or assigning index 0 can invent a wrong answer.
     deck.slides = slides
     duration = int(req["lecture_minutes"])
     weights = [max(0, s.timing_minutes) if math.isfinite(s.timing_minutes) else 0 for s in slides]
@@ -169,6 +205,15 @@ def normalize_deck(deck: LessonDeck, *, req: dict[str, Any], lecture_number: int
     largest.timing_minutes = round(largest.timing_minutes + duration - sum(s.timing_minutes for s in slides), 2)
     deck.lesson_plan.lecture_number = lecture_number
     deck.lesson_plan.duration_minutes = duration
+    phases = deck.lesson_plan.phases
+    if phases and all(phase.minutes >= 0 for phase in phases) and sum(phase.minutes for phase in phases) > 0:
+        phase_total = sum(phase.minutes for phase in phases)
+        exact = [duration * phase.minutes / phase_total for phase in phases]
+        minutes = [math.floor(value) for value in exact]
+        for index in sorted(range(len(phases)), key=lambda index: exact[index] - minutes[index], reverse=True)[:duration - sum(minutes)]:
+            minutes[index] += 1
+        for phase, value in zip(phases, minutes, strict=True):
+            phase.minutes = value
     return deck
 
 
@@ -184,6 +229,7 @@ def content_qc(deck: LessonDeck, budgets: dict[str, Any]) -> list[SlideIssue]:
     issues: list[SlideIssue] = []
     titles: dict[str, int] = {}
     for s in deck.slides:
+        issues.extend(slide_quality_issues(s))
         key = s.title.strip().lower()
         if key in titles and s.layout not in ("section",):
             issues.append(SlideIssue(s.number, "duplicate_title", f"Title repeats slide {titles[key]}"))
@@ -198,8 +244,6 @@ def content_qc(deck: LessonDeck, budgets: dict[str, Any]) -> list[SlideIssue]:
                 issues.append(SlideIssue(s.number, "too_many_bullets", f"{len(s.bullets)} bullets"))
             if any(words(b.text) > budgets["bullet_max_words"] for b in s.bullets):
                 issues.append(SlideIssue(s.number, "long_bullet", "Bullet over word budget"))
-        if s.layout == "quiz" and (not s.quiz or len(s.quiz.options) < 2):
-            issues.append(SlideIssue(s.number, "bad_quiz", "Quiz needs a question and options"))
         if s.layout in ("process", "cycle", "timeline") and len(s.steps) < 2:
             issues.append(SlideIssue(s.number, "missing_steps", "Diagram needs at least 2 steps"))
         if s.layout in ("two_column", "comparison") and len(s.columns) < 2:
@@ -207,6 +251,34 @@ def content_qc(deck: LessonDeck, budgets: dict[str, Any]) -> list[SlideIssue]:
         if s.layout in ("table",) and (not s.table or not s.table.rows):
             issues.append(SlideIssue(s.number, "missing_table", "Table has no rows"))
     return issues
+
+
+def slide_quality_issues(slide: SlideSpec) -> list[SlideIssue]:
+    issues = []
+    if not slide.title.strip():
+        issues.append(SlideIssue(slide.number, "empty_title", "Supply an informative title."))
+    if slide.layout == "quiz" or slide.quiz is not None:
+        issues.extend(SlideIssue(slide.number, "bad_quiz", message) for message in quiz_errors(slide.quiz))
+    if slide.layout in ("concept", "objectives", "summary", "homework", "exit_ticket") and not (
+        any(bullet.text.strip() for bullet in slide.bullets) or slide.question or slide.visual.kind != "none"
+    ):
+        issues.append(SlideIssue(slide.number, "empty_content", "Supply the actual explanation or task, not just a heading."))
+    if slide.layout == "key_vocabulary" and (not slide.terms or any(not term.term.strip() or not term.meaning.strip() for term in slide.terms)):
+        issues.append(SlideIssue(slide.number, "empty_vocabulary", "Supply vocabulary and meanings."))
+    if slide.layout == "chart" and slide.chart is None:
+        issues.append(SlideIssue(slide.number, "missing_chart", "Supply chart values and their source."))
+    if slide.visual.counting_groups and len(slide.visual.counting_groups) != 2:
+        issues.append(SlideIssue(slide.number, "counting_groups", "Use exactly two counting groups so no objects are silently dropped."))
+    return issues
+
+
+def assert_publishable(deck: LessonDeck) -> None:
+    if not deck.slides or deck.slides[0].layout != "cover" or sum(slide.layout == "cover" for slide in deck.slides) != 1:
+        raise ContentQualityError("The lesson needs exactly one opening cover. No new deck was published.")
+    issues = [issue for slide in deck.slides for issue in slide_quality_issues(slide)]
+    if issues:
+        numbers = ", ".join(str(number) for number in sorted({issue.number for issue in issues}))
+        raise ContentQualityError(f"Content checks failed on slide(s) {numbers}. No new deck was published. Review the brief and try again.")
 
 
 def enforce_budgets(slide: SlideSpec, budgets: dict[str, Any], strict: bool = False) -> SlideSpec:
@@ -236,9 +308,7 @@ def enforce_budgets(slide: SlideSpec, budgets: dict[str, Any], strict: bool = Fa
     slide.terms = slide.terms[: budgets["terms_max"] - (1 if strict else 0)]
     for t in slide.terms:
         t.meaning = clip_words(t.meaning, int(budgets["term_meaning_max_words"] * f))
-    if slide.quiz:
-        slide.quiz.question = clip_words(slide.quiz.question, budgets["quiz_question_max_words"])
-        slide.quiz.options = [clip_words(o, budgets["quiz_option_max_words"]) for o in slide.quiz.options]
+    # Quiz text is answer-bearing. Fit it through a checked rewrite rather than cutting away meaning.
     if slide.question:
         slide.question = clip_words(slide.question, 28 if not strict else 20)
     return slide
@@ -255,8 +325,16 @@ async def repair_slide(ai: AIService, slide: SlideSpec, instruction: str, budget
                                                   "budgets": budgets}, prompt_version=prompts.PROMPT_VERSION, cache=True)
     new = result.slide
     new.number, new.asset_id, new.sources = slide.number, slide.asset_id, slide.sources
+    new.outcome_codes = list(slide.outcome_codes)
+    new.timing_minutes = slide.timing_minutes
     if new.layout not in LAYOUT_KINDS:
         new.layout = slide.layout
+    # Local rewrites must not fabricate curriculum alignment, change the
+    # lesson's cover sequence, or hide/remove a broken quiz to pass its checks.
+    if slide.layout in ("cover", "quiz") or new.layout == "cover":
+        new.layout = slide.layout
+    if slide_quality_issues(new):
+        raise ContentQualityError("The revised slide did not pass its content checks. The previous slide is preserved.")
     return new
 
 
@@ -271,7 +349,7 @@ async def pre_render_qc(ai: AIService, deck: LessonDeck, budgets: dict[str, Any]
     for num, its in by_slide.items():
         slide = deck.slides[num - 1]
         needs_ai = any(i.code in ("duplicate_title", "style", "bad_quiz", "missing_steps", "missing_columns",
-                                  "missing_table") for i in its)
+                                  "missing_table", "empty_title", "empty_content", "empty_vocabulary", "missing_chart", "counting_groups") for i in its)
         if needs_ai and ai.mode == "live":
             try:
                 deck.slides[num - 1] = await repair_slide(
@@ -287,10 +365,8 @@ async def pre_render_qc(ai: AIService, deck: LessonDeck, budgets: dict[str, Any]
             slide.layout = "concept"
         if slide.layout == "table" and (not slide.table or not slide.table.rows):
             slide.layout = "concept"
-        if slide.layout == "quiz" and (not slide.quiz or len(slide.quiz.options) < 2):
-            slide.layout = "discussion"
-            slide.question = slide.question or slide.title
         log_.append({"slide": num, "issues": [i.code for i in its]})
+    assert_publishable(deck)
     return log_
 
 
@@ -308,6 +384,7 @@ async def render_with_qc(ai: AIService, *, base_pptx: bytes, template_spec: dict
                          on_progress: Callable[[str], Awaitable[None]] | None = None) -> RenderOutcome:
     repairs: list[dict[str, Any]] = []
     for round_no in range(max_rounds + 1):
+        assert_publishable(deck)
         renderer = DeckRenderer(base_pptx, template_spec, language=language, min_font_pt=min_font_pt)
         pptx = renderer.render(deck.slides, images, core_props=core_props)
         reports = [r.to_dict() for r in renderer.reports]
@@ -316,6 +393,7 @@ async def render_with_qc(ai: AIService, *, base_pptx: bytes, template_spec: dict
             if failing:  # final deterministic squeeze
                 for n in failing:
                     deck.slides[n - 1] = enforce_budgets(deck.slides[n - 1], budgets, strict=True)
+                assert_publishable(deck)
                 renderer = DeckRenderer(base_pptx, template_spec, language=language, min_font_pt=min_font_pt)
                 pptx = renderer.render(deck.slides, images, core_props=core_props)
                 reports = [r.to_dict() for r in renderer.reports]

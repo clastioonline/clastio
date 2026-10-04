@@ -54,6 +54,16 @@ def test_private_key_blocks_are_removed_from_exception_details():
     assert output["error"] == "[redacted private key]"
 
 
+def test_push_capability_urls_and_subscription_keys_are_redacted():
+    endpoint = "https://fcm.googleapis.com/fcm/send/private-device-capability"
+    output = formatted("push failed at " + endpoint, {"subscription": {"endpoint": endpoint,
+        "keys": {"auth": "private-auth", "p256dh": "private-public-key"}}, "vapid_private_key": "private-signing-key"})
+    serialized = json.dumps(output)
+    assert endpoint not in serialized
+    assert "private-device-capability" not in serialized and "private-auth" not in serialized
+    assert "private-public-key" not in serialized and "private-signing-key" not in serialized
+
+
 def test_external_error_reporting_excludes_payloads_locals_and_nested_credentials():
     event = {"request": {"url": "https://app.example.com/api/v1/auth/clerk",
                          "data": {"unusual_field": "Teacher material"}, "cookies": "private cookie",

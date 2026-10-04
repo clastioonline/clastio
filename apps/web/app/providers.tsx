@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { SWRConfig } from "swr";
 import { ConnectionStatus } from "@/components/connection-status";
+import { MobileAppProvider } from "@/components/mobile-app";
 const CookieBanner = dynamic(() => import("@/components/cookie-banner").then((mod) => mod.CookieBanner), { ssr: false });
 import { ToastProvider } from "@/components/toast";
 import { fetcher } from "@/lib/api";
@@ -22,7 +23,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <SWRConfig value={{ fetcher, revalidateOnFocus: false }}>
       <ThemeProvider>
         <I18nProvider>
-          <ToastProvider>{content}</ToastProvider>
+          <ToastProvider><MobileAppProvider>{content}</MobileAppProvider></ToastProvider>
         </I18nProvider>
       </ThemeProvider>
     </SWRConfig>

@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.jobs.queue import run_job
-from app.models import ConversationMessage, GenerationJob
+from app.models import ConversationMessage, GenerationJob, User
 from tests.conftest import make_user
 
 
@@ -81,6 +81,43 @@ async def test_active_work_stays_visible_ahead_of_newer_history(client, teacher)
     assert len(feed["items"]) == 100
     assert "secret-provider-internals" not in r.text
     assert "payload" not in feed["items"][0]
+
+
+async def test_promotion_hides_teacher_activity_without_deleting_history(client, teacher):
+    uid = uuid.UUID(teacher["id"])
+    async with get_sessionmaker()() as db:
+        active = GenerationJob(owner_id=uid, type="source_indexing", status="running", payload={})
+        completed = GenerationJob(owner_id=uid, type="source_indexing", status="succeeded", payload={})
+        db.add_all([active, completed])
+        await db.commit()
+        job_ids = {str(active.id), str(completed.id)}
+
+    before = await client.get("/api/v1/activity", headers=teacher["headers"])
+    assert before.status_code == 200, before.text
+    assert before.json()["active_count"] == 1
+    assert job_ids <= {j["id"] for j in before.json()["items"]}
+
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, uid)
+        user.role, user.admin_role = "admin", "support"
+        await db.commit()
+
+    promoted = await client.get("/api/v1/activity", headers=teacher["headers"])
+    assert promoted.status_code == 200, promoted.text
+    assert promoted.json() == {"items": [], "active_count": 0}
+
+    async with get_sessionmaker()() as db:
+        retained = (await db.execute(select(GenerationJob).where(GenerationJob.owner_id == uid))).scalars().all()
+        assert job_ids <= {str(j.id) for j in retained}
+        assert {j.status for j in retained if str(j.id) in job_ids} == {"running", "succeeded"}
+        user = await db.get(User, uid)
+        user.role, user.admin_role = "teacher", None
+        await db.commit()
+
+    restored = await client.get("/api/v1/activity", headers=teacher["headers"])
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["active_count"] == 1
+    assert job_ids <= {j["id"] for j in restored.json()["items"]}
 
 
 async def test_failed_assistant_task_remains_discoverable(client, teacher, monkeypatch):

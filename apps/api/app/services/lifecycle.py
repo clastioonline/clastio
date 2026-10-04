@@ -83,8 +83,13 @@ def _user_fk_columns() -> list[tuple[Any, Any, bool]]:
 async def purge_account(db: AsyncSession, user: User) -> None:
     """Remove the teacher's content and personal data; keep anonymised records the business must retain."""
     from app.core.storage import get_storage
+    from app.models import RewardSubmission
 
     storage = get_storage()
+    # Preserve hashed reward claims and approved totals for abuse/budget checks,
+    # but erase submitted free text once the person's account is purged.
+    await db.execute(update(RewardSubmission).where(RewardSubmission.user_id == user.id)
+                     .values(proof="", review_note=None))
     for f in (await db.execute(select(UploadedFile).where(UploadedFile.owner_id == user.id))).scalars().all():
         try:
             await storage.delete(f.storage_key)

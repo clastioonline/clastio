@@ -361,6 +361,16 @@ A browser return to the success URL alone does not prove a paid subscription was
 
 In **Admin → Plans & trial**, enable the seven-day trial and confirm finite credit/image allowances. New teachers begin on Free. They can explicitly choose Start free trial after verification, or remain on Free and start an eligible trial later from billing. No card is required for the trial; an active or unresolved paid subscription blocks overlapping grants. In admin settings, confirm referrals, reminders, feature flags and the active payment gateway. Payment reminders and email delivery require the scheduler. Referral rewards require a verified account and a qualifying signed paid-payment webhook.
 
+The mobile/rewards/template follow-up uses migration head `g207credits01`. Deploy the API, worker, scheduler and Render frontend together using the existing migration-and-seed command. Its first seed creates twelve new UAE designs and their previews; subsequent seeds preserve IDs and skip current catalogue revisions. Confirm the template gallery shows fifteen designs.
+
+Before opening Free generation to marketing traffic, enable **Admin → Settings & flags → Platform → Require verified email to generate**, then save Platform settings. An expired trial falls back to Free without a charge or a same-month credit refill. Signed browser claims deter repeat trials across emails, but clearing cookies or switching browsers can bypass them. Keep `SECRET_KEY` stable across API instances. Shared school computers have an audited first-trial exception.
+
+The optional **Admin → Credit tasks** program starts disabled with no tasks. Add useful tasks later, review their budgets, and approve teacher proof manually before awarding credits. See [Free trials and credit tasks](FREE_TRIAL_AND_CREDIT_TASKS.md).
+
+For mobile installation and push, follow [the push setup guide](MOBILE_APP_AND_PUSH.md): generate a private VAPID key file and put `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` and `WEB_PUSH_SUBJECT` on the Railway API and scheduler. Render needs no push secret. Redeploy, install Clastio from the browser, opt in under Settings, and verify a PPT-ready notification on a real device. Existing in-app/email channels remain available while push is unconfigured.
+
+Review [the UAE library](UAE_TEMPLATES.md) and [content-quality checks](CONTENT_QUALITY.md) before the live generation benchmark. Suggestions choose design; teachers still review subject facts and curriculum alignment.
+
 WhatsApp is optional. If you want live WhatsApp, configure `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, and a non-default `WHATSAPP_VERIFY_TOKEN` on Railway. Configure the Meta webhook at `https://clastio.online/api/v1/webhooks/whatsapp`, the phone number, approved templates and messaging permissions for your Meta account. If not using WhatsApp, leave its provider credentials unset and do not promise live WhatsApp service. Its feature flag is not a global scheduler kill switch: the scheduler still runs its WhatsApp tick and processes any verified, opted-in contacts. Review existing opt-ins before launch. The current app still contains simulator/navigation surfaces; removing those pages or fully disabling scheduled WhatsApp work requires separate implementation.
 
 Video generation, media-credit packs and other paid features should be enabled only with their provider routes, budgets and checkout products configured.
@@ -378,6 +388,7 @@ Use separate owner/admin and teacher accounts. Complete this journey on the actu
 7. Confirm welcome/reminder emails and the scheduler logs. Check worker errors and provider spend.
 8. Confirm another teacher cannot open your private lesson/file URLs. Enable database backups and verify a separate restore.
 9. Open `/sitemap.xml` and `/robots.txt`. Verify Search Console/Bing ownership and submit `https://clastio.online/sitemap.xml` using your own accounts. Public guides support discovery; first-place ranking is not guaranteed.
+10. Install the mobile PWA, enable device notifications deliberately, verify a PPT-ready update, and confirm removal/logout stops delivery. Leave credit tasks disabled until you publish a reviewed task and approve a test submission within its limits.
 
 Do not mark the app ready solely because the frontend loads or `/ready` succeeds: those checks do not exercise payments, workers, exports, email or live AI. This workspace's passing local tests use mocks for providers/payment checkout and do not substitute for this live journey.
 

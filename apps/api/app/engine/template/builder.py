@@ -23,6 +23,7 @@ from pptx.util import Emu, Pt
 from app.engine.pptx_xml import delete_all_slides_except, write_theme
 from app.engine.style.common import contrast_ratio, luminance, mix, readable_text_on
 from app.engine.style.content import extract_content
+from app.engine.template.catalog import UAE_STYLES, catalog_metadata
 
 SPEC_VERSION = 3
 DEFAULT_TITLE = [0.05, 0.05, 0.9, 0.13]
@@ -322,7 +323,83 @@ BUILTIN_STYLES: dict[str, dict[str, Any]] = {
                   "text": "#292524", "heading": "Lato", "body": "Lato", "band": True},
     "chalkboard": {"name": "Chalkboard", "primary": "#34D399", "secondary": "#FBBF24", "background": "#1F2A30",
                    "text": "#F1F5F9", "heading": "Comic Neue", "body": "Open Sans", "band": False},
+    **UAE_STYLES,
 }
+
+
+def _builtin_chrome(st: dict[str, Any], content: list[dict], cover: list[dict]) -> None:
+    """Keep decorative motifs outside the content area and native/editable in PowerPoint."""
+    layout = st.get("layout")
+    if not layout:
+        return
+    primary, secondary = st["primary"], st["secondary"]
+    pale = mix(primary, st["background"], .87)
+
+    def shape(target, box, color, kind="rect"):
+        target.append({"kind": "autoshape", "bbox": box, "fill": color, "shape": kind})
+
+    # Replace the generic circle cover with a design-specific composition on the right.
+    cover[:] = cover[:1] + cover[2:]
+    if layout in ("heritage", "arabesque"):
+        for i in range(4):
+            shape(cover, [.77 + (i % 2) * .085, .23 + (i // 2) * .15, .06, .105],
+                  primary if i % 2 == 0 else secondary)
+        shape(content, [0, .2, .014, .7], secondary)
+        shape(content, [.984, .2, .016, .7], pale)
+    elif layout == "botanical":
+        for i, (x, y, size) in enumerate(((.76, .24, .13), (.84, .4, .1), (.73, .52, .11))):
+            shape(cover, [x, y, size, size * 1.6], secondary if i == 1 else pale, "oval")
+        for x in (.89, .915, .94):
+            shape(content, [x, .04, .015, .026], pale, "oval")
+        shape(content, [0, .975, 1, .025], secondary)
+    elif layout in ("grid", "circuit"):
+        for i in range(6):
+            shape(cover, [.75 + i * .036, .2, .002, .48], pale)
+            shape(cover, [.75, .2 + i * .096, .182, .003], pale)
+        for i in range(3):
+            shape(content, [.925 + i * .02, .035, .002, .11], pale)
+            shape(content, [.925, .035 + i * .05, .045, .003], pale)
+        if layout == "circuit":
+            for i in range(3):
+                shape(cover, [.775 + i * .052, .29 + i * .13, .023, .04], secondary, "oval")
+        else:
+            shape(cover, [.785, .34, .11, .19], primary)
+            shape(cover, [.85, .48, .045, .08], secondary)
+    elif layout == "lab":
+        for i, (x, y) in enumerate(((.76, .3), (.88, .3), (.82, .5))):
+            shape(cover, [x, y, .085, .15], primary if i == 0 else pale, "oval")
+        shape(cover, [.8, .35, .1, .02], secondary)
+        shape(cover, [.82, .42, .015, .12], secondary)
+        shape(content, [.95, .025, .026, .046], secondary, "oval")
+    elif layout == "book":
+        for i, width in enumerate((.07, .05, .09)):
+            shape(cover, [.75 + i * .072, .26 + (i % 2) * .06, width, .43],
+                  primary if i == 0 else secondary if i == 1 else pale)
+        shape(content, [0, .18, .018, .76], primary)
+        shape(content, [.027, .18, .006, .76], secondary)
+    elif layout == "playful":
+        for i, (x, y, size) in enumerate(((.76, .22, .12), (.84, .43, .1), (.74, .61, .08))):
+            shape(cover, [x, y, size, size * 1.7], primary if i == 0 else secondary if i == 1 else pale,
+                  "oval" if i != 1 else "rect")
+        for i in range(4):
+            shape(content, [.84 + i * .035, .93, .018, .031], secondary if i % 2 else pale, "oval")
+    elif layout in ("seminar", "emirates"):
+        shape(cover, [.75, .26, .17, .014], secondary)
+        shape(cover, [.75, .3, .11, .36], pale)
+        shape(cover, [.89, .3, .026, .36], primary)
+        shape(content, [0, .178, .014, .79], secondary)
+    elif layout == "steps":
+        for i in range(3):
+            shape(cover, [.75 + i * .04, .56 - i * .12, .06, .12 * (i + 1)],
+                  secondary if i == 1 else primary if i == 2 else pale)
+            shape(content, [.012, .26 + i * .18, .012, .085], primary if i % 2 else secondary)
+    elif layout == "inquiry":
+        shape(cover, [.75, .27, .018, .41], primary)
+        shape(cover, [.75, .27, .17, .02], primary)
+        shape(cover, [.903, .27, .018, .41], secondary)
+        shape(cover, [.75, .66, .17, .02], secondary)
+        shape(content, [.95, .055, .008, .075], secondary)
+        shape(content, [.905, .123, .053, .007], secondary)
 
 
 def builtin_analysis(key: str) -> dict[str, Any]:
@@ -336,13 +413,14 @@ def builtin_analysis(key: str) -> dict[str, Any]:
         content_items = [{"kind": "autoshape", "bbox": [0.0, 0.0, 1.0, 0.17], "fill": st["primary"]},
                          {"kind": "autoshape", "bbox": [0.0, 0.17, 1.0, 0.008], "fill": st["secondary"]},
                          {"kind": "autoshape", "bbox": [0.0, 0.975, 1.0, 0.025], "fill": st["primary"]}]
-    title_color = "#FFFFFF" if st["band"] else st["text"]
+    title_color = readable_text_on(st["primary"]) if st["band"] else st["text"]
     cover_items = [
         {"kind": "autoshape", "bbox": [0.0, 0.0, 0.035, 1.0], "fill": st["primary"]},
         {"kind": "autoshape", "bbox": [0.72, -0.25, 0.5, 0.9], "fill": mix(st["primary"], st["background"], 0.85),
          "shape": "oval"},
         {"kind": "autoshape", "bbox": [0.08, 0.62, 0.12, 0.012], "fill": st["secondary"]},
     ]
+    _builtin_chrome(st, content_items, cover_items)
     return {
         "source_kind": "builtin",
         "slide_size": {"w": W, "h": H},
@@ -350,7 +428,8 @@ def builtin_analysis(key: str) -> dict[str, Any]:
                    "text": st["text"], "title": title_color},
         "fonts": {"heading": {"family": st["heading"]}, "body": {"family": st["body"]},
                   "arabic": {"family": "Noto Sans Arabic"}},
-        "typography": {"title_pt": 34, "body_pt": 22, "min_pt": 16, "title_bold": True},
+        "typography": {"title_pt": st.get("title_pt", 34), "body_pt": st.get("body_pt", 22),
+                       "min_pt": 16, "title_bold": True},
         "zones": {"title": [0.05, 0.035 if st["band"] else 0.06, 0.9, 0.11 if st["band"] else 0.12],
                   "body": [0.05, 0.25, 0.9, 0.66], "image": None, "image_side": "right",
                   "cover": {"title": [0.08, 0.3, 0.62, 0.26], "title_pt": 46, "title_color": st["text"],
@@ -358,12 +437,15 @@ def builtin_analysis(key: str) -> dict[str, Any]:
                             "align": "left"}},
         "decorations": {"content": {"items": content_items, "background": None},
                         "cover": {"items": cover_items, "background": None}},
-        "visual_rules": {"corner_radius": "rounded", "title_align": "left"},
-        "content_style": {"bullets_per_slide": [3, 5], "avg_words_per_bullet": 9},
+        "visual_rules": {"corner_radius": st.get("corner_radius", "rounded"), "title_align": "left"},
+        "content_style": {"bullets_per_slide": [2, 3] if key == "uae-early-years" else [3, 5],
+                          "avg_words_per_bullet": 6 if key == "uae-early-years" else 9},
         "layout_map": {},
         "layouts_found": [],
     }
 
 
 def build_builtin(key: str) -> tuple[bytes, dict[str, Any]]:
-    return build_reconstructed(builtin_analysis(key), mode="builtin")
+    base, spec = build_reconstructed(builtin_analysis(key), mode="builtin")
+    spec["catalog"] = catalog_metadata(key, BUILTIN_STYLES[key])
+    return base, spec

@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     email_from_updates: str | None = None
     email_from_reminders: str | None = None
 
+    # Web Push is opt-in per browser. These belong on the API and scheduler, never in NEXT_PUBLIC_*.
+    web_push_public_key: str | None = None
+    web_push_private_key: str | None = None
+    web_push_subject: str | None = None  # mailto:notifications@your-domain or HTTPS contact URL
+
     # --- bot protection (Cloudflare Turnstile); both empty = off ---
     turnstile_site_key: str | None = None
     turnstile_secret: str | None = None

@@ -21,6 +21,7 @@ from app.core.storage import get_storage
 from app.engine.qc.visual import RenderError, inspect
 from app.generation import pipeline
 from app.generation.budgets import compute_budgets
+from app.generation.quality import reference_count
 from app.generation.specs import CoursePlan, LessonDeck, LessonPlan, SlideSpec
 from app.jobs.queue import JobContext, PermanentJobError, enqueue, run_inline_if_configured
 from app.models import (
@@ -76,15 +77,25 @@ async def get_owned(db: AsyncSession, model, obj_id: uuid.UUID, user: User):
 
 
 async def resolve_template(db: AsyncSession, user_id: uuid.UUID, template_id: uuid.UUID | None) -> Template:
+    async def accessible(candidate: Template | None) -> bool:
+        if candidate is None:
+            return False
+        if candidate.owner_id in (None, user_id):
+            return True
+        viewer = await db.get(User, user_id)
+        return bool(candidate.is_shared and candidate.org_id and viewer and viewer.org_id == candidate.org_id)
+
     tpl = None
     if template_id:
         tpl = await db.get(Template, template_id)
-        if tpl and tpl.owner_id not in (None, user_id) and not tpl.is_shared:
-            tpl = None
+        if not await accessible(tpl):
+            raise NotFound("Template")
     if tpl is None:
         tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user_id))).scalars().first()
         if tp and tp.default_template_id:
             tpl = await db.get(Template, tp.default_template_id)
+            if not await accessible(tpl):
+                tpl = None
     if tpl is None:
         tpl = (await db.execute(select(Template).where(Template.owner_id.is_(None)).order_by(Template.created_at))
                ).scalars().first()
@@ -416,7 +427,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
     result = await save_lesson_output(lesson_id, deck, outcome.pptx, visual, qc={
         "render": outcome.reports, "repairs": outcome.repairs, "content_fixes": content_fixes, "images": img_counts,
         "visual": {str(k): v for k, v in (visual.issues.items() if visual else [])},
-        "ai_mode": ai.mode})
+        "ai_mode": ai.mode, "content_quality": {"status": "structural_checks_passed",
+            "reference_count": reference_count(meta.get("sources", [])), "fact_check_status": "teacher_review_required"}})
     async with get_sessionmaker()() as db:
         await usage.consume(db, user.id, await usage.credit_cost("slide", len(deck.slides)), "lesson_generation",
                             str(lesson_id))
@@ -438,6 +450,9 @@ async def save_lesson_output(lesson_id: uuid.UUID, deck: LessonDeck, pptx: bytes
     qc = {**qc, "visual_status": "checked" if visual is not None else "unavailable"}
     async with get_sessionmaker()() as db:
         lesson = await db.get(Lesson, lesson_id)
+        qc.setdefault("content_quality", {"status": "structural_checks_passed",
+            "reference_count": reference_count(source for slide in deck.slides for source in slide.sources),
+            "fact_check_status": "teacher_review_required"})
         lesson.version += 1
         v = lesson.version
         pptx_key = f"lessons/{lesson_id}/v{v}/lesson.pptx"

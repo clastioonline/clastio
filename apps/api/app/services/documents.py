@@ -17,6 +17,7 @@ from app.core.storage import get_storage
 from app.engine.exports import documents as builders
 from app.engine.qc.visual import RenderError, docx_to_pdf
 from app.generation import prompts
+from app.generation.quality import ContentQualityError, assessment_errors
 from app.generation.specs import AssessmentDoc, HomeworkDoc, LessonPlan, SlideSpec
 from app.jobs.queue import JobContext, enqueue, run_inline_if_configured
 from app.models import ClassSection, Course, Document, Lesson, Question, Slide, Template, User
@@ -171,14 +172,25 @@ async def handle_document_generation(ctx: JobContext) -> dict[str, Any]:
         if not material:
             material = f"Topic: {topic}. Grade {info.get('grade') or opts.get('grade', '')}."
         schema = HomeworkDoc if doc.kind == "homework" else AssessmentDoc
+        assessment_prompt = prompts.assessment_prompt(kind=doc.kind, context_text=context_text, material=material,
+                                                       options=options)
+        generation_context = {"topic": topic, "num_questions": n, "kind": doc.kind, "slides": slides_all,
+                              "include_case_study": options["include_case_study"]}
         result = await ai.structured(
             task="assessment", tier="content", system=prompts.ASSESSMENT_SYSTEM,
-            prompt=prompts.assessment_prompt(kind=doc.kind, context_text=context_text, material=material,
-                                             options=options),
+            prompt=assessment_prompt,
             schema=schema, effort="low", owner_id=user.id, job_id=ctx.job_id,
-            offline_context={"topic": topic, "num_questions": n, "kind": doc.kind, "slides": slides_all,
-                             "include_case_study": options["include_case_study"]},
+            offline_context=generation_context,
             prompt_version=prompts.PROMPT_VERSION)
+        quality_issues = assessment_errors(result, n)
+        if quality_issues and ai.mode == "live":
+            result = await ai.structured(task="assessment", tier="content", system=prompts.ASSESSMENT_SYSTEM,
+                prompt=assessment_prompt + "\n\nCorrect these checks and return the complete assessment:\n" + "\n".join(quality_issues[:20]),
+                schema=schema, effort="low", owner_id=user.id, job_id=ctx.job_id,
+                offline_context=generation_context, prompt_version=prompts.PROMPT_VERSION)
+        if assessment_errors(result, n):
+            raise ContentQualityError("The assessment did not pass its question-count and answer-key checks. No worksheet was published. Review the brief and try again.")
+        content["quality"] = {"status": "structural_checks_passed", "fact_check_status": "teacher_review_required"}
         await ctx.progress(65, "Formatting documents")
         rtl = (info.get("language") or "en") in ("ar", "ur")
         if isinstance(result, HomeworkDoc):

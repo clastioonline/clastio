@@ -27,6 +27,7 @@ from app.ai.base import AIError, AIRefusal
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker, utcnow
 from app.core.logging import job_id_var, log, request_id_var
+from app.generation.quality import ContentQualityError
 from app.models import GenerationJob
 
 logger = logging.getLogger("jobs")
@@ -182,7 +183,7 @@ async def run_job(job_id: uuid.UUID) -> None:
     except Exception as e:  # noqa: BLE001 - job boundary
         # Refusals and non-retryable AI errors (bad request, invalid key) fail the same way on every attempt,
         # so retrying would only add cost.
-        permanent = isinstance(e, PermanentJobError) or (isinstance(e, AIError) and not e.retryable)
+        permanent = isinstance(e, (PermanentJobError, ContentQualityError)) or (isinstance(e, AIError) and not e.retryable)
         retryable = not permanent and attempts < max_attempts
         message = (REFUSAL_MESSAGE if isinstance(e, AIRefusal) else str(e))[:4000]
         tb = traceback.format_exc(limit=8)

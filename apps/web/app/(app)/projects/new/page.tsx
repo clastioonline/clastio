@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { TeacherImages, type TeacherImage } from "@/components/teacher-images";
 import { ChapterSources } from "@/components/chapter-sources";
+import { TemplatePreview } from "@/components/template-preview";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, Chips, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -26,7 +27,6 @@ function NewCourse() {
     if (saved && ["hybrid", "ai", "stock"].includes(saved.value)) setForm((f) => ({...f, image_mode: saved.value}));
   }, [teacherMemory]);
   const { data: classes } = useApi<any>("/classes");
-  const { data: templates } = useApi<any>("/templates");
   const [form, setForm] = useState({
     topic: params.get("topic") || "",
     grade: params.get("grade") || "",
@@ -36,7 +36,7 @@ function NewCourse() {
     lecture_minutes: 45,
     language: "en",
     class_section_id: params.get("class") || "",
-    template_id: "",
+    template_id: params.get("template") || "",
     instructions: "",
     auto_generate: true,
     homework: true,
@@ -48,6 +48,13 @@ function NewCourse() {
     image_mode: "hybrid",
     writing_style: "natural",
   });
+  const templateQuery = new URLSearchParams();
+  if (form.subject) templateQuery.set("subject", form.subject);
+  if (form.grade) templateQuery.set("grade", form.grade);
+  if (form.language) templateQuery.set("language", form.language);
+  if (form.class_section_id) templateQuery.set("class_id", form.class_section_id);
+  const { data: templates, error: templateError, mutate: refreshTemplates } = useApi<any>(`/templates?${templateQuery}`);
+  const [showAllDesigns, setShowAllDesigns] = useState(false);
   const briefApplied = useRef<string | null>(null);
   const briefId = params.get("brief");
   const { data: briefConversation, error: briefError } = useApi<any>(briefId ? `/assistant/conversations/${briefId}` : null);
@@ -79,12 +86,19 @@ function NewCourse() {
     }));
   }, [profile, briefId]);
   useEffect(() => {
-    if (!form.template_id && templates?.items?.length) setForm((f) => ({ ...f, template_id: templates.items[0].id }));
-  }, [templates, form.template_id]);
+    if (!profile || form.template_id || !templates?.items?.length) return;
+    const preferred = templates.items.find((t: any) => t.is_default) || templates.items.find((t: any) => t.status === "ready");
+    if (preferred) setForm((f) => ({ ...f, template_id: f.template_id || preferred.id }));
+  }, [templates, form.template_id, profile]);
 
-  const curriculum = profile?.curriculum || "british";
-  const { data: outcomes } = useApi<any>(form.subject && form.grade ? `/curricula/${curriculum}/outcomes?subject=${encodeURIComponent(form.subject)}&grade=${form.grade}` : null);
+  const designItems = [...(templates?.items || [])].filter((t: any) => t.status === "ready").sort((a: any, b: any) =>
+    Number(b.is_default) - Number(a.is_default) || (b.recommendation?.score || 0) - (a.recommendation?.score || 0));
+  const visibleDesigns = showAllDesigns ? designItems : designItems.filter((t: any, i: number) => i < 6 || t.id === form.template_id);
+  const selectedDesign = designItems.find((t: any) => t.id === form.template_id);
+
   const cls = classes?.items?.find((c: any) => c.id === form.class_section_id);
+  const curriculum = cls?.curriculum || profile?.curriculum || "british";
+  const { data: outcomes } = useApi<any>(form.subject && form.grade ? `/curricula/${curriculum}/outcomes?subject=${encodeURIComponent(form.subject)}&grade=${form.grade}` : null);
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
   const onClass = (id: string) => {
@@ -123,7 +137,7 @@ function NewCourse() {
       {briefId && <Alert tone={briefError ? "warn" : "brand"} title={briefError ? "Could not load your PPT draft" : "Review your playground brief"}>Check the content, attach your source material and adjust the settings before creating your chapter.</Alert>}
       <PageHeader eyebrow="New chapter" title="What chapter are you teaching?" subtitle="The planner builds a connected sequence: each lesson introduces new ideas and revisits earlier ones." />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <ChapterSources value={form.source_file_ids} onChange={(ids) => set("source_file_ids", ids)} onBlocked={setSourcesBlocked} />
           <TeacherImages value={form.teacher_images} onChange={(images) => set("teacher_images", images)} onBlocked={setImagesBlocked} />
           <Card className="p-5 sm:p-6">
@@ -235,23 +249,25 @@ function NewCourse() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title="Design" subtitle="Slides use this template" />
+            <CardHeader title="Design" subtitle="Suggestions follow this lesson's subject, grade and selected class curriculum" />
+            {templateError && <div className="px-5"><Alert tone="danger">Could not load designs. <Button size="sm" variant="outline" onClick={() => refreshTemplates()}>Try again</Button></Alert></div>}
             <div className="grid grid-cols-2 gap-3 p-5">
-              {(templates?.items || []).map((t: any) => (
-                <button key={t.id} type="button" onClick={() => set("template_id", t.id)}
-                  className={cn("focus-ring rounded-xl border-2 p-1.5 text-start transition", form.template_id === t.id ? "border-brand-600" : "border-transparent hover:border-line-strong")}>
-                  <div className="aspect-[16/9] overflow-hidden rounded-lg bg-surface-2">
-                    {t.previews?.[0] && <img src={t.previews[0]} alt="" className="h-full w-full object-cover" />}
-                  </div>
-                  <div className="mt-1 flex items-center gap-1 px-0.5 text-xs">
-                    <span className="truncate font-medium text-ink">{t.name}</span>
+              {visibleDesigns.map((t: any) => (
+                <button key={t.id} type="button" aria-label={`Use ${t.name}`} aria-pressed={form.template_id === t.id} onClick={() => set("template_id", t.id)}
+                  className={cn("focus-ring min-w-0 rounded-xl border-2 p-1.5 text-start transition", form.template_id === t.id ? "border-brand-600" : "border-transparent hover:border-line-strong")}>
+                  <TemplatePreview src={t.previews?.[0]} name={t.name} />
+                  <div className="mt-1 flex flex-wrap items-center gap-1 px-0.5 text-xs">
+                    <span className="min-w-0 max-w-full truncate font-medium text-ink">{t.name}</span>
                     {!t.builtin && <Badge tone="brand">Yours</Badge>}
+                    {t.is_default ? <Badge tone="success">Default</Badge> : t.recommendation && <Badge tone="brand">Suggested</Badge>}
                   </div>
                 </button>
               ))}
             </div>
+            {designItems.length > 6 && <div className="px-5 pb-3"><Button size="sm" variant="ghost" onClick={() => setShowAllDesigns(!showAllDesigns)}>{showAllDesigns ? "Show fewer designs" : `Show all ${designItems.length} designs`}</Button></div>}
+            {selectedDesign && <div className="mx-5 mb-4 rounded-xl bg-brand-50 p-3 text-xs leading-relaxed text-brand-800"><p className="font-semibold">Selected: {selectedDesign.name}</p><p className="mt-1">{selectedDesign.recommendation?.reason || selectedDesign.description || "Your selected presentation design."}</p></div>}
             <div className="px-5 pb-5 text-xs text-muted">Want your own design? Upload an old deck in <a href="/templates" className="text-brand-600 underline">My designs</a>.</div>
           </Card>
           <Card className="p-5">

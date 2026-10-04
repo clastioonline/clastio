@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/brand/favicon.png", sizes: "192x192" }],
   },
   metadataBase: new URL(SITE_URL),
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Clastio" },
   openGraph: {
     type: "website",
     siteName: "Clastio",

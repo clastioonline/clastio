@@ -3,6 +3,8 @@
 import { Check, Download, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConsentsCard, NotificationPrefsCard, SecurityCard } from "@/components/account-settings";
+import { InstallAppCard } from "@/components/mobile-app";
+import { PushNotificationsCard } from "@/components/push-notifications";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Button, Card, CardHeader, Chips, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -60,7 +62,7 @@ export default function Settings() {
         <PageHeader title="Settings" subtitle={`Signed in as ${user.email} (${user.admin_role_label || "staff"})`} />
         <div className="grid gap-6 lg:grid-cols-2">
           <SecurityCard />
-          <div className="space-y-6"><Appearance /><NotificationPrefsCard /></div>
+          <div className="space-y-6"><Appearance /><NotificationPrefsCard /><InstallAppCard /><PushNotificationsCard /></div>
         </div>
       </div>
     );
@@ -124,6 +126,8 @@ export default function Settings() {
         <div className="space-y-6">
           <SecurityCard />
           <NotificationPrefsCard />
+          <InstallAppCard />
+          <PushNotificationsCard />
           <ConsentsCard />
           <Appearance />
           <Card>

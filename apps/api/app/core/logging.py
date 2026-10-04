@@ -18,7 +18,8 @@ _ENV = "unknown"
 _VERSION = "unknown"
 
 # Field names whose values must never reach logs.
-_SECRET_KEYS = ("password", "token", "secret", "authorization", "api_key", "cookie")
+_SECRET_KEYS = ("password", "token", "secret", "authorization", "api_key", "cookie", "private_key", "p256dh")
+_CAPABILITY_KEYS = {"auth", "endpoint", "push_endpoint"}
 _CONTENT_KEYS = {"prompt", "messages", "request_body", "response_body", "body_text", "input_value"}
 _DATABASE_PARAMETERS = re.compile(r"\[parameters:.*?\](?=\n|$)", re.DOTALL)
 _URL_CREDENTIALS = re.compile(r"(\b[a-z][a-z0-9+.-]*://)[^\s/@]+:[^\s/@]+@", re.IGNORECASE)
@@ -27,6 +28,8 @@ _API_KEY_VALUE = re.compile(r"\b(?:sk[-_](?:proj-|live_|test_)?|cfat_|re_)[A-Za-
 _PRIVATE_KEY = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----.*?"
                           r"-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", re.DOTALL)
 _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
+_PUSH_ENDPOINT = re.compile(r"https://(?:fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com(?:\.cn)?|"
+                            r"(?:[a-z0-9-]+\.)?push\.apple\.com|[a-z0-9.-]+\.notify\.windows\.com)/[^\s\"'<>]+", re.I)
 
 
 def _redact_text(value: str) -> str:
@@ -36,6 +39,7 @@ def _redact_text(value: str) -> str:
     value = _URL_CREDENTIALS.sub(r"\1[redacted]@", value)
     value = _BEARER.sub("Bearer [redacted]", value)
     value = _API_KEY_VALUE.sub("[redacted key]", value)
+    value = _PUSH_ENDPOINT.sub("[redacted push endpoint]", value)
     return _JWT.sub("[redacted session token]", value)
 
 
@@ -49,7 +53,7 @@ def _redact_value(value):
 
 def _redact(fields: dict) -> dict:
     return {k: ("[redacted]" if any(s in str(k).lower().replace("-", "_") for s in _SECRET_KEYS)
-                or str(k).lower().split(".")[-1] in _CONTENT_KEYS else _redact_value(v)) for k, v in fields.items()}
+                or str(k).lower().split(".")[-1] in _CONTENT_KEYS | _CAPABILITY_KEYS else _redact_value(v)) for k, v in fields.items()}
 
 
 def redact_sentry_event(event: dict, hint: dict) -> dict:

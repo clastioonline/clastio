@@ -24,20 +24,22 @@ export const useActivity = () => useContext(Context);
 
 export function ActivityProvider({ children }: { children: ReactNode }) {
   const { user } = useMe();
+  const teacher = user?.role === "teacher";
+  const identity = user ? `${user.id}:${user.role}` : undefined;
   const { notify } = useToast();
   const { mutate: refreshCache } = useSWRConfig();
   const [opened, setOpened] = useState(false);
-  const { data, error, isLoading, mutate } = useSWR<Feed>(user ? ["activity", user.id] : null, () => api("/activity"), {
+  const { data, error, isLoading, mutate } = useSWR<Feed>(teacher ? ["activity", identity] : null, () => api("/activity"), {
     refreshInterval: (feed) => feed?.active_count ? 3000 : 15000,
     revalidateOnFocus: true, shouldRetryOnError: true,
   });
   const previous = useRef<{ user?: string; statuses: Map<string, string> }>({ statuses: new Map() });
   useEffect(() => {
-    if (previous.current.user !== user?.id) {
-      previous.current = { user: user?.id, statuses: new Map() };
+    if (previous.current.user !== identity) {
+      previous.current = { user: identity, statuses: new Map() };
       setOpened(false);
     }
-    if (!user || !data) return;
+    if (!teacher || !data) return;
     let changed = false;
     for (const item of data.items) {
       const old = previous.current.statuses.get(item.id);
@@ -52,17 +54,17 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     if (changed) {
       void refreshCache((key) => typeof key === "string" && /^\/(lessons|documents|projects|templates|media|assistant|me\/notifications)/.test(key));
     }
-  }, [data, user?.id, notify, refreshCache]);
+  }, [data, identity, teacher, notify, refreshCache]);
   useEffect(() => {
-    const refresh = () => { if (user) void mutate(); };
+    const refresh = () => { if (teacher) void mutate(); };
     window.addEventListener("clastio:work-started", refresh);
     return () => window.removeEventListener("clastio:work-started", refresh);
-  }, [mutate, user?.id]);
+  }, [mutate, identity, teacher]);
   const open = useCallback(() => setOpened(true), []);
-  return <Context.Provider value={{ items: user ? data?.items || [] : [], count: data?.active_count || 0,
-    loading: isLoading, error, open, refresh: () => { void mutate(); } }}>
+  return <Context.Provider value={{ items: teacher ? data?.items || [] : [], count: teacher ? data?.active_count || 0 : 0,
+    loading: teacher && isLoading, error: teacher ? error : null, open, refresh: () => { if (teacher) void mutate(); } }}>
     {children}
-    {user && <Modal open={opened} onClose={() => setOpened(false)} title="Your activity" size="lg"
+    {teacher && <Modal open={opened} onClose={() => setOpened(false)} title="Your activity" size="lg"
       footer={<><Button variant="ghost" onClick={() => setOpened(false)}>Keep exploring</Button><Link href="/activity" onClick={() => setOpened(false)} className="focus-ring rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white">View all activity</Link></>}>
       <p className="mb-5 text-sm text-muted">Your work keeps going when you leave this page—even if you close the browser.</p>
       <ActivityList limit={8} onNavigate={() => setOpened(false)} />
@@ -72,6 +74,11 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
 
 export function ActivityButton() {
   const { count, open } = useActivity();
+  const { user } = useMe();
+  if (user?.role === "admin") return <Link href="/activity" aria-label="Open admin activity"
+    className="focus-ring flex h-11 shrink-0 items-center gap-2 rounded-full bg-surface px-3 text-ink-2 hover:text-brand-700">
+    <Layers className="h-5 w-5" /><span className="hidden text-sm font-medium xl:block">Activity</span>
+  </Link>;
   return <button onClick={open} aria-label={`Open activity${count ? `, ${count} in progress` : ""}`}
     className="focus-ring relative flex h-11 shrink-0 items-center gap-2 rounded-full bg-surface px-3 text-ink-2 hover:text-brand-700">
     {count ? <LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none" /> : <Layers className="h-5 w-5" />}

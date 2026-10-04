@@ -12,15 +12,19 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "e2e:background": "node e2e/background.mjs",
     "e2e:templates": "node e2e/templates.mjs",
+    "e2e:uae-templates": "node e2e/uae-templates.mjs",
     "e2e:chapter": "node e2e/chapter.mjs",
     "e2e:ux": "node e2e/production-ux.mjs",
     "e2e:admin-responsive": "node e2e/admin-responsive.mjs",
+    "e2e:admin-activity": "node e2e/admin-activity.mjs",
     "e2e:video": "node e2e/product-video.mjs",
     "video:render": "node e2e/render-product-video.mjs",
     "e2e:ai-budget": "node e2e/ai-budget.mjs",
     "e2e:walkthrough": "node e2e/walkthrough.mjs",
     "e2e:launch-readiness": "node e2e/launch-readiness.mjs",
-    "e2e:smart-assistant-seo": "node e2e/smart-assistant-seo.mjs"
+    "e2e:smart-assistant-seo": "node e2e/smart-assistant-seo.mjs",
+    "e2e:free-rewards": "node e2e/free-rewards.mjs",
+    "e2e:mobile-push": "node e2e/mobile-push.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.10",

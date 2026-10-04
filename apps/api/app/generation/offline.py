@@ -102,7 +102,7 @@ def _deck_layouts(n: int, lecture_no: int, homework: bool) -> list[str]:
     first = "objectives" if lecture_no == 1 else "quiz"
     end = ["summary"] + (["homework"] if homework else ["exit_ticket"])
     k = max(0, n - 1 - len(end))
-    body = ([first] + middle)[:k]
+    body = ([first] + middle * (1 + k // len(middle)))[:k]
     layouts = ["cover"] + body + end
     return layouts[:n] if n >= 2 else ["cover"]
 
@@ -284,9 +284,9 @@ def assessment(ctx: dict[str, Any], schema: type[BaseModel]) -> BaseModel:
         if kind == "mcq":
             if terms:
                 term, meaning = terms[i % len(terms)]
-                wrong = [m for _, m in terms if m != meaning][:3]
+                wrong = list(dict.fromkeys(m for _, m in terms if m != meaning))[:3]
                 while len(wrong) < 3:
-                    wrong.append(f"Not related to {t}")
+                    wrong.append(f"A different meaning for {t} (demo choice {len(wrong) + 1})")
                 opts = [meaning] + wrong
                 rnd.shuffle(opts)
                 qs.append(Question(qtype="mcq", difficulty="easy", bloom="remember", stem=f"What does '{term}' mean?",
@@ -316,11 +316,14 @@ def assessment(ctx: dict[str, Any], schema: type[BaseModel]) -> BaseModel:
                                stem=f"Describe a situation at home or school where you could use what you learned "
                                     f"about {t}.", answer="Any reasonable, explained example.",
                                explanation="Reward clear links between the example and the idea.", marks=3))
+    # Distinguish repeated sample exercises; offline output is explicitly demonstration material.
+    for index, question in enumerate(qs, 1):
+        question.stem = f"Practice item {index}: {question.stem}"
     title_kind = {"worksheet": "Worksheet", "quiz": "Quiz", "assessment": "Test"}.get(ctx.get("kind"), "Worksheet")
     if schema is HomeworkDoc:
         return HomeworkDoc(title=f"Homework: {T}", instructions="Complete all tasks. Show your thinking.",
                            tasks=[f"Find one example of {t} at home", "Answer the questions below"],
-                           estimated_minutes=20, questions=qs[: max(3, n // 2)],
+                           estimated_minutes=20, questions=qs,
                            extension_task=f"Research one surprising fact about {t}.",
                            support_hint="Use your class notes and the key vocabulary list.")
     sections = [QuestionSection(title="Section A: Recall", instructions="Answer all questions.",

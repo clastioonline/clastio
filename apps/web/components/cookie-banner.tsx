@@ -7,7 +7,7 @@ import { useSWRConfig } from "swr";
 
 const KEY = "clastio:cookie-consent";
 
-/* Clastio itself only sets essential cookies (the sign-in session). Optional analytics/marketing cookies are off
+/* Clastio sets essential session and signed random installation cookies. Optional analytics/marketing cookies are off
    unless the visitor opts in here; the choice is stored on this device and, when signed in, recorded as consent. */
 export function CookieBanner() {
   const { cache } = useSWRConfig();
@@ -26,7 +26,7 @@ export function CookieBanner() {
   return (
     <div role="dialog" aria-label="Cookie preferences" className="fixed inset-x-3 bottom-3 z-[65] mx-auto max-w-2xl rounded-2xl border border-line bg-surface p-4 text-sm shadow-[var(--shadow-pop)] sm:inset-x-6">
       <p className="text-ink-2">
-        We use essential cookies to keep you signed in. With your permission we'd also use analytics cookies to improve Clastio.
+        We use essential cookies to keep you signed in and reduce repeat trials and reward abuse. With your permission we'd also use analytics cookies to improve Clastio.
         See our <Link href="/legal/cookie" className="text-brand-600 underline">Cookie Policy</Link>.
       </p>
       {custom && (

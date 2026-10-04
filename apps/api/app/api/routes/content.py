@@ -7,7 +7,7 @@ from datetime import date
 from typing import Any, Literal
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import case, func, select
@@ -40,6 +40,7 @@ from app.models import (
 from app.services import courses as course_svc
 from app.services import documents as doc_svc
 from app.services import planner, usage
+from app.services.template_recommendations import suggest_templates
 from app.services.uploads import store_upload
 
 router = APIRouter(tags=["content"])
@@ -177,7 +178,10 @@ def template_out(t: Template, default_id: uuid.UUID | None = None, full: bool = 
     out = {"id": str(t.id), "name": t.name, "mode": t.mode, "builtin": t.owner_id is None, "status": t.status,
            "is_default": default_id == t.id, "created_at": t.created_at.isoformat() if t.created_at else None,
            "previews": [signed(k) for k in t.preview_keys or []],
-           "colors": spec.get("colors", {}), "fonts": spec.get("fonts", {})}
+           "colors": spec.get("colors", {}), "fonts": spec.get("fonts", {}),
+           "description": spec.get("catalog", {}).get("description"),
+           "tags": spec.get("catalog", {}).get("tags", []),
+           "curricula": spec.get("catalog", {}).get("curricula", [])}
     if full:
         out.update({"typography": spec.get("typography"), "zones": spec.get("zones"),
                     "corner_radius": spec.get("corner_radius"), "layouts": spec.get("layouts", []),
@@ -187,12 +191,36 @@ def template_out(t: Template, default_id: uuid.UUID | None = None, full: bool = 
 
 
 @router.get("/templates")
-async def list_templates(user: CurrentUser, db: DB):
+async def list_templates(user: CurrentUser, db: DB, subject: str | None = Query(None, max_length=80),
+                         grade: str | None = Query(None, max_length=20),
+                         curriculum: str | None = Query(None, max_length=40),
+                         language: str | None = Query(None, max_length=10),
+                         class_id: uuid.UUID | None = None):
     tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
-    rows = (await db.execute(select(Template).where((Template.owner_id == user.id) | (Template.owner_id.is_(None)) |
-                                                    ((Template.org_id == user.org_id) & Template.is_shared))
+    visible = (Template.owner_id == user.id) | Template.owner_id.is_(None)
+    if user.org_id:
+        visible |= (Template.org_id == user.org_id) & Template.is_shared
+    rows = (await db.execute(select(Template).where(visible)
                              .order_by(Template.owner_id.is_(None), Template.created_at.desc()))).scalars().all()
-    return {"items": [{**template_out(t, tp.default_template_id if tp else None), "can_edit": t.owner_id == user.id} for t in rows]}
+    classroom = None
+    if class_id:
+        classroom = (await db.execute(select(ClassSection).where(ClassSection.id == class_id,
+                                                                  ClassSection.user_id == user.id))).scalars().first()
+        if classroom is None:
+            raise NotFound("Class")
+    subjects = [subject] if subject else [classroom.subject] if classroom else tp.subjects if tp else []
+    grades = [grade] if grade else [classroom.grade] if classroom else tp.grades if tp else []
+    curriculum = curriculum or (classroom.curriculum if classroom else None) or (tp.curriculum if tp else None)
+    language = language or ((tp.teaching_languages or ["en"])[0] if tp else "en")
+    recommendations = suggest_templates(rows, owner_id=user.id, org_id=user.org_id,
+        default_id=tp.default_template_id if tp else None, subjects=subjects, grades=grades,
+        curriculum=curriculum, language=language, country=tp.country if tp else None)
+    suggested = {item["template_id"]: item for item in recommendations}
+    return {"items": [{**template_out(t, tp.default_template_id if tp else None), "can_edit": t.owner_id == user.id,
+                       "recommendation": suggested.get(str(t.id))} for t in rows],
+            "recommendations": recommendations,
+            "context": {"school_name": tp.school_name if tp else None, "curriculum": curriculum,
+                        "subjects": subjects, "grades": grades, "language": language}}
 
 
 async def _template(db, user, template_id: uuid.UUID, write: bool = False) -> Template:
@@ -200,7 +228,8 @@ async def _template(db, user, template_id: uuid.UUID, write: bool = False) -> Te
     if write:
         query = query.with_for_update()
     t = (await db.execute(query)).scalars().first()
-    if t is None or (t.owner_id not in (None, user.id) and not (t.is_shared and t.org_id == user.org_id)):
+    if t is None or (t.owner_id not in (None, user.id) and not
+                    (user.org_id and t.is_shared and t.org_id == user.org_id)):
         raise NotFound("Template")
     if write and t.owner_id != user.id:
         raise AppError("forbidden", "Only the owner can edit this template. Upload your own deck instead.", 403)
@@ -661,6 +690,12 @@ async def question_bank(user: CurrentUser, db: DB, q: str | None = None, difficu
 
 @router.get("/activity")
 async def activity(user: CurrentUser, db: DB):
+    # This feed is personal teaching work. Promotion keeps the user's jobs for
+    # history and auditing, but they should not appear in the staff workspace.
+    # An empty response also safely handles clients polling through a role change.
+    if user.role == "admin":
+        return {"items": [], "active_count": 0}
+
     from app.services.activity import summaries
 
     active = GenerationJob.status.in_(["queued", "running"])

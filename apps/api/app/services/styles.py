@@ -36,6 +36,7 @@ from app.engine.template.builder import (
     build_native,
     build_reconstructed,
 )
+from app.engine.template.catalog import BUILTIN_CATALOG_REVISION
 from app.engine.template.preview import PREVIEW_SLIDES
 from app.models import Asset, StyleProfile, TeacherPreference, TeacherProfile, Template, UploadedFile
 
@@ -332,18 +333,23 @@ async def _store_style_preferences(db: AsyncSession, owner_id: uuid.UUID, analys
 
 
 async def ensure_builtin_templates(db: AsyncSession) -> None:
-    """Create the built-in templates once (owner_id NULL)."""
+    """Seed new designs and refresh curated revisions in place, preserving saved template IDs."""
     storage = get_storage()
     for key, st in BUILTIN_STYLES.items():
-        exists = (await db.execute(select(Template).where(Template.owner_id.is_(None), Template.name == st["name"])
-                                   )).scalars().first()
-        if exists:
+        existing = (await db.execute(select(Template).where(Template.owner_id.is_(None),
+            (Template.spec["catalog"]["key"].astext == key) | (Template.name == st["name"])))) .scalars().first()
+        if existing and (existing.spec or {}).get("catalog", {}).get("revision", 0) >= BUILTIN_CATALOG_REVISION:
             continue
         base, spec = await asyncio.to_thread(build_builtin, key)
-        tid = uuid.uuid4()
-        base_key = f"templates/{tid}/base.pptx"
+        tid = existing.id if existing else uuid.uuid4()
+        revision = uuid.uuid4().hex
+        base_key = f"templates/{tid}/builtin-v{BUILTIN_CATALOG_REVISION}-{revision}.pptx"
         await storage.put(base_key, base)
         previews = await render_previews(tid, base, spec)
-        db.add(Template(id=tid, owner_id=None, name=st["name"], mode="builtin", base_storage_key=base_key, spec=spec,
-                        preview_keys=previews, is_shared=True))
+        if existing:
+            existing.name, existing.mode, existing.spec = st["name"], "builtin", spec
+            existing.base_storage_key, existing.preview_keys = base_key, previews
+        else:
+            db.add(Template(id=tid, owner_id=None, name=st["name"], mode="builtin", base_storage_key=base_key,
+                            spec=spec, preview_keys=previews, is_shared=True))
         await db.flush()

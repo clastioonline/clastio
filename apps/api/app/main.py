@@ -8,7 +8,18 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import account, admin, assistant_memory, auth, content, media, platform, teacher
+from app.api.routes import (
+    account,
+    admin,
+    assistant_memory,
+    auth,
+    content,
+    media,
+    platform,
+    push,
+    rewards,
+    teacher,
+)
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
 from app.core.http import capture_route, platform_middleware
@@ -54,7 +65,7 @@ def create_app() -> FastAPI:
     app.middleware("http")(platform_middleware)
 
     install_error_handlers(app)
-    for r in (auth.router, account.router, admin.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router):
+    for r in (auth.router, account.router, admin.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router, push.router, rewards.router):
         app.include_router(r, prefix="/api/v1")
     return app
 

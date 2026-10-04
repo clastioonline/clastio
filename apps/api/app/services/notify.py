@@ -104,7 +104,8 @@ async def notify(db: AsyncSession, user_id: uuid.UUID, type_: str, title: str, b
                  dedupe_key: str | None = None, *, visible: bool = True) -> bool:
     """Create an in-app notification. With a dedupe_key it is created at most once. Returns True if new."""
     now = utcnow()
-    stmt = insert(Notification).values(id=uuid.uuid4(), user_id=user_id,
+    notification_id = uuid.uuid4()
+    stmt = insert(Notification).values(id=notification_id, user_id=user_id,
                                        type=type_ if visible else EMAIL_DEDUPE_TYPE,
                                        title=title if visible else "", body=body if visible else "",
                                        link=link if visible else None, dedupe_key=dedupe_key,
@@ -112,7 +113,12 @@ async def notify(db: AsyncSession, user_id: uuid.UUID, type_: str, title: str, b
     if dedupe_key:
         stmt = stmt.on_conflict_do_nothing(index_elements=["user_id", "dedupe_key"])
     res = await db.execute(stmt)
-    return bool(res.rowcount)
+    created = bool(res.rowcount)
+    if created:
+        from app.services.push import queue_push
+
+        await queue_push(db, user_id, type_, title, body, link, dedupe_key or str(notification_id))
+    return created
 
 
 def _smtp_send(msg: EmailMessage) -> None:

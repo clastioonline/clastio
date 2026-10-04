@@ -169,7 +169,10 @@ privacy@clastioenie.example (replace with your real contact).
 We may remove content and suspend accounts that break this policy.
 """),
     "cookie": ("Cookie Policy", """We use only **essential cookies**: your session cookie (keeps you signed
-in) and a small preference cookie for your cookie choices. We do not use advertising cookies. If we add analytics or
+in), a small preference cookie for your cookie choices, and a signed random browser-installation cookie retained
+for up to one year to reduce repeat free trials and task-reward abuse. The server stores only a hash of the random
+identifier; it does not fingerprint your device or ban people sharing a school network. Contact support if you
+share a school device. We do not use advertising cookies. If we add analytics or
 marketing cookies, they will only load after you agree to them in the cookie banner.
 """),
     "refund": ("Refund Policy", """Monthly plans can be cancelled at any time and are not refunded for the

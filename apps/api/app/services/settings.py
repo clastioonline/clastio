@@ -45,9 +45,12 @@ DEFAULTS: dict[str, Any] = {
              "active": True},
         ],
     },
-    # Free trial every new teacher gets on sign-up, no card needed. After it ends they are on the Free plan.
+    # Explicit verified-email trial choice, no card needed. Expired trials fall back to Free.
     "trial": {"enabled": True, "plan": "pro", "days": 7, "credits": 50, "ai_images": 5, "whatsapp_messages": 20},
     "referrals": {"enabled": True, "reward_media_credits": 25},
+    # Empty until staff add and publish tasks; manual approval only. Rewards expire with the Free month.
+    "rewards": {"enabled": False, "daily_credits": 20, "monthly_credits": 60,
+                "lifetime_credits": 200, "global_daily_credits": 500},
     # Look of the web app. Teachers can still pick their own in Settings.
     "ui": {"default_skin": "forest"},
     # Platform switches. Maintenance mode blocks the app for everyone but staff (the API answers 503).
