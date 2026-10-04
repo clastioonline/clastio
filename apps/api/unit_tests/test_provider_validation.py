@@ -58,3 +58,18 @@ async def test_resend_worker_payload_and_retry(monkeypatch, status):
     assert row.status == ('sent' if status == 200 else 'queued')
     if status == 429:
         assert '429' in row.last_error and 're_fake' not in row.last_error
+
+@pytest.mark.parametrize('template,field', [
+    ('payment_receipt', 'email_from_billing'),
+    ('payment_reminder', 'email_from_reminders'),
+    ('login_alert', 'email_from_alerts'),
+    ('lesson_ready', 'email_from_notifications'),
+    ('product_update', 'email_from_updates'),
+])
+def test_email_sender_categories(monkeypatch, template, field):
+    from app.services.notify import sender_for
+    settings = get_settings()
+    monkeypatch.setattr(settings, field, 'Clastio <category@example.com>')
+    assert sender_for(template) == 'Clastio <category@example.com>'
+    monkeypatch.setattr(settings, field, None)
+    assert sender_for(template) == settings.email_from

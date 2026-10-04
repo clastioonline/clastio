@@ -32,7 +32,8 @@ CATEGORIES: dict[str, tuple[str, bool]] = {
     "billing": ("Payments, renewals and receipts", False),
     "billing_alert": ("Failed payments and plan problems", True),
     "usage": ("Credit and limit warnings", False),
-    "product": ("Lessons and files ready", False),
+    "product": ("PPT and lesson completion updates", False),
+    "feedback": ("Review and suggestion invitations", False),
     "support": ("Replies to your support requests", False),
     "announcement": ("Product news and maintenance notices", False),
     "legal": ("Changes to terms and policies", True),
@@ -73,13 +74,13 @@ EVENTS: dict[str, Event] = {
                                     "to keep your plan.", "/billing", "payment_reminder"),
     "referral_reward": Event("billing", "Your referral reward is ready", "You've earned {credits} media credits. Create something for your next class.", "/billing", "referral_reward"),
     "payment_receipt": Event("billing", "Payment received: {amount}", "Thank you. Your receipt is in Plan & billing.",
-                             "/billing", None),
+                             "/billing", "payment_receipt"),
     "media_credits_low": Event("usage", "Media credits running low",
                                "You have {balance} media credits left. Top up to keep creating images and videos.",
                                "/media", None),
     # --- product
     "lesson_ready": Event("product", "Lesson ready: {title}", "Your slides are built and ready to download.",
-                          "/lessons/{id}", None),
+                          "/lessons/{id}", "lesson_ready"),
     "lesson_failed": Event("product", "We couldn't build “{title}”",
                            "Nothing was charged. Open the lesson to try again.", "/lessons/{id}", None),
     "course_planned": Event("product", "Unit planned: {title}", "Your lesson sequence is ready to review.",
@@ -108,6 +109,9 @@ STAFF_ALERTS: dict[str, tuple[str, str, str, str]] = {
 }
 
 TEMPLATES.update({
+    "lesson_ready": ("Your PPT is ready: {title}", "Hi {name},\n\nYour teaching slides are complete. Preview and download them here: {link}\n"),
+    "payment_receipt": ("Clastio payment received: {amount}", "Hi {name},\n\nThank you. View your payment and available invoice in Plan & billing: {link}\n"),
+    "product_update": ("{title}", "Hi {name},\n\n{body}\n\nRead more: {link}\nManage update emails in Settings.\n"),
     "referral_reward": ("Your Clastio referral reward is ready", "Hi {name},\n\nYou've earned {credits} media credits after a referred teacher's first paid subscription. Use them in Media studio: {link}\n"),
     "trial_ending": ("Your Clastio trial ends in {days} day{s}",
                      "Hi {name},\n\nYour free {plan} trial ends in {days} day{s}. Choose a plan to keep everything "
@@ -243,12 +247,23 @@ async def broadcast(db: AsyncSession, *, title: str, body: str, link: str | None
         q = q.where(User.role != "admin")
     elif audience == "staff":
         q = q.where(User.role == "admin")
+    from app.services.legal import latest_consents
     n = 0
     for uid in (await db.execute(q)).scalars().all():
         prefs = await get_prefs(db, uid)
-        if prefs["announcement"]["in_app"] and await notify(db, uid, "announcement", title[:200], body, link,
-                                                            dedupe_key=f"{dedupe_key}:{uid}"):
+        category = prefs["announcement"]
+        if not (category["in_app"] or category["email"]):
+            continue
+        if await notify(db, uid, "announcement", title[:200], body, link,
+                        dedupe_key=f"{dedupe_key}:{uid}"):
             n += 1
+            consents = await latest_consents(db, uid)
+            user = await db.get(User, uid)
+            if category["email"] and consents.get("marketing_email", {}).get("granted") and user and user.email_verified:
+                # Use a first-party destination; announcement links can otherwise be external.
+                path = link if link and link.startswith("/") and not link.startswith("//") else "/notifications"
+                queue_email(db, user, "product_update", title=title, body=body,
+                            link=f"{get_settings().public_web_url}{path}")
     return n
 
 
@@ -386,6 +401,12 @@ async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | N
             if ctx is None or user is None or user.role == "admin":
                 return
             await send(db, user, event, dedupe_key=key, **ctx)
+            if ok and job_type == "lesson_generation":
+                prefs = await get_prefs(db, user.id)
+                if prefs["feedback"]["in_app"]:
+                    await notify(db, user.id, "feedback", "How did your PPT turn out?",
+                                 "Rate your experience and suggest what we should improve.", "/support?review=1",
+                                 dedupe_key=f"review:{utcnow().strftime('%Y-%m')}")
             await db.commit()
     except Exception as e:  # noqa: BLE001
         log(logger, logging.WARNING, "job_notification_failed", job_type=job_type, error=str(e)[:200])

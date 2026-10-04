@@ -2,7 +2,7 @@
 
 import { LifeBuoy, Lightbulb, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusPill, When } from "@/components/admin-kit";
 import { DashHeader } from "@/components/dash";
 import { errorMessage, useToast } from "@/components/toast";
@@ -15,6 +15,7 @@ const KINDS = [
   { value: "bug", label: "Something is broken" },
   { value: "billing", label: "Billing" },
   { value: "feature_request", label: "Feature request" },
+  { value: "review", label: "Review and suggestions" },
 ];
 
 export default function SupportPage() {
@@ -24,12 +25,19 @@ export default function SupportPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ kind: "support", subject: "", body: "" });
   const [busy, setBusy] = useState(false);
+  const [rating, setRating] = useState("5");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("review") === "1") {
+      setForm({ kind: "review", subject: "My Clastio experience", body: "" });
+      setOpen(true);
+    }
+  }, []);
   const items = (data?.items || []).filter((t) => filter !== "support" || t.kind !== "feature_request");
 
   const submit = async () => {
     setBusy(true);
     try {
-      await api("/support/tickets", { body: form, idempotent: true });
+      await api("/support/tickets", { body: { ...form, body: form.kind === "review" ? `Rating: ${rating}/5\n\n${form.body}` : form.body }, idempotent: true });
       notify({ tone: "success", title: form.kind === "feature_request" ? "Thanks for the idea!" : "Request sent", body: "We'll reply here and by email." });
       setOpen(false);
       setForm({ kind: "support", subject: "", body: "" });
@@ -46,6 +54,7 @@ export default function SupportPage() {
     <div className="space-y-6">
       <DashHeader title="Help & support" subtitle="Ask a question, report a problem or suggest a feature. We reply here and by email."
         actions={<>
+          <Button variant="outline" onClick={() => { setForm({ kind: "review", subject: "My Clastio experience", body: "" }); setOpen(true); }}>Leave a review</Button>
           <Button variant="outline" onClick={() => start("feature_request")}><Lightbulb className="h-4 w-4" /> Suggest a feature</Button>
           <Button onClick={() => start("support")}><Plus className="h-4 w-4" /> New request</Button>
         </>} />
@@ -72,6 +81,7 @@ export default function SupportPage() {
         footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button loading={busy} disabled={form.subject.trim().length < 3 || form.body.trim().length < 5} onClick={submit}>Send</Button></>}>
         <div className="space-y-4">
           <Field label="Type"><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>{KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</Select></Field>
+          {form.kind === "review" && <Field label="How was your experience?"><Select value={rating} onChange={(e) => setRating(e.target.value)}>{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} / 5</option>)}</Select></Field>}
           <Field label="Subject"><Input value={form.subject} maxLength={200} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder={form.kind === "feature_request" ? "e.g. Arabic voice-over for slides" : "e.g. Lesson 3 downloads blank slides"} /></Field>
           <Field label="Details" hint="Please don't include students' personal information.">
             <Textarea rows={6} maxLength={10000} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />

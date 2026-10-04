@@ -113,3 +113,22 @@ Create matching monthly/annual recurring prices or products in the active paymen
 Checkout now reads mapped Stripe prices and Dodo products and verifies the AED base amount and billing frequency before opening a session. Stale, inactive or incompatible mapped prices return `billing_price_mismatch` rather than charging a different base price. Discounts remain applied by the checkout coupon mechanism. Verify tax treatment and the final total in a real checkout before rollout; the amount guard does not configure taxes or change existing subscriptions.
 
 Deploy Render after the API catalogue is updated. Pricing cards read the backend catalogue, display explicit loading/error/retry states and show actual annual totals. The Yearly tab no longer promises a fixed discount for admin-customised annual prices.
+
+## Email senders, completion updates and teacher reviews
+
+Configure optional `EMAIL_FROM_BILLING`, `EMAIL_FROM_ALERTS`, `EMAIL_FROM_NOTIFICATIONS`,
+`EMAIL_FROM_UPDATES` and `EMAIL_FROM_REMINDERS` on Railway application services.
+Each falls back to `EMAIL_FROM`. Use addresses under a Resend-verified domain.
+Keep `RESEND_API_KEY` on Railway. The dedicated scheduler runs
+`python -m app.worker --scheduler-only` and drains emails every minute; reminder checks run hourly.
+
+Teachers enable PPT completion emails under Settings → Notifications → PPT and lesson completion updates.
+Successful lesson generation queues a link to the completed lesson, respecting their preference.
+Payment receipts use the billing sender; renewal, trial and overdue reminders use the reminder sender.
+Existing reminder deduplication prevents repeat sends for the same subscription period/reminder step.
+Product announcement emails require both announcement email preference and marketing-email consent.
+
+After a completed PPT, teachers receive an optional in-app review invitation at most once per calendar month.
+Help & support includes a 1–5 rating and suggestions form. Reviews are saved as support tickets of kind
+`review`, visible to staff in the support queue and available for replies. These are private feedback,
+not automatically published testimonials. Disable invitations under notification preferences.

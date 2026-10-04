@@ -28,6 +28,21 @@ logger = logging.getLogger("notify")
 
 MAX_EMAIL_ATTEMPTS = 5
 
+
+def sender_for(template: str) -> str:
+    s = get_settings()
+    if template in {"payment_reminder", "renewal_upcoming", "trial_ending", "trial_ended", "plan_ending", "grant_expiring"}:
+        sender = s.email_from_reminders
+    elif template in {"payment_receipt", "subscription_confirmed", "subscription_cancelled", "referral_reward"}:
+        sender = s.email_from_billing
+    elif template in {"payment_failed", "login_alert", "password_changed", "password_reset", "verify_email", "account_suspended"}:
+        sender = s.email_from_alerts
+    elif template == "product_update":
+        sender = s.email_from_updates
+    else:
+        sender = s.email_from_notifications
+    return sender or s.email_from
+
 # template -> (subject, body). Bodies are plain text; {name}, {link} and template-specific fields are filled in.
 TEMPLATES: dict[str, tuple[str, str]] = {
     "welcome": ("Welcome to Clastio",
@@ -119,7 +134,8 @@ async def send_pending_emails(limit: int = 20) -> int:
                 log(logger, logging.INFO, "email_logged", template=row.template, to_domain=row.to_email.split("@")[-1])
                 continue
             msg = EmailMessage()
-            msg["From"], msg["To"], msg["Subject"] = s.email_from, row.to_email, row.subject
+            sender = sender_for(row.template)
+            msg["From"], msg["To"], msg["Subject"] = sender, row.to_email, row.subject
             msg.set_content(row.body_text)
             try:
                 if s.resend_api_key:
@@ -128,7 +144,7 @@ async def send_pending_emails(limit: int = 20) -> int:
                             "https://api.resend.com/emails",
                             headers={"Authorization": f"Bearer {s.resend_api_key}",
                                      "Idempotency-Key": f"outbox/{row.id}"},
-                            json={"from": s.email_from, "to": [row.to_email],
+                            json={"from": sender, "to": [row.to_email],
                                   "subject": row.subject, "text": row.body_text},
                         )
                         if not result.is_success:

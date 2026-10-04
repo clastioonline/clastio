@@ -205,7 +205,7 @@ async def active_announcements(user: CurrentUser, db: DB):
 # --------------------------------------------------------------------------- support
 
 
-TICKET_KINDS = ("support", "bug", "billing", "feature_request")
+TICKET_KINDS = ("support", "bug", "billing", "feature_request", "review")
 
 
 def ticket_out(t: SupportTicket, *, email: str | None = None) -> dict[str, Any]:
@@ -226,7 +226,7 @@ def message_out(m: TicketMessage, author: User | None, *, staff_view: bool) -> d
 
 
 class TicketIn(BaseModel):
-    kind: str = Field("support", pattern="^(support|bug|billing|feature_request)$")
+    kind: str = Field("support", pattern="^(support|bug|billing|feature_request|review)$")
     subject: str = Field(min_length=3, max_length=200)
     body: str = Field(min_length=5, max_length=10_000)
     category: str | None = Field(None, max_length=60)

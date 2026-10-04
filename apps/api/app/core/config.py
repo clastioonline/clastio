@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     resend_api_key: str | None = None
     smtp_url: str | None = None
     email_from: str = "Clastio <no-reply@example.com>"
+    email_from_billing: str | None = None
+    email_from_alerts: str | None = None
+    email_from_notifications: str | None = None
+    email_from_updates: str | None = None
+    email_from_reminders: str | None = None
 
     # --- bot protection (Cloudflare Turnstile); both empty = off ---
     turnstile_site_key: str | None = None
