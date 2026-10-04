@@ -499,12 +499,23 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
         claims = jwt.decode(data.token, s.clerk_jwt_key.replace("\\n", "\n"), algorithms=["RS256"],
                             issuer=s.clerk_issuer, options={"require": ["exp", "iat", "nbf", "sub", "iss"],
                                                            "verify_aud": False})
-        if claims.get("azp") != s.public_web_url.rstrip("/") or claims.get("sts") == "pending":
-            raise ValueError("Invalid session origin or status")
+        if claims.get("azp") != s.public_web_url.rstrip("/"):
+            raise ValueError("session_origin_mismatch")
+        if claims.get("sts") == "pending":
+            raise ValueError("session_pending")
         subject = claims["sub"]
         if not isinstance(subject, str) or not re.fullmatch(r"user_[A-Za-z0-9]+", subject):
-            raise ValueError("Invalid subject")
-    except (jwt.PyJWTError, ValueError):
+            raise ValueError("invalid_subject")
+    except (jwt.PyJWTError, ValueError) as exc:
+        import logging
+
+        from app.core.logging import log
+
+        # Only record a failure category, never the token, key, or identity claims.
+        reason = str(exc) if type(exc) is ValueError else type(exc).__name__
+        if type(exc) is ValueError and reason not in {"session_origin_mismatch", "session_pending", "invalid_subject"}:
+            reason = "invalid_verification_input"
+        log(logging.getLogger("api"), logging.WARNING, "clerk_verification_failed", reason=reason)
         raise AppError("clerk_invalid", "Sign-in expired. Please sign in again.", 401) from None
     try:
         async with httpx.AsyncClient(timeout=10) as client:
