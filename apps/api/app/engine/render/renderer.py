@@ -37,6 +37,7 @@ from app.engine.pptx_xml import (
 )
 from app.engine.render.textfit import FitResult, Para, fit, is_arabic
 from app.engine.style.common import mix, readable_text_on
+from app.engine.style.design_details import apply_chart_style, apply_table_style
 from app.generation.specs import SlideSpec
 
 EMU_PER_PT = 12700
@@ -703,6 +704,9 @@ class DeckRenderer:
         chart.has_title = bool(spec.chart.unit)
         if chart.has_title:
             chart.chart_title.text_frame.text = spec.chart.unit
+        chart_style = self.spec.get("design_inspection", {}).get("charts", {}).get(spec.chart.kind)
+        if chart_style:
+            apply_chart_style(chart, chart_style)
         self.text(slide, Box(body.x, body.y + body.h - int(24 * EMU_PER_PT), body.w, int(24 * EMU_PER_PT)),
                   [P("Source: " + spec.chart.source)], max_pt=12, min_pt=10)
 
@@ -750,6 +754,9 @@ class DeckRenderer:
                                  else self.c["card_text"], bold=False, align="left" if not self.rtl else "right",
                                  bullets=False, bullet_color=None, spacing=1.0, space_em=0)
                 cell.vertical_anchor = MSO_ANCHOR.MIDDLE
+        table_style = self.spec.get("design_inspection", {}).get("table")
+        if table_style:
+            apply_table_style(table, table_style)
         if self._report is not None:
             self._report.texts.append(TextReport("table", size, fits, [body.x, body.y, body.w, body.h]))
 

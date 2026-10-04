@@ -25,7 +25,7 @@ from app.engine.style.common import contrast_ratio, luminance, mix, readable_tex
 from app.engine.style.content import extract_content
 from app.engine.template.catalog import UAE_STYLES, catalog_metadata
 
-SPEC_VERSION = 3
+SPEC_VERSION = 4
 DEFAULT_TITLE = [0.05, 0.05, 0.9, 0.13]
 
 
@@ -141,6 +141,7 @@ def _base_spec(analysis: dict[str, Any], mode: str, deco_items: list[dict]) -> d
         "zones": zones,
         "corner_radius": analysis.get("visual_rules", {}).get("corner_radius", "rounded"),
         "content_style": analysis.get("content_style", {}),
+        "design_inspection": analysis.get("design_inspection", {}),
         "cover": None,
         "content": None,
         "donor_count": 0,
@@ -207,9 +208,9 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
             "item_ids": ids, "clear_text_ids": ids, "use_placeholders": False,
             "copy_background": variant["background"].get("source") == "slide",
             "zones": {**spec["zones"], **variant["zones"]},
-            "colors": {**spec["colors"], "title": "#000000"},
+            "colors": {**spec["colors"], "title": variant.get("header_text_color") or spec["colors"]["title"]},
             "typography": {**spec["typography"], "title_align": "left", "title_bold": True,
-                           "title_pt": 28},
+                           "title_pt": max(16, min(48, variant.get("header_pt") or spec["typography"]["title_pt"]))},
             "fonts": {**spec["fonts"], "heading": variant["header_font"]},
         })
     out = io.BytesIO()

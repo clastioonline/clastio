@@ -97,7 +97,13 @@ async def upload(user: CurrentUser, db: DB, file: UploadFile = File(...), kind: 
     row, is_new = await store_upload(db, owner_id=user.id, filename=file.filename or "upload", data=data, kind=kind,
                                      rights_confirmed=rights_confirmed)
     job_id = None
-    if is_new or row.status == "failed":
+    needs_processing = is_new or row.status == "failed"
+    if kind == "style" and row.status == "ready" and not is_new:
+        saved_template = (await db.execute(select(Template.id).join(StyleProfile,
+            Template.style_profile_id == StyleProfile.id).where(StyleProfile.source_file_id == row.id,
+                                                               Template.owner_id == user.id).limit(1))).scalar_one_or_none()
+        needs_processing = saved_template is None
+    if needs_processing:
         job_type = "style_analysis" if kind == "style" else "source_indexing"
         job = await enqueue(db, job_type, {"file_id": str(row.id), "name": name}, owner_id=user.id)
         job_id = job.id
@@ -183,7 +189,12 @@ def template_out(t: Template, default_id: uuid.UUID | None = None, full: bool = 
            "tags": spec.get("catalog", {}).get("tags", []),
            "curricula": spec.get("catalog", {}).get("curricula", [])}
     if full:
+        inspection = spec.get("design_inspection", {})
         out.update({"typography": spec.get("typography"), "zones": spec.get("zones"),
+                    "design_inspection": {"slides_inspected": inspection.get("slides_inspected", 0),
+                        "slides": inspection.get("slides", []),
+                        "table_style_reused": bool(inspection.get("table")),
+                        "chart_styles_reused": list(inspection.get("charts", {}))},
                     "corner_radius": spec.get("corner_radius"), "layouts": spec.get("layouts", []),
                     "content_style": spec.get("content_style", {}), "style_profile_id":
                         str(t.style_profile_id) if t.style_profile_id else None})

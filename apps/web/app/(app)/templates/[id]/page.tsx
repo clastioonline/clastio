@@ -90,6 +90,27 @@ export default function TemplateDetail() {
         } />
       {data.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{data.tags.map((tag: string) => <Badge key={tag}>{tag}</Badge>)}</div>}
       {refreshing && <Alert>Refreshing your previews. You can leave this page and follow progress in <a href="/activity" className="underline">Activity</a>.</Alert>}
+      {data.design_inspection?.slides_inspected > 0 && <Card>
+        <CardHeader title="Uploaded design inspection" subtitle={`${data.design_inspection.slides_inspected} slides inspected across the complete PowerPoint.`} />
+        <div className="space-y-3 p-5 text-sm">
+          <p>Native masters, layouts and recurring decorations form your reusable design. New tables use the dominant uploaded table formatting; supported charts reuse formatting for their chart type.</p>
+          <div className="flex flex-wrap gap-2">
+            {data.design_inspection.table_style_reused && <Badge>Table formatting detected</Badge>}
+            {data.design_inspection.chart_styles_reused.map((kind: string) => <Badge key={kind}>{kind} chart formatting detected</Badge>)}
+          </div>
+          <details>
+            <summary className="cursor-pointer font-medium">Inspect each source slide</summary>
+            <div className="mt-3 max-h-80 space-y-2 overflow-auto">
+              {data.design_inspection.slides.map((slide: any) => <div key={slide.slide} className="rounded-lg border border-line p-3">
+                <p className="font-medium">Slide {slide.slide} · {slide.layout}</p>
+                <p className="text-muted">{slide.tables} tables · {slide.charts} charts · {slide.pictures} pictures</p>
+                {slide.fonts.length > 0 && <p>Explicit fonts: {slide.fonts.join(", ")}</p>}
+              </div>)}
+            </div>
+          </details>
+          <p className="text-muted">Image-based tables and charts remain images. Fonts unavailable on the rendering server may use a substitute. PDF designs are reconstructed rather than imported as native PowerPoint objects.</p>
+        </div>
+      </Card>}
       {data.job?.status === "failed" && !refreshing && <Alert tone="danger">Your design is saved, but previews could not refresh. Save again to retry.</Alert>}
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card className="min-w-0 self-start p-3 sm:p-4">

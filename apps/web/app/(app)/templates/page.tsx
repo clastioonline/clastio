@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Badge, Button, Card, CardHeader, Input, PageHeader, Select, Skeleton } from "@/components/ui";
@@ -10,7 +10,13 @@ import { useApi } from "@/lib/hooks";
 
 export default function Templates() {
   const router = useRouter();
-  const { data, error, mutate } = useApi<any>("/templates");
+  const { data, error, mutate } = useApi<any>("/templates", { revalidateOnFocus: true });
+  const { data: uploads, mutate: refreshUploads } = useApi<any>("/uploads?kind=style", {
+    revalidateOnFocus: true,
+    refreshInterval: (latest: any) => latest?.items?.some((file: any) => ["queued", "processing"].includes(file.status)) ? 2500 : 0,
+  });
+  const completedUploads = (uploads?.items || []).filter((file: any) => file.status === "ready").map((file: any) => file.id).sort().join(",");
+  useEffect(() => { void mutate(); }, [completedUploads, mutate]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const filtered = (data?.items || []).filter((t: any) => `${t.name} ${t.description || ""} ${(t.tags || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()) &&
@@ -42,7 +48,10 @@ export default function Templates() {
       <PageHeader title="My designs" subtitle="Upload a deck you've taught with. We keep your slide master, colours, fonts, logo and layouts, and never modify the original." />
       <Card>
         <CardHeader title="Add your style" subtitle="PowerPoint files give an exact match. PDFs are reconstructed as closely as possible." />
-        <div className="p-5"><UploadDropzone onReady={({ templateId }) => { mutate(); if (templateId) router.push(`/templates/${templateId}`); }} /></div>
+        <div className="p-5"><UploadDropzone onQueued={() => { void refreshUploads(); }} onReady={({ templateId }) => {
+          void mutate(); void refreshUploads(); setFilter("all"); setQuery("");
+          if (templateId) router.push(`/templates/${templateId}`);
+        }} /></div>
       </Card>
       <div className="flex flex-col gap-3 sm:flex-row"><Input aria-label="Search designs" placeholder="Search designs, subjects or curricula…" value={query} onChange={e => setQuery(e.target.value)} /><Select aria-label="Filter designs" className="sm:max-w-52" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All designs</option><option value="suggested">Suggested for you</option><option value="uae">UAE classroom styles</option><option value="mine">Uploaded and shared</option><option value="builtin">Built-in styles</option><option value="default">Default design</option></Select></div>
       {data && !filtered.length && (query || filter !== "all") && <p role="status" className="text-sm text-muted">No matching designs. Try another search or filter.</p>}

@@ -30,6 +30,7 @@ from app.engine.style.common import (
     luminance,
 )
 from app.engine.style.content import shape_image_bytes
+from app.engine.style.design_details import inspect_design
 
 TITLE_TYPES = {PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE, PP_PLACEHOLDER.VERTICAL_TITLE}
 BODY_TYPES = {PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.VERTICAL_BODY, PP_PLACEHOLDER.SUBTITLE}
@@ -359,6 +360,9 @@ class PptxAnalyzer:
             variants.append({"stage": stage, "layout_index": self.layouts.index(layout),
                              "donor_slide": i, "header_id": band.shape_id if band else None,
                              "header_color": band.fill if band else None,
+                             "header_text_color": (band.text_colors.most_common(1)[0][0]
+                                                   if band and band.text_colors else None),
+                             "header_pt": band.max_font_pt if band and band.max_font_pt else None,
                              "zones": {"title": title, "body": [x, body_top, right - x, .95 - body_top]},
                              "header_font": header_font, "background": self._background(slide)})
         return variants
@@ -571,6 +575,7 @@ class PptxAnalyzer:
 
         return {
             "source_kind": "pptx",
+            "design_inspection": inspect_design(self.prs),
             "slide_size": {"w": int(self.W), "h": int(self.H)},
             "theme": self.theme,
             "colors": {
