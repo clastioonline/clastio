@@ -508,6 +508,9 @@ class StaffRoleIn(ReasonIn):
 async def set_staff_role(user_id: uuid.UUID, data: StaffRoleIn, admin: Staff("admins.manage"), request: Request,
                          db: DB):
     """Make an account staff with a role, change the role, or (admin_role = null) remove staff access."""
+    from app.core.config import get_settings
+    if get_settings().clerk_secret_key:
+        raise AppError("clerk_roles_managed", "Manage staff roles in Clerk public metadata.", 409)
     u = await _target(db, user_id)
     if u.id == admin.id:
         raise AppError("self_action", "Ask another super admin to change your own role.", 409)

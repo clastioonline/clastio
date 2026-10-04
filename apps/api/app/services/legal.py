@@ -46,7 +46,7 @@ def doc_out(d: LegalDocument, *, content: bool = False) -> dict[str, Any]:
            "effective_from": d.effective_from.isoformat() if d.effective_from else None,
            "published_at": d.published_at.isoformat() if d.published_at else None}
     if content:
-        out["content"] = d.content
+        out["content"] = d.content.removeprefix(_NOTICE)
     return out
 
 
@@ -100,7 +100,7 @@ _NOTICE = ("> **Template — requires review by a qualified lawyer before launch
            "UAE, India or any other jurisdiction.\n\n")
 
 DEFAULT_DOCUMENTS: dict[str, tuple[str, str]] = {
-    "terms": ("Terms & Conditions", _NOTICE + """## 1. The service
+    "terms": ("Terms & Conditions", """## 1. The service
 Clastio helps teachers plan lessons and create presentations, documents and media using AI. You need an account, and
 you must be at least 18 and a teacher or education professional to use it.
 
@@ -134,7 +134,7 @@ The service is provided "as is". To the extent the law allows, our liability is 
 ## 9. Changes
 We will tell you about material changes and ask you to accept them before you continue.
 """),
-    "privacy": ("Privacy Policy", _NOTICE + """## What we collect
+    "privacy": ("Privacy Policy", """## What we collect
 - **Account:** name, email, password hash (never the password), school and teaching preferences you enter.
 - **Content:** files you upload and what you create. We use it only to provide the service.
 - **Usage:** which features you use, credits consumed, AI model and token counts per generation, request logs
@@ -158,7 +158,7 @@ You can export your data and delete your account from Settings, and withdraw mar
 ## Contact
 privacy@clastioenie.example (replace with your real contact).
 """),
-    "acceptable_use": ("Acceptable Use Policy", _NOTICE + """You must not use Clastio to:
+    "acceptable_use": ("Acceptable Use Policy", """You must not use Clastio to:
 - upload personal data about students or anyone else without a lawful basis;
 - create content that is illegal, hateful, harassing, sexual involving minors, or that promotes violence;
 - create deceptive media of real people, or remove or hide the AI-generated label or provenance data from output;
@@ -168,11 +168,11 @@ privacy@clastioenie.example (replace with your real contact).
 
 We may remove content and suspend accounts that break this policy.
 """),
-    "cookie": ("Cookie Policy", _NOTICE + """We use only **essential cookies**: your session cookie (keeps you signed
+    "cookie": ("Cookie Policy", """We use only **essential cookies**: your session cookie (keeps you signed
 in) and a small preference cookie for your cookie choices. We do not use advertising cookies. If we add analytics or
 marketing cookies, they will only load after you agree to them in the cookie banner.
 """),
-    "refund": ("Refund Policy", _NOTICE + """Monthly plans can be cancelled at any time and are not refunded for the
+    "refund": ("Refund Policy", """Monthly plans can be cancelled at any time and are not refunded for the
 current month. Annual plans can be refunded pro rata within 14 days of purchase. Unused media credit packs can be
 refunded within 14 days if none of the credits were used. Contact support to request a refund.
 """),

@@ -9,7 +9,10 @@ export const metadata: Metadata = {
   title: { default: "Clastio — lessons and slides in your own design", template: "%s · Clastio" },
   description:
     "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
-  icons: { icon: "/brand/clastio-original.png" },
+  icons: {
+    icon: [{ url: "/brand/favicon.png", type: "image/png", sizes: "192x192" }],
+    apple: [{ url: "/brand/favicon.png", sizes: "192x192" }],
+  },
   metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",

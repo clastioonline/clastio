@@ -117,7 +117,7 @@ def verification_link(user: User) -> str:
 async def _create_user(db, email: str, name: str, password: str | None, *, source: str, request: Request | None,
                        signup_meta: dict | None = None, verified: bool = False) -> User:
     s = get_settings()
-    staff = email.lower() in [e.lower() for e in s.admin_emails]
+    staff = not s.clerk_secret_key and email.lower() in [e.lower() for e in s.admin_emails]
     user = User(email=email.lower(), name=name.strip(), password_hash=await hash_password_async(password) if password else None,
                 role="admin" if staff else "teacher", admin_role="super_admin" if staff else None,
                 signup_source=source, signup_meta=signup_meta or {}, email_verified=verified,
@@ -540,13 +540,13 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
         user = await db.get(User, link.user_id)
     else:
         user = (await db.execute(select(User).where(User.email == email))).scalars().first()
-        if user is not None:
+        if user is not None and not user.email_verified:
             # Existing ownership/staff privileges require proof of the original app session.
             existing = decode_token(request.cookies.get(COOKIE_NAME, ""))
             active = await sessions.load_active(db, existing.get("sid"), user.id) if existing and existing.get("sub") == str(user.id) else None
             if active is None:
                 raise AppError("clerk_link_required", "Sign in with your existing password first, then connect Clerk from /login?legacy=1.", 409)
-        else:
+        elif user is None:
             if not (await get_setting("system")).get("registration_enabled", True):
                 raise AppError("registration_closed", "New sign-ups are paused.", 403)
             if not data.accept_terms:
@@ -561,6 +561,10 @@ async def clerk_login(data: ClerkLoginIn, request: Request, response: Response, 
         raise AppError("clerk_invalid", "Account unavailable.", 401)
     if (err := _login_block(user)) is not None:
         raise err
+    # Only server-managed Clerk public metadata grants staff access. Never trust
+    # unsafe_metadata or carry forward privileges from a password account.
+    from app.services.clerk_roles import apply_clerk_role
+    apply_clerk_role(user, info)
     user.last_login_at = utcnow()
     await sessions.start_session(db, user, request, response, method="clerk")
     security_event(db, "login_success", user_id=user.id, request=request, method="clerk")
