@@ -91,7 +91,7 @@ export default function TemplateDetail() {
       {data.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{data.tags.map((tag: string) => <Badge key={tag}>{tag}</Badge>)}</div>}
       {refreshing && <Alert>Refreshing your previews. You can leave this page and follow progress in <a href="/activity" className="underline">Activity</a>.</Alert>}
       {data.design_inspection?.slides_inspected > 0 && <Card>
-        <CardHeader title="Uploaded design inspection" subtitle={`${data.design_inspection.slides_inspected} slides inspected across the complete PowerPoint.`} />
+        <CardHeader title="Uploaded design inspection" subtitle={`${data.design_inspection.slides_inspected} slides structurally inspected · ${data.design_inspection.slides_rendered || 0} rendered · ${data.design_inspection.slides_ai_inspected || 0} inspected by AI.`} />
         <div className="space-y-3 p-5 text-sm">
           <p>Native masters, layouts and recurring decorations form your reusable design. New tables use the dominant uploaded table formatting; supported charts reuse formatting for their chart type.</p>
           <div className="flex flex-wrap gap-2">
@@ -100,7 +100,15 @@ export default function TemplateDetail() {
           </div>
           <details>
             <summary className="cursor-pointer font-medium">Inspect each source slide</summary>
-            <div className="mt-3 max-h-80 space-y-2 overflow-auto">
+            <div className="mt-3 space-y-3">
+              {data.design_inspection.source_previews?.map((page: any) => {
+                const detail = data.design_inspection.page_details?.find((item: any) => item.number === page.number);
+                return <div key={page.number} className="rounded-lg border border-line p-3 space-y-2">
+                  <p className="font-medium">Original slide {page.number}</p>
+                  <a href={page.url} target="_blank" rel="noreferrer"><img src={page.url} alt={`Complete original slide ${page.number}`} loading="lazy" className="w-full rounded" /></a>
+                  {detail && <><p>{detail.design_summary}</p><p>{detail.content_structure}</p><p className="text-muted">{detail.engagement_guidance}</p></>}
+                </div>;
+              })}
               {data.design_inspection.slides.map((slide: any) => <div key={slide.slide} className="rounded-lg border border-line p-3">
                 <p className="font-medium">Slide {slide.slide} · {slide.layout}</p>
                 <p className="text-muted">{slide.tables} tables · {slide.charts} charts · {slide.pictures} pictures</p>
@@ -114,7 +122,7 @@ export default function TemplateDetail() {
       {data.job?.status === "failed" && !refreshing && <Alert tone="danger">Your design is saved, but previews could not refresh. Save again to retry.</Alert>}
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card className="min-w-0 self-start p-3 sm:p-4">
-          <h2 className="mb-3 font-semibold">Slide previews</h2>
+          <h2 className="mb-3 font-semibold">Generated design examples</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {(data.previews?.length ? data.previews : [undefined]).map((p: string | undefined, i: number) => (
               <TemplatePreview key={i} src={p} name={`Preview ${i + 1}`} />

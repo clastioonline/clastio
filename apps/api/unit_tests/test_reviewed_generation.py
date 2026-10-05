@@ -95,21 +95,32 @@ async def test_approval_keeps_teacher_feedback(env, monkeypatch):
 
 async def test_ai_inspects_all_pages_including_last_batch(monkeypatch):
     ai = SimpleNamespace(mode="live", structured=AsyncMock())
-    ai.structured.side_effect = [styles.PageRoles(pages=[styles.PageRole(number=n, layout="worked_example")
-                                                       for n in range(1, 9)]),
-                                 styles.PageRoles(pages=[styles.PageRole(number=9, layout="quiz")])]
+    async def report(**kwargs):
+        import json
+        return styles.PageRoles(pages=[styles.PageRole(number=page["number"],
+            layout="quiz" if page["number"] == 9 else "worked_example",
+            design_summary="Two columns with a recurring title band")
+            for page in json.loads(kwargs["prompt"])])
+    ai.structured.side_effect = report
+    storage = SimpleNamespace(put=AsyncMock())
+    monkeypatch.setattr(styles, "get_storage", lambda: storage)
     monkeypatch.setattr(styles, "get_ai", lambda: ai)
     image = io.BytesIO()
     Image.new("RGB", (320, 180), "green").save(image, "PNG")
     monkeypatch.setattr(styles, "inspect", lambda *args, **kwargs:
-                        SimpleNamespace(thumbnails=[image.getvalue()] * 9))
+                        SimpleNamespace(previews=[image.getvalue()] * 9))
     spec = {"source_content": [{"number": n, "text": "Example"} for n in range(1, 10)],
             "page_variants": [{"number": n, "layout": "concept"} for n in range(1, 10)],
             "design_inspection": {}}
     await styles.inspect_page_roles(spec, uuid.uuid4(), b"source-pptx")
     assert len(spec["design_inspection"]["ai_page_roles"]) == 9
     assert spec["page_variants"][-1]["layout"] == "quiz"
-    assert ai.structured.await_count == 2
+    assert ai.structured.await_count == 5
+    assert storage.put.await_count == 9
+    assert spec["design_inspection"]["source_previews"][-1]["number"] == 9
+    assert spec["design_inspection"]["slides_rendered"] == 9
+    assert spec["design_inspection"]["slides_ai_inspected"] == 9
+    assert sum(len(call.kwargs["images"]) for call in ai.structured.await_args_list) == 9
     assert all(call.kwargs["images"][0].media_type == "image/jpeg" for call in ai.structured.await_args_list)
 
 
@@ -120,3 +131,14 @@ async def test_missing_page_inspection_is_rejected(monkeypatch):
             "design_inspection": {}}
     with pytest.raises(ValueError, match="every source page"):
         await styles.inspect_page_roles(spec, uuid.uuid4())
+
+
+async def test_incomplete_source_render_is_rejected(monkeypatch):
+    monkeypatch.setattr(styles, "get_ai", lambda: SimpleNamespace(mode="offline"))
+    monkeypatch.setattr(styles, "inspect", lambda *args, **kwargs: SimpleNamespace(previews=[b"png"]))
+    storage = SimpleNamespace(put=AsyncMock())
+    monkeypatch.setattr(styles, "get_storage", lambda: storage)
+    spec = {"source_content": [{"number": 1}, {"number": 2}]}
+    with pytest.raises(ValueError, match="every source page"):
+        await styles.inspect_page_roles(spec, uuid.uuid4(), b"pptx")
+    storage.put.assert_not_awaited()

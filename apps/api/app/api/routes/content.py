@@ -193,6 +193,11 @@ def template_out(t: Template, default_id: uuid.UUID | None = None, full: bool = 
         out.update({"typography": spec.get("typography"), "zones": spec.get("zones"),
                     "design_inspection": {"slides_inspected": inspection.get("slides_inspected", 0),
                         "slides": inspection.get("slides", []),
+                        "slides_rendered": inspection.get("slides_rendered", 0),
+                        "slides_ai_inspected": inspection.get("slides_ai_inspected", 0),
+                        "page_details": inspection.get("ai_page_roles", []),
+                        "source_previews": [{"number": page["number"], "url": signed(page["key"])}
+                                            for page in inspection.get("source_previews", [])],
                         "table_style_reused": bool(inspection.get("table")),
                         "chart_styles_reused": list(inspection.get("charts", {}))},
                     "corner_radius": spec.get("corner_radius"), "layouts": spec.get("layouts", []),

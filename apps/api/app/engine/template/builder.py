@@ -25,7 +25,7 @@ from app.engine.style.common import contrast_ratio, luminance, mix, readable_tex
 from app.engine.style.content import extract_content
 from app.engine.template.catalog import UAE_STYLES, catalog_metadata
 
-SPEC_VERSION = 5
+SPEC_VERSION = 6
 DEFAULT_TITLE = [0.05, 0.05, 0.9, 0.13]
 
 
