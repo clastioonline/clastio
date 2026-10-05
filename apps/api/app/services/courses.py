@@ -76,7 +76,8 @@ async def get_owned(db: AsyncSession, model, obj_id: uuid.UUID, user: User):
     return obj
 
 
-async def resolve_template(db: AsyncSession, user_id: uuid.UUID, template_id: uuid.UUID | None) -> Template:
+async def resolve_template(db: AsyncSession, user_id: uuid.UUID, template_id: uuid.UUID | None,
+                           *, refresh: bool = True) -> Template:
     async def accessible(candidate: Template | None) -> bool:
         if candidate is None:
             return False
@@ -104,7 +105,7 @@ async def resolve_template(db: AsyncSession, user_id: uuid.UUID, template_id: uu
 
         await ensure_builtin_templates(db)
         tpl = (await db.execute(select(Template).where(Template.owner_id.is_(None)))).scalars().first()
-    if tpl and tpl.owner_id == user_id:
+    if refresh and tpl and tpl.owner_id == user_id:
         from app.services.styles import refresh_native_template
 
         await refresh_native_template(db, tpl)
@@ -161,7 +162,9 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
     plan_cost = await usage.credit_cost("course_plan")
     await usage.check(db, user, "credits", plan_cost, jobs=1)
     tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
-    template = await resolve_template(db, user.id, data.get("template_id"))
+    # Upload parsing, image storage and preview rendering belong to the queued worker.
+    # Rebuilding an old template here can exceed the frontend proxy's request timeout.
+    template = await resolve_template(db, user.id, data.get("template_id"), refresh=False)
     project = Project(owner_id=user.id, title=f"{data['topic']} — Grade {data['grade']}", kind="course",
                       status="planning", class_section_id=data.get("class_section_id"))
     db.add(project)
@@ -244,7 +247,7 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
             user = await db.get(User, course.owner_id)
             mode = course.options.get("chapter_mode", "complete")
             if mode != "parts":
-                await start_generation(db, user, course_id, [1] if mode == "daily" else None)
+                await start_generation(db, user, course_id, [1])
     return {"course_id": str(course_id), "lectures": len(plan.lectures)}
 
 
@@ -270,15 +273,28 @@ async def update_plan(db: AsyncSession, user: User, course_id: uuid.UUID, plan: 
 async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
                            lesson_numbers: list[int] | None = None, instructions: str | None = None, *,
                            previous_taught: str | None = None, revision_needed: str | None = None) -> list[uuid.UUID]:
+    await usage.lock_user(db, user.id)
     course = await get_owned(db, Course, course_id, user)
     if not course.plan:
         raise AppError("not_planned", "Plan the course before generating lessons.", 409)
     lessons = (await db.execute(select(Lesson).where(Lesson.course_id == course_id).order_by(Lesson.number))
                ).scalars().all()
-    targets = [lesson for lesson in lessons if not lesson_numbers or lesson.number in lesson_numbers]
+    targets = ([lesson for lesson in lessons if lesson.number in lesson_numbers] if lesson_numbers else
+               [lesson for lesson in lessons if lesson.status in ("planned", "failed")][:1])
+    if len(targets) != 1:
+        raise AppError("review_required", "Build one lesson at a time, then review it before continuing.", 409)
     if lesson_numbers and set(lesson_numbers) - {lesson.number for lesson in lessons}:
         raise AppError("bad_request", "Choose lesson numbers from this chapter.", 400)
-    await usage.lock_user(db, user.id)
+    target = targets[0]
+    for earlier in lessons:
+        if earlier.number >= target.number:
+            continue
+        if not earlier.pptx_key or (earlier.qc_report or {}).get("approved_version") != earlier.version:
+            raise AppError("review_required", f"Review and approve lesson {earlier.number} before building the next lesson.", 409)
+        if await pending_lesson_edit(db, user.id, earlier.id):
+            raise AppError("edit_pending", "Wait for the previous PPT changes and review them before continuing.", 409)
+    if any(lesson.status == "generating" for lesson in lessons):
+        raise AppError("edit_pending", "Wait for the current lesson to finish before building another.", 409)
     for lesson in targets:
         pending = await pending_lesson_edit(db, user.id, lesson.id)
         if pending and pending.type != "lesson_generation":
@@ -299,6 +315,22 @@ async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
     await db.commit()
     await run_inline_if_configured(job_ids)
     return job_ids
+
+
+async def approve_lesson(db: AsyncSession, user: User, lesson_id: uuid.UUID, version: int,
+                         feedback: str = "") -> Lesson:
+    await usage.lock_user(db, user.id)
+    lesson = await get_owned(db, Lesson, lesson_id, user)
+    if not lesson.pptx_key or lesson.status in ("planned", "generating", "failed"):
+        raise AppError("review_required", "Wait for a completed PPT before approving it.", 409)
+    if version != lesson.version:
+        raise AppError("review_required", "The PPT changed. Review the latest version before approving it.", 409)
+    if await pending_lesson_edit(db, user.id, lesson.id):
+        raise AppError("edit_pending", "Wait for the current changes to finish before approving this PPT.", 409)
+    lesson.qc_report = {**(lesson.qc_report or {}), "approved_version": version,
+                        "review_feedback": feedback.strip(), "approved_at": utcnow().isoformat()}
+    await db.commit()
+    return lesson
 
 
 # --------------------------------------------------------------------------- lesson generation
@@ -336,6 +368,12 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         plan = CoursePlan.model_validate(course.plan)
         carry = lesson.carry_over.get("text") if lesson.carry_over else None
         context_text += chapter_teaching_context(course, ctx.payload)
+        reviewed = (await db.execute(select(Lesson).where(Lesson.course_id == course.id,
+                                    Lesson.number < lesson.number).order_by(Lesson.number))).scalars().all()
+        for prior in reviewed:
+            feedback = (prior.qc_report or {}).get("review_feedback")
+            if feedback:
+                context_text += f"\nTeacher feedback after reviewing lesson {prior.number}: {feedback}"
         previous = (await db.execute(select(Lesson).where(Lesson.course_id == course.id,
                                       Lesson.number < lesson.number, Lesson.taught_at.is_not(None))
                                       .order_by(Lesson.number.desc()).limit(1))).scalars().first()

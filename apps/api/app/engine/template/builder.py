@@ -25,7 +25,7 @@ from app.engine.style.common import contrast_ratio, luminance, mix, readable_tex
 from app.engine.style.content import extract_content
 from app.engine.template.catalog import UAE_STYLES, catalog_metadata
 
-SPEC_VERSION = 4
+SPEC_VERSION = 5
 DEFAULT_TITLE = [0.05, 0.05, 0.9, 0.13]
 
 
@@ -159,7 +159,8 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
 
     variants = analysis.get("stage_variants") or []
     spec["source_content"], _ = extract_content(prs)
-    donors = sorted({d["donor_slide"] for d in (content, cover, *variants) if d})
+    pages = analysis.get("page_designs") or []
+    donors = sorted({d["donor_slide"] for d in (content, cover, *variants, *pages) if d})
     delete_all_slides_except(prs, donors)
     new_index = {old: i for i, old in enumerate(donors)}
     spec["donor_count"] = len(donors)
@@ -201,6 +202,27 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
     spec["layouts"] = [{"index": m["index"], "name": m["name"],
                         "placeholder_types": [p["type"] for p in m["placeholders"]]} for m in layouts]
     spec["stage_variants"] = {}
+    spec["page_variants"] = []
+    for page in pages:
+        if page["layout"] in ("cover", "section"):
+            continue
+        zones = {**spec["zones"]}
+        if page.get("title_zone"):
+            zones["title"] = page["title_zone"]
+        if page.get("body_zone"):
+            zones["body"] = page["body_zone"]
+        spec["page_variants"].append({
+            "number": page["number"], "layout": page["layout"],
+            "layout_index": page["layout_index"], "donor_index": new_index[page["donor_slide"]],
+            "item_ids": page["item_ids"], "clear_text_ids": page.get("clear_text_ids", []),
+            "use_placeholders": False,
+            "copy_background": page["background"].get("source") == "slide", "zones": zones,
+            "colors": {**spec["colors"], "title": page.get("title_color") or spec["colors"]["title"],
+                       "text": page.get("body_color") or spec["colors"]["text"]},
+            "fonts": {**spec["fonts"], "heading": page.get("title_font") or spec["fonts"]["heading"],
+                      "body": page.get("body_font") or spec["fonts"]["body"]},
+            "typography": {**spec["typography"], "title_pt": page.get("title_pt") or spec["typography"]["title_pt"]},
+        })
     for variant in variants:
         ids = [variant["header_id"]] if variant.get("header_id") is not None else []
         spec["stage_variants"].setdefault(variant["stage"], {

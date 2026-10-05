@@ -79,7 +79,7 @@ EVENTS: dict[str, Event] = {
                                "You have {balance} media credits left. Top up to keep creating images and videos.",
                                "/media", None),
     # --- product
-    "lesson_ready": Event("product", "Lesson ready: {title}", "Your slides are built and ready to download.",
+    "lesson_ready": Event("product", "Review your PPT: {title}", "Your slides are ready. Review them, request changes, and approve this version before building the next lesson.",
                           "/lessons/{id}", "lesson_ready"),
     "lesson_failed": Event("product", "We couldn't build “{title}”",
                            "Nothing was charged. Open the lesson to try again.", "/lessons/{id}", None),
@@ -112,7 +112,7 @@ STAFF_ALERTS: dict[str, tuple[str, str, str, str]] = {
 }
 
 TEMPLATES.update({
-    "lesson_ready": ("Your PPT is ready: {title}", "Hi {name},\n\nYour teaching slides are complete. Preview and download them here: {link}\n"),
+    "lesson_ready": ("Review your PPT: {title}", "Hi {name},\n\nYour teaching slides are complete. Review them and request any changes, then approve this version before building the next lesson: {link}\n"),
     "payment_receipt": ("Clastio payment received: {amount}", "Hi {name},\n\nThank you. View your payment and available invoice in Plan & billing: {link}\n"),
     "product_update": ("{title}", "Hi {name},\n\n{body}\n\nRead more: {link}\nManage update emails in Settings.\n"),
     "review_invitation": ("How was your Clastio PPT?",

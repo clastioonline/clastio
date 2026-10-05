@@ -53,7 +53,6 @@ export default function ProjectPage() {
   const { notify } = useToast();
   const { data, mutate } = useApi<any>(`/projects/${id}`);
   const [preparing, setPreparing] = useState<number[] | null>(null);
-  const [selectedParts, setSelectedParts] = useState<number[]>([]);
   const [previousTaught, setPreviousTaught] = useState("");
   const [revisionNeeded, setRevisionNeeded] = useState("");
   const [preparationNotes, setPreparationNotes] = useState("");
@@ -77,7 +76,6 @@ export default function ProjectPage() {
       await api(`/courses/${course.id}/generate`, { body: { lessons: numbers, previous_taught: previousTaught, revision_needed: revisionNeeded, instructions: preparationNotes || null } });
       mutate();
       setPreparing(null);
-      setSelectedParts([]);
     } catch (e) {
       notify({ tone: "error", title: "Couldn't start", body: errorMessage(e) });
     } finally {
@@ -86,7 +84,7 @@ export default function ProjectPage() {
   };
   const prepare = (numbers?: number[]) => {
     const waiting = lessons.filter((lesson: any) => ["planned", "failed"].includes(lesson.status));
-    const targets = numbers || (course.options?.chapter_mode === "daily" ? waiting.slice(0, 1).map((lesson: any) => lesson.number) : selectedParts.length ? selectedParts : waiting.map((lesson: any) => lesson.number));
+    const targets = numbers || waiting.slice(0, 1).map((lesson: any) => lesson.number);
     if (!targets.length) return;
     setPreviousTaught(targets.includes(1) ? course.options?.previous_taught || "" : "");
     setRevisionNeeded(targets.includes(1) ? course.options?.revision_needed || "" : "");
@@ -117,14 +115,14 @@ export default function ProjectPage() {
           <>
             {plan && <Button variant="outline" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit sequence</Button>}
             {plan && lessons.some((l: any) => l.status === "planned" || l.status === "failed") && (
-              <Button onClick={() => prepare()} loading={busy === "generate"}><WandSparkles className="h-4 w-4" /> {course.options?.chapter_mode === "daily" ? "Prepare next day" : selectedParts.length ? "Build selected parts" : "Build remaining parts"}</Button>
+              <Button disabled={working || lessons.some((l: any) => l.has_pptx && !l.review_approved)} onClick={() => prepare()} loading={busy === "generate"}><WandSparkles className="h-4 w-4" /> Prepare next lesson</Button>
             )}
             <Button variant="ghost" size="icon" onClick={remove} aria-label="Delete project"><Trash className="h-4 w-4" /></Button>
           </>
         } />
 
       {course.options?.chapter_mode === "daily" && <Alert tone="neutral" title="Prepare day by day">Teach the ready lesson, record how the class went, then prepare the next day. The chapter plan stays connected while each new lesson can respond to revision needs.</Alert>}
-      {course.options?.chapter_mode === "parts" && <Alert tone="neutral" title="Prepare selected parts">Select the lesson parts you want, then build them together. You can also build a single lesson below.</Alert>}
+      {course.options?.chapter_mode === "parts" && <Alert tone="neutral" title="Prepare selected parts">Build one lesson, review its slides and request changes, then approve it to unlock the next lesson.</Alert>}
       {(course.options?.source_file_ids?.length || 0) > 0 && <p className="text-sm text-muted">Grounded in {course.options.source_file_ids.length} selected book / notes file(s).</p>}
       {working && <Alert tone="brand" title="Keep teaching while we prepare">This work continues in the background. You can leave this page or close the browser. <Link href="/activity" className="font-medium underline">Follow progress in Activity</Link>.</Alert>}
       {course.status === "planning" && (
@@ -145,6 +143,7 @@ export default function ProjectPage() {
         </Card>
       )}
 
+      {plan && <Alert title="Review each PPT before continuing">Open the generated PPT, inspect each slide and request changes. Approve the finished version to unlock the next class.</Alert>}
       {plan && (
         <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-3">
@@ -157,7 +156,7 @@ export default function ProjectPage() {
                     <SlideThumb src={l.cover} alt={l.title} className="w-full shrink-0 sm:w-48" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        {course.options?.chapter_mode === "parts" && l.status !== "generating" && <input type="checkbox" aria-label={`Select lesson ${l.number}`} checked={selectedParts.includes(l.number)} onChange={() => setSelectedParts(selectedParts.includes(l.number) ? selectedParts.filter((number) => number !== l.number) : [...selectedParts, l.number])} />}
+
                         <Badge tone="brand">Lesson {l.number}</Badge>
                         <StatusBadge status={l.status} />
                         {l.scheduled_date && <span className="text-xs text-muted">{l.scheduled_date}</span>}
@@ -179,9 +178,9 @@ export default function ProjectPage() {
                     </div>
                     <div className="flex shrink-0 items-start gap-2 sm:flex-col">
                       {l.has_pptx ? (
-                        <Button size="sm" href={`/lessons/${l.id}`}>Open <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
+                        <Button size="sm" href={`/lessons/${l.id}`}>{l.review_approved ? "Open" : "Review PPT"} <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
                       ) : l.status !== "generating" ? (
-                        <Button size="sm" variant="outline" onClick={() => prepare([l.number])}>Build</Button>
+                        <Button size="sm" variant="outline" disabled={working || lessons.some((prior: any) => prior.number < l.number && !prior.review_approved)} onClick={() => prepare([l.number])}>Build</Button>
                       ) : null}
                       {l.has_pptx && (
                         <Button size="sm" variant="ghost" onClick={() => prepare([l.number])}><RefreshCw className="h-4 w-4" /> Rebuild</Button>

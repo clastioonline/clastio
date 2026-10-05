@@ -890,6 +890,10 @@ class DeckRenderer:
                          "exit_ticket": "evaluate", "quiz": "evaluate", "summary": "self_reflect",
                          "discussion": "engage", "worked_example": "explore"}.get(spec.layout, "explain")
         variant = stages.get(spec.teaching_stage or default_stage)
+        if variant is None:
+            matching = [page for page in self.spec.get("page_variants", []) if page["layout"] == spec.layout]
+            if matching:
+                variant = matching[(number - 1) % len(matching)]
         saved = self.spec, self.c, self.f, self.t
         if variant and spec.layout not in ("cover", "section"):
             defaults = self.spec.get("extracted_style_defaults", {})

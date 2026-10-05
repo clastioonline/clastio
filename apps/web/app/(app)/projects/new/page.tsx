@@ -105,7 +105,7 @@ function NewCourse() {
     const c = classes?.items?.find((x: any) => x.id === id);
     setForm((f) => ({ ...f, class_section_id: id, ...(c ? { grade: c.grade, subject: c.subject } : {}) }));
   };
-  const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? (form.chapter_mode === "daily" ? 1 : form.num_lectures) * form.slides_per_lecture * creditInfo.costs.slide : 0) : null;
+  const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? form.slides_per_lecture * creditInfo.costs.slide : 0) : null;
 
   const submit = async () => {
     setBusy(true);
@@ -123,7 +123,7 @@ function NewCourse() {
           outcomes: selected.map((o) => ({ code: o.code, text: o.text })),
         },
       });
-      notify({ tone: "success", title: "Planning your lessons", body: form.auto_generate ? "You can leave this page. Follow the plan and slides in Activity." : "Review the plan, then generate slides." });
+      notify({ tone: "success", title: "Planning your lessons", body: form.auto_generate ? "We will build the first PPT. Review it before preparing the next class." : "Review the plan, then generate slides." });
       router.push(`/projects/${r.course.project_id}`);
     } catch (e: any) {
       setError(e.message);
@@ -221,7 +221,7 @@ function NewCourse() {
                 <Textarea value={form.instructions} onChange={(e) => set("instructions", e.target.value)} />
               </Field>
               <div className="divide-y divide-line rounded-xl border border-line px-3">
-                <Toggle checked={form.auto_generate} onChange={(v) => set("auto_generate", v)} label={form.chapter_mode === "daily" ? "Build the first lesson after planning" : form.chapter_mode === "parts" ? "Review the plan before building selected parts" : "Build all chapter parts after planning"} description="Turn off to plan first. In parts mode, choose what to build from the chapter page." />
+                <Toggle checked={form.auto_generate} onChange={(v) => set("auto_generate", v)} label="Build the first lesson after planning" description="Turn off to review the plan first. Each PPT needs your approval before the next lesson." />
                 <Toggle checked={form.homework} onChange={(v) => set("homework", v)} label="End each lesson with homework" />
               </div>
             </div>
@@ -274,7 +274,7 @@ function NewCourse() {
             <div className="flex items-center gap-2 font-semibold text-ink"><Sparkles className="h-4 w-4 text-accent-500" /> You'll get</div>
             <ul className="mt-3 space-y-2 text-sm text-ink-2">
               <li>• {form.num_lectures} connected lessons{cls ? ` for ${cls.name}` : ""}</li>
-              <li>• {!form.auto_generate || form.chapter_mode === "parts" ? "Review the plan, then build the parts you choose" : form.chapter_mode === "daily" ? `${form.slides_per_lecture} editable slides for day 1; prepare later parts after class` : `${form.num_lectures * form.slides_per_lecture} editable slides with teacher notes`}</li>
+              <li>• {!form.auto_generate || form.chapter_mode === "parts" ? "Review the plan, then build the parts you choose" : form.chapter_mode === "daily" ? `${form.slides_per_lecture} editable slides for day 1; prepare later parts after class` : `${form.slides_per_lecture} slides for lesson 1; review each PPT before continuing`}</li>
               <li>• Lesson plans with differentiation (EAL, SEND, stretch)</li>
               <li>• Activities, checks for understanding{form.homework ? " and homework" : ""}</li>
             </ul>
@@ -282,7 +282,7 @@ function NewCourse() {
               {creditInfo && <p className="mt-1">{creditInfo.remaining === null ? "Unlimited plan credits" : `${creditInfo.remaining} credits available`} · Resets {new Date(creditInfo.reset_at).toLocaleDateString()}</p>}</div>
             {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
             <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || !form.grade || !form.subject || sourcesBlocked || imagesBlocked}>
-              <WandSparkles className="h-5 w-5" /> {form.auto_generate && form.chapter_mode !== "parts" ? form.chapter_mode === "daily" ? "Plan chapter & build first lesson" : "Plan & build complete chapter" : "Plan chapter"}
+              <WandSparkles className="h-5 w-5" /> {form.auto_generate && form.chapter_mode !== "parts" ? "Plan chapter & build first lesson" : "Plan chapter"}
             </Button>
           </Card>
         </div>

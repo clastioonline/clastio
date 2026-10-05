@@ -151,11 +151,11 @@ async def test_missing_slide_count_gets_one_full_repair_without_filler():
     req, valid = request(), deck()
     incomplete = valid.model_copy(deep=True)
     incomplete.slides.pop()
-    ai = SimpleNamespace(mode="live", structured=AsyncMock(side_effect=[incomplete, valid]))
+    ai = SimpleNamespace(mode="live", structured=AsyncMock(side_effect=[outline(req), incomplete, valid]))
     course = offline.course_plan(req, CoursePlan)
     generated = await pipeline.generate_deck(ai, req=req, context_text="", course=course, lecture_number=1, budgets=budgets())
     assert len(generated.slides) == 10
-    assert ai.structured.await_count == 2
+    assert ai.structured.await_count == 3
     assert all(slide.title != "Talk it through" for slide in generated.slides)
     assert sum(phase.minutes for phase in generated.lesson_plan.phases) == 40
 
@@ -163,10 +163,10 @@ async def test_missing_slide_count_gets_one_full_repair_without_filler():
 async def test_bad_slide_count_after_one_repair_fails_permanently():
     req, invalid = request(), deck()
     invalid.slides.pop()
-    ai = SimpleNamespace(mode="live", structured=AsyncMock(return_value=invalid))
+    ai = SimpleNamespace(mode="live", structured=AsyncMock(side_effect=[outline(req), invalid, invalid]))
     with pytest.raises(ContentQualityError):
         await pipeline.generate_deck(ai, req=req, context_text="", course=offline.course_plan(req, CoursePlan), lecture_number=1, budgets=budgets())
-    assert ai.structured.await_count == 2
+    assert ai.structured.await_count == 3
 
 
 def test_unknown_curriculum_codes_are_not_presented_as_alignment():
@@ -217,3 +217,10 @@ def test_offline_assessment_and_homework_obey_requested_question_count():
     for schema in (AssessmentDoc, HomeworkDoc):
         sample = offline.assessment({"topic": "Addition", "num_questions": 10}, schema)
         assert not assessment_errors(sample, 10)
+
+
+def outline(req):
+    return pipeline.DeckOutline(slides=[pipeline.PlannedSlide(number=n, title=f"Slide {n}",
+        layout="cover" if n == 1 else "concept", purpose="Teach the objective",
+        teaching_content="Explain an example", minutes=req["lecture_minutes"] / req["slides_per_lecture"])
+        for n in range(1, req["slides_per_lecture"] + 1)])

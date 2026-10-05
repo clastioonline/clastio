@@ -378,7 +378,8 @@ def lesson_out(les: Lesson, *, brief: bool = True) -> dict[str, Any]:
     out = {"id": str(les.id), "course_id": str(les.course_id), "number": les.number, "title": les.title,
            "status": les.status, "version": les.version, "error": les.error,
            "scheduled_date": les.scheduled_date.isoformat() if les.scheduled_date else None,
-           "has_pptx": bool(les.pptx_key), "carry_over": les.carry_over or None}
+           "has_pptx": bool(les.pptx_key), "carry_over": les.carry_over or None,
+           "review_approved": bool(les.pptx_key and (les.qc_report or {}).get("approved_version") == les.version)}
     if not brief:
         out["plan"] = les.plan
         out["qc"] = les.qc_report
@@ -533,6 +534,17 @@ class LessonPatch(BaseModel):
     scheduled_date: date | None = None
     status: str | None = Field(None, pattern="^(planned|generated|taught)$")
     title: str | None = None
+
+
+class LessonApproval(BaseModel):
+    version: int = Field(ge=1)
+    feedback: str = Field(default="", max_length=2000)
+
+
+@router.post("/lessons/{lesson_id}/approve")
+async def approve_lesson(lesson_id: uuid.UUID, data: LessonApproval, user: CurrentUser, db: DB):
+    lesson = await course_svc.approve_lesson(db, user, lesson_id, data.version, data.feedback)
+    return lesson_out(lesson, brief=False)
 
 
 @router.patch("/lessons/{lesson_id}")

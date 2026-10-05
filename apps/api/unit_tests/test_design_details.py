@@ -56,6 +56,9 @@ def test_native_generation_reuses_table_and_chart_formatting(tmp_path):
     analysis = analyze_pptx(path)
     base, spec = build_native(path, analysis)
     assert spec["design_inspection"]["slides_inspected"] == 16
+    assert spec["donor_count"] == 16
+    assert len(Presentation(io.BytesIO(base)).slides) == 16
+    assert spec["page_variants"][-1]["number"] == 16
     slides = [SlideSpec(number=1, layout="table", title="New table", purpose="teach",
                         table=TableData(headers=["New heading", "Value"], rows=[["New fact", "7"]])),
               SlideSpec(number=2, layout="chart", title="New chart", purpose="teach",

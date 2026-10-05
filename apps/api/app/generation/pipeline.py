@@ -16,6 +16,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from app.ai.base import ImageInput
 from app.ai.service import AIService
 from app.core.logging import log
@@ -26,6 +28,7 @@ from app.generation.specs import (
     LAYOUT_KINDS,
     CoursePlan,
     LessonDeck,
+    SlideLayout,
     SlideRewrite,
     SlideSpec,
 )
@@ -66,7 +69,8 @@ async def plan_course(ai: AIService, req: dict[str, Any], context_text: str, *, 
                             "Return the complete requested lecture sequence with assessable goals and only supplied outcome codes.",
             schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id, offline_context=req,
             prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
-    if course_structure_issues(plan, req):
+        issues = course_structure_issues(plan, req) + await progression_issues(ai, plan, owner_id=owner_id)
+    if issues:
         raise ContentQualityError("The chapter plan did not meet its lesson-count or learning-goal checks. Review the brief and try again.")
     return fix_course_plan(plan, req)
 
@@ -123,6 +127,19 @@ async def progression_issues(ai: AIService, plan: CoursePlan, *, owner_id: uuid.
 # --------------------------------------------------------------------------- lesson decks
 
 
+class PlannedSlide(BaseModel):
+    number: int = Field(ge=1)
+    title: str
+    layout: SlideLayout
+    purpose: str
+    teaching_content: str = Field(description="Specific idea, example/problem with answer, or student task")
+    minutes: float = Field(ge=0)
+
+
+class DeckOutline(BaseModel):
+    slides: list[PlannedSlide]
+
+
 async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str, course: CoursePlan,
                         lecture_number: int, budgets: dict[str, Any], carry_over: str | None = None,
                         homework: bool = True, owner_id: uuid.UUID | None = None,
@@ -132,17 +149,29 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
     prompt = prompts.deck_prompt(req=req, context_text=context_text, course=course.model_dump(),
                                  lecture=lecture.model_dump(), previous=previous, budgets=budgets,
                                  carry_over=carry_over, homework=homework)
+    if ai.mode == "live":
+        outline = await ai.structured(task="lesson_outline", tier="planning", system=prompts.DECK_SYSTEM,
+            prompt=prompt + "\nPlan the PPT before writing it. Return the complete slide-by-slide outline. "
+            "State the concrete teaching content, worked problems with answers, and checks. "
+            "Use exactly the requested slide count, consecutive numbers, and total class duration.",
+            schema=DeckOutline, effort="medium", max_tokens=6000, owner_id=owner_id, job_id=job_id,
+            prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
+        if ([slide.number for slide in outline.slides] != list(range(1, int(req["slides_per_lecture"]) + 1))
+                or outline.slides[0].layout != "cover"
+                or abs(sum(slide.minutes for slide in outline.slides) - float(req["lecture_minutes"])) > 1):
+            raise ContentQualityError("The PPT outline did not match the requested slide count or class duration.")
+        prompt += "\nPPT OUTLINE: Follow this sequence and develop each specific example and task.\n" + outline.model_dump_json()
     offline_ctx = {**req, "lecture": lecture.model_dump(), "course_title": course.title,
                    "total_lectures": len(course.lectures), "homework": homework, "budgets": budgets}
     deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM, prompt=prompt,
-                               schema=LessonDeck, effort="low", max_tokens=24000, owner_id=owner_id, job_id=job_id,
+                               schema=LessonDeck, effort="medium", max_tokens=24000, owner_id=owner_id, job_id=job_id,
                                offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION,
                                images=reference_images, cache=True)
     structural = deck_structure_issues(deck, req)
     if structural and ai.mode == "live":
         deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM,
             prompt=prompt + "\n\nCorrect these issues and return the complete lesson without filler slides:\n" + "\n".join(structural),
-            schema=LessonDeck, effort="low", max_tokens=24000, owner_id=owner_id, job_id=job_id,
+            schema=LessonDeck, effort="medium", max_tokens=24000, owner_id=owner_id, job_id=job_id,
             offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
     if deck_structure_issues(deck, req):
         raise ContentQualityError("The lesson did not meet its slide-count or learning-goal checks. Review the brief and try again.")

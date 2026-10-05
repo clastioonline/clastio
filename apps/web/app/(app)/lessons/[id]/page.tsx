@@ -295,6 +295,8 @@ export default function LessonPage() {
   const [docOpen, setDocOpen] = useState<string | null>(null);
   const [regenOpen, setRegenOpen] = useState(false);
   const [reflectionNote, setReflectionNote] = useState("");
+  const [reviewFeedback, setReviewFeedback] = useState("");
+  const [approving, setApproving] = useState(false);
   const [coveredSlide, setCoveredSlide] = useState("");
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [regenText, setRegenText] = useState("");
@@ -378,6 +380,21 @@ export default function LessonPage() {
       </div>
 
       {Number(lesson.qc?.images?.placeholder || 0) > 0 && <Alert tone="warn" title="Some images need replacement">A real illustration was unavailable for {lesson.qc.images.placeholder} slide(s). Use Upload / replace image in the manual editor, or rebuild with live AI illustrations enabled.</Alert>}
+      {downloads.pptx && !lesson.review_approved && <Card className="space-y-3 p-5">
+        <h2 className="font-semibold">Review this PPT before the next class</h2>
+        <p className="text-sm text-muted">Check every slide, examples, answers and your template. Request changes in the slide editor or Rebuild lesson, then review the updated version.</p>
+        <Field label="Feedback to apply to later lessons"><Textarea value={reviewFeedback} maxLength={2000} onChange={(e) => setReviewFeedback(e.target.value)} placeholder="Keep examples practical, reduce slide text, and include more guided practice." /></Field>
+        <Button loading={approving} disabled={!!jobId || generating} onClick={async () => {
+          setApproving(true);
+          try {
+            await api(`/lessons/${id}/approve`, { body: { version: lesson.version, feedback: reviewFeedback } });
+            await mutate();
+            notify({ tone: "success", title: "PPT approved", body: "You can now prepare the next lesson from the chapter page." });
+          } catch (error) { notify({ tone: "error", title: "Couldn't approve", body: errorMessage(error) }); }
+          finally { setApproving(false); }
+        }}>Approve this version</Button>
+      </Card>}
+      {lesson.review_approved && <Alert tone="success" title="PPT approved">This version is approved. <Link href={`/projects/${course.project_id}`} className="underline">Prepare the next lesson</Link>.</Alert>}
       {lesson.qc?.content_quality && <Alert title="Review before teaching">Quiz structure and answer keys have been checked where possible. Review subject facts, examples and curriculum alignment before class.{Number(lesson.qc.content_quality.reference_count || 0) === 0 && " Add your textbook or syllabus as reference material for closer alignment."}</Alert>}
 
       {lesson.carry_over?.text && <Alert tone="accent" title="Carried over from the last lesson">{lesson.carry_over.text}</Alert>}

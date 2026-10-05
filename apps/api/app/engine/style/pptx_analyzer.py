@@ -423,6 +423,38 @@ class PptxAnalyzer:
                 stats.words_per_bullet.extend(len(t.split()) for t in bullets)
                 stats.body_text.extend(bullets)
 
+        # Preserve a reusable design from every page, including layouts occurring only once.
+        page_designs = []
+        for page in slides:
+            title = page.title_shape
+            body = [sh for sh in page.shapes if sh is not title and sh.text.strip()
+                    and sh.signature() not in decoration_sigs and sh.kind != "table"]
+            body_box = None
+            if body:
+                x, y = min(sh.bbox[0] for sh in body), min(sh.bbox[1] for sh in body)
+                right = max(sh.bbox[0] + sh.bbox[2] for sh in body)
+                bottom = max(sh.bbox[1] + sh.bbox[3] for sh in body)
+                body_box = [x, y, right - x, bottom - y]
+            decoration_ids = [sh.shape_id for sh in page.shapes
+                              if sh is not title and (sh.signature() in decoration_sigs or
+                                  (not sh.text.strip() and sh.kind == "autoshape"))]
+            title_chrome = [title.shape_id] if title and title.fill else []
+            body_fonts = Counter()
+            body_colors = Counter()
+            for shape in body:
+                body_fonts.update(shape.fonts)
+                body_colors.update(shape.text_colors)
+            page_designs.append({"number": page.index + 1, "donor_slide": page.index,
+                "layout": page.label, "layout_index": self.layouts.index(self.prs.slides[page.index].slide_layout),
+                "item_ids": decoration_ids + title_chrome, "clear_text_ids": title_chrome,
+                "background": page.background,
+                "title_zone": list(title.bbox) if title else None, "body_zone": body_box,
+                "title_color": title.text_colors.most_common(1)[0][0] if title and title.text_colors else None,
+                "title_font": title.fonts.most_common(1)[0][0][0] if title and title.fonts else None,
+                "title_pt": title.max_font_pt if title else None,
+                "body_font": body_fonts.most_common(1)[0][0][0] if body_fonts else None,
+                "body_color": body_colors.most_common(1)[0][0] if body_colors else None})
+
         # ---- colours
         fills, text_cols, bgs = ColorTally(), ColorTally(), ColorTally()
         for s in slides:
@@ -624,6 +656,7 @@ class PptxAnalyzer:
             },
             "stats": {"slides": n, "decoration_count": len(decoration_sigs)},
             "stage_variants": stage_variants,
+            "page_designs": page_designs,
         }
 
 
