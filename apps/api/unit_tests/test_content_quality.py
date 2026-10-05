@@ -245,6 +245,49 @@ def outline(req):
         for n in range(1, req["slides_per_lecture"] + 1)])
 
 
+async def test_outline_count_gets_one_repair_before_deck_writing():
+    req, valid = request(), deck()
+    broken = outline(req)
+    broken.slides.pop()
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[broken, outline(req), valid]))
+    result = await pipeline.generate_deck(ai, req=req, context_text='',
+        course=offline.course_plan(req, CoursePlan), lecture_number=1, budgets=budgets())
+    assert len(result.slides) == req['slides_per_lecture']
+    assert [c.kwargs['task'] for c in ai.structured.call_args_list] == ['lesson_outline', 'lesson_outline', 'lesson_deck']
+    assert ai.structured.call_args_list[1].kwargs['cache'] is False
+
+
+async def test_persistent_invalid_outline_stops_before_deck_writing():
+    req = request()
+    broken = outline(req)
+    broken.slides[1].number = 1
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[broken, broken]))
+    with pytest.raises(ContentQualityError, match='numbered'):
+        await pipeline.generate_deck(ai, req=req, context_text='',
+            course=offline.course_plan(req, CoursePlan), lecture_number=1, budgets=budgets())
+    assert ai.structured.await_count == 2
+
+
+def test_outline_timing_is_scaled_without_changing_layout_or_relative_pacing():
+    req = request()
+    plan = outline(req)
+    plan.slides[0].minutes = 1
+    before = [s.minutes for s in plan.slides]
+    layouts = [s.layout for s in plan.slides]
+    assert not pipeline.outline_issues(plan, req)
+    pipeline.fit_outline_duration(plan, 45)
+    assert sum(s.minutes for s in plan.slides) == pytest.approx(45)
+    assert plan.slides[0].minutes / plan.slides[1].minutes == pytest.approx(before[0] / before[1])
+    assert [s.layout for s in plan.slides] == layouts
+
+
+@pytest.mark.parametrize('minutes', [0, float('inf'), float('nan')])
+def test_outline_invalid_timing_needs_repair(minutes):
+    plan = outline(request())
+    plan.slides[1].minutes = minutes
+    assert any('finite positive' in issue for issue in pipeline.outline_issues(plan, request()))
+
+
 @pytest.mark.parametrize('headers,rows', [([], []), (['A'], []), ([' '], [['value']]),
     (['A', 'B'], [['value']]), (['A'], [['value', 'extra']]), (['A'], [['  ']])])
 def test_tables_reject_empty_or_misaligned_payloads(headers, rows):
