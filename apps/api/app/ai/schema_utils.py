@@ -17,7 +17,7 @@ from pydantic import BaseModel
 _DROP = {
     "title", "default", "examples", "minLength", "maxLength", "minimum", "maximum",
     "exclusiveMinimum", "exclusiveMaximum", "minItems", "maxItems", "pattern", "format",
-    "uniqueItems", "multipleOf", "discriminator",
+    "uniqueItems", "multipleOf", "discriminator", "minProperties", "maxProperties", "patternProperties",
 }
 
 

@@ -47,3 +47,24 @@ def test_unspecified_formatting_is_preserved_and_missing_objects_ignored():
 def test_invalid_manual_formatting_is_rejected(edit):
     with pytest.raises(ValueError):
         ManualObjectEdit(**edit)
+
+
+@pytest.mark.parametrize("model_name", ["LessonDeck", "SlideRewrite", "SlideSpec"])
+def test_manual_objects_provider_schema_is_closed_and_keeps_runtime_limits(model_name):
+    import json
+
+    from app.ai.schema_utils import strict_schema
+    from app.generation import specs
+
+    model = getattr(specs, model_name)
+    schema = strict_schema(model)
+    encoded = json.dumps(schema)
+    assert "maxProperties" not in encoded
+    assert "minProperties" not in encoded
+    slide = schema["properties"]["slides"]["items"] if model_name == "LessonDeck" else (
+        schema["properties"]["slide"] if model_name == "SlideRewrite" else schema)
+    assert slide["properties"]["manual_objects"] == {
+        "type": "object", "properties": {}, "additionalProperties": False, "required": []}
+    manual = {str(n): {"color": "#1255AA"} for n in range(151)}
+    with pytest.raises(ValueError):
+        specs.SlideSpec(number=1, layout="concept", title="Example", purpose="teach", manual_objects=manual)
