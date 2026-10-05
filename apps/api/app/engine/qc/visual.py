@@ -8,10 +8,13 @@ low-contrast text. Page renders double as slide previews for the editor.
 from __future__ import annotations
 
 import io
+import logging
 import shutil
 import subprocess
 import tempfile
+import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -22,6 +25,8 @@ from pptx import Presentation
 
 from app.core.config import get_settings
 from app.engine.style.common import contrast_ratio, rgb_to_hex
+
+logger = logging.getLogger("visual_qc")
 
 
 class RenderError(Exception):
@@ -113,14 +118,28 @@ def _bg_color(pix: fitz.Pixmap, rect: fitz.Rect, scale: float) -> str | None:
     return rgb_to_hex((r, g, b))
 
 
-def inspect(pptx: bytes, *, preview_dpi: int = 72, thumb_width: int = 320) -> VisualReport:
+def inspect(pptx: bytes, *, preview_dpi: int = 72, thumb_width: int = 320,
+            on_progress: Callable[[str], None] | None = None) -> VisualReport:
+    started = time.monotonic()
+    deadline = started + get_settings().render_timeout_s
+
+    def progress(stage: str) -> None:
+        if time.monotonic() >= deadline:
+            raise RenderError("Visual quality check exceeded its rendering time limit")
+        logger.info("visual_qc_progress stage=%s elapsed_s=%.1f", stage, time.monotonic() - started)
+        if on_progress:
+            on_progress(stage)
+
+    progress("Converting PowerPoint to PDF")
     pdf = pptx_to_pdf(pptx)
+    progress("Reading slide geometry")
     doc = fitz.open(stream=pdf, filetype="pdf")
     boxes = _text_boxes(pptx)
     previews, thumbs = [], []
     issues: dict[int, list[dict[str, Any]]] = {}
     for i, page in enumerate(doc):
         n = i + 1
+        progress(f"Checking slide {n} of {len(doc)}")
         pix = page.get_pixmap(dpi=preview_dpi)
         png = pix.tobytes("png")
         previews.append(png)
@@ -134,7 +153,7 @@ def inspect(pptx: bytes, *, preview_dpi: int = 72, thumb_width: int = 320) -> Vi
         slide_boxes = boxes[i] if i < len(boxes) else []
         found: list[dict[str, Any]] = []
         spans = []
-        for bi, b in enumerate(page.get_text("dict")["blocks"]):
+        for bi, b in enumerate(page.get_text("dict", flags=fitz.TEXTFLAGS_DICT & ~fitz.TEXT_PRESERVE_IMAGES)["blocks"]):
             if b.get("type") != 0:
                 continue
             for li, line in enumerate(b["lines"]):
@@ -162,6 +181,8 @@ def inspect(pptx: bytes, *, preview_dpi: int = 72, thumb_width: int = 320) -> Vi
         # overlapping lines of text (different spans occupying the same area)
         rects = [fitz.Rect(sp["bbox"]) for sp in spans]
         for a in range(len(rects)):
+            if time.monotonic() >= deadline:
+                raise RenderError("Visual quality check exceeded its rendering time limit")
             for b in range(a + 1, len(rects)):
                 if spans[a]["_line"] == spans[b]["_line"]:
                     continue  # same line (e.g. sub/superscripts, font fallback runs)
@@ -183,4 +204,6 @@ def inspect(pptx: bytes, *, preview_dpi: int = 72, thumb_width: int = 320) -> Vi
                     seen.add(k)
                     uniq.append(f)
             issues[n] = uniq
+    doc.close()
+    progress("Visual quality check complete")
     return VisualReport(pdf=pdf, previews=previews, thumbnails=thumbs, issues=issues)

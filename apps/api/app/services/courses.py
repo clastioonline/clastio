@@ -61,6 +61,32 @@ QUICK_ACTIONS: dict[str, str] = {
 # --------------------------------------------------------------------------- helpers
 
 
+async def inspect_with_progress(ctx: JobContext, pptx: bytes, *, pct: int = 80):
+    """Keep long native rendering observable without blocking the worker's event loop."""
+    loop = asyncio.get_running_loop()
+    updates: asyncio.Queue[str] = asyncio.Queue()
+    def report(stage: str) -> None:
+        loop.call_soon_threadsafe(updates.put_nowait, stage)
+    started = loop.time()
+    log(logger, logging.INFO, "lesson_visual_qc_started", job_id=str(ctx.job_id))
+    task = asyncio.create_task(asyncio.to_thread(inspect, pptx, on_progress=report))
+    stage = "Converting PowerPoint to PDF"
+    try:
+        while not task.done():
+            done, _ = await asyncio.wait({task}, timeout=10)
+            while not updates.empty():
+                stage = updates.get_nowait()
+            if not done:
+                elapsed = int(loop.time() - started)
+                await ctx.progress(pct, f"{stage} · {elapsed}s")
+                log(logger, logging.INFO, "lesson_visual_qc_progress", job_id=str(ctx.job_id),
+                    stage=stage, elapsed_s=elapsed)
+        return await task
+    finally:
+        if not task.done():
+            task.cancel()
+
+
 async def get_owned(db: AsyncSession, model, obj_id: uuid.UUID, user: User):
     obj = await db.get(model, obj_id)
     if obj is None:
@@ -447,8 +473,11 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         owner_id=user.id, job_id=ctx.job_id, on_progress=_stage)
     await ctx.progress(80, "Visual quality check")
     try:
-        visual = await asyncio.to_thread(inspect, outcome.pptx)
+        visual = await inspect_with_progress(ctx, outcome.pptx)
         if visual.failing_slides:
+            await ctx.progress(85, "Repairing slide layout after visual check")
+            log(logger, logging.INFO, "lesson_visual_qc_repair", job_id=str(ctx.job_id),
+                slides=visual.failing_slides)
             for n in visual.failing_slides:
                 deck.slides[n - 1] = pipeline.enforce_budgets(deck.slides[n - 1], budgets, strict=True)
             outcome = await pipeline.render_with_qc(
@@ -456,7 +485,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
                 language=course.language, core_props=core_props, context_text=context_text, grade=course.grade,
                 min_font_pt=float(qc_settings.get("min_body_pt", 16)), max_rounds=0, owner_id=user.id,
                 job_id=ctx.job_id)
-            visual = await asyncio.to_thread(inspect, outcome.pptx)
+            await ctx.progress(88, "Checking repaired PowerPoint")
+            visual = await inspect_with_progress(ctx, outcome.pptx, pct=88)
     except RenderError as e:
         log(logger, logging.WARNING, "visual_qc_unavailable", error=str(e))
         visual = None

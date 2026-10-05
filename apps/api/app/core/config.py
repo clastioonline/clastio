@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = Field(20, ge=0, le=100)
     db_pool_timeout_s: float = Field(30, gt=0, le=120)
     job_heartbeat_s: float = Field(30, ge=1, le=300)
+    job_stale_after_s: int = Field(300, ge=180, le=3600)
 
     # --- storage ---
     storage_backend: Literal["local", "s3"] = "local"

@@ -416,3 +416,12 @@ Do not mark the app ready solely because the frontend loads or `/ready` succeeds
 Deploy the API migration before dependent workers. Keep the API/worker/scheduler on compatible code revisions. Rebuild Render when proxy/public configuration changes. After each release, verify readiness, one completed job, a download, sign-in and the scheduler.
 
 Before a schema-changing release, take a database backup. Rolling back application code does not automatically roll back the database or gateway configuration; use a tested compatible release and a deliberate restore/migration plan. Monitor API/worker errors, queue delays, storage, database capacity, payment webhooks and AI spend. Size services from measured resource usage rather than a guessed user count.
+
+
+### PPT generation waiting at visual quality check
+
+Inspect the Railway **worker** service logs, not only API request logs. This stage converts the deck with LibreOffice, creates previews and checks every slide. A failing layout may require one repair and a second conversion. Worker logs include `lesson_visual_qc_started`, `lesson_visual_qc_progress` (job ID, stage and elapsed seconds), `lesson_visual_qc_repair` and `visual_qc_unavailable`. The project progress label refreshes every ten seconds during long checks.
+
+`RENDER_TIMEOUT_S` defaults to 180 seconds per visual inspection, including conversion and subsequent checks. On timeout the existing fallback saves the editable PPT with visual checking marked unavailable; a PDF/previews may be unavailable. Do not increase this timeout without checking worker memory/CPU and the conversion logs. If there is no completion or timeout log, inspect worker restart and memory-limit events. Deploy worker code changes to the worker service; deploying only the API will not change an already running generation process.
+
+Interrupted jobs recover after `JOB_STALE_AFTER_S` (default 300 seconds) without a heartbeat, with a minimum of three heartbeat intervals. The dedicated scheduler performs recovery once per minute. A worker restart can therefore leave a job waiting for roughly five to six minutes with default settings. Inspect Railway restart/memory events and try worker concurrency 1 when rendering exhausts available resources. Set `APP_VERSION` to the deployed commit so logs identify releases.

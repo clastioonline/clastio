@@ -232,12 +232,16 @@ def on_failure(job_type: str):
     return deco
 
 
-async def recover_stale(max_age_minutes: int = 30) -> int:
-    """Requeue jobs whose worker died mid-run."""
+async def recover_stale(max_age_minutes: int | None = None) -> int:
+    """Requeue jobs after missed heartbeats, not after a fixed 30-minute wait."""
+    settings = get_settings()
+    max_age_seconds = (max_age_minutes * 60 if max_age_minutes is not None
+                       else settings.job_stale_after_s)
+    max_age_seconds = max(max_age_seconds, int(settings.job_heartbeat_s * 3))
     async with get_sessionmaker()() as s:
         res = await s.execute(text(
             "UPDATE generation_jobs SET status='queued', stage='Recovered', locked_by=NULL "
-            "WHERE status='running' AND locked_at < now() - make_interval(mins => :m)"), {"m": max_age_minutes})
+            "WHERE status='running' AND locked_at < now() - make_interval(secs => :seconds)"), {"seconds": max_age_seconds})
         await s.commit()
         return res.rowcount or 0
 
