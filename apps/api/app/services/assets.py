@@ -226,6 +226,8 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                           f"Show exactly: {s.visual.description or s.title}. "
                           "Show only the requested subject with scientifically accurate parts and proportions. "
                           "Clear composition, distinct objects, plain light background, no decorative unrelated objects. "
+                          f"Use design accents {colors.get('primary', '#2563EB')} and {colors.get('secondary', '#F59E0B')} "
+                          "where appropriate, preserving natural subject colors and scientific meaning. "
                           "No text, no labels, "
                           "no watermarks.")
                 try:

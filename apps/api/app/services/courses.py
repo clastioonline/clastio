@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.base import ImageInput
+from app.ai.base import AIError, ImageInput
 from app.ai.service import get_ai
 from app.core.db import get_sessionmaker, utcnow
 from app.core.errors import AppError, NotFound
@@ -473,6 +473,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         owner_id=user.id, job_id=ctx.job_id, on_progress=_stage)
     await ctx.progress(80, "Visual quality check")
     visual_error = None
+    page_review = {"status": "unavailable", "repairs": []}
     try:
         visual = await inspect_with_progress(ctx, outcome.pptx)
         if visual.failing_slides:
@@ -488,6 +489,41 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
                 job_id=ctx.job_id)
             await ctx.progress(88, "Checking repaired PowerPoint")
             visual = await inspect_with_progress(ctx, outcome.pptx, pct=88)
+        if ai.mode == "live":
+            from app.generation.page_review import review_pages
+            from app.generation.quality import ContentQualityError
+
+            await ctx.progress(89, "Reviewing each page: content, pictures and design")
+            candidate = deck.model_copy(deep=True)
+            try:
+                repairs = await review_pages(ai, candidate, visual.previews, budgets=budgets,
+                    context_text=context_text, grade=course.grade, owner_id=user.id, job_id=ctx.job_id)
+                page_review = {"status": "reviewed", "repairs": repairs}
+            except (AIError, ContentQualityError) as e:
+                page_review = {"status": "unavailable", "repairs": [], "error": str(e)[:300]}
+                log(logger, logging.WARNING, "lesson_page_review_unavailable", job_id=str(ctx.job_id), error=str(e))
+                repairs = []
+            if repairs:
+                await ctx.progress(90, "Applying page improvements and checking final PowerPoint")
+                improved = await pipeline.render_with_qc(ai, base_pptx=base, template_spec=spec,
+                    deck=candidate, budgets=budgets, images=images, language=course.language,
+                    core_props=core_props, context_text=context_text, grade=course.grade,
+                    min_font_pt=float(qc_settings.get("min_body_pt", 16)), max_rounds=0,
+                    owner_id=user.id, job_id=ctx.job_id)
+                try:
+                    final_visual = await inspect_with_progress(ctx, improved.pptx, pct=90)
+                except RenderError as e:
+                    final_visual = None
+                    page_review["final_render_error"] = str(e)[:300]
+                    log(logger, logging.WARNING, "lesson_page_improvement_render_failed", error=str(e))
+                overflow_slides = [r["number"] for r in improved.reports if r.get("overflow")]
+                if final_visual is not None and not final_visual.failing_slides and not overflow_slides:
+                    deck, outcome, visual = candidate, improved, final_visual
+                    page_review["improvements_applied"] = True
+                else:
+                    page_review["improvements_applied"] = False
+                    page_review["final_layout_errors"] = sorted(set(overflow_slides +
+                        (final_visual.failing_slides if final_visual else [])))
     except RenderError as e:
         visual_error = str(e)[:300]
         log(logger, logging.WARNING, "visual_qc_unavailable", error=visual_error)
@@ -497,6 +533,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
     result = await save_lesson_output(lesson_id, deck, outcome.pptx, visual, qc={
         "render": outcome.reports, "repairs": outcome.repairs, "content_fixes": content_fixes, "images": img_counts,
         "visual_error": visual_error,
+        "page_review": page_review,
         "visual": {str(k): v for k, v in (visual.issues.items() if visual else [])},
         "ai_mode": ai.mode, "content_quality": {"status": "structural_checks_passed",
             "reference_count": reference_count(meta.get("sources", [])), "fact_check_status": "teacher_review_required"}})

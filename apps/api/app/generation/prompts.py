@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-daily-teaching-v8"
+PROMPT_VERSION = "2026-10-reviewed-teaching-v9"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
