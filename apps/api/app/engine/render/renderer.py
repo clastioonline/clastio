@@ -477,7 +477,7 @@ class DeckRenderer:
             self.render_counting_groups(slide, img_box, spec)
         elif image is not None:
             self.picture(slide, img_box, image, alt=spec.visual.alt_text or spec.visual.description,
-                         contain=bool(spec.visual.source_image_key) or spec.visual.fit == "contain")
+                         contain=spec.visual.kind == "diagram" or bool(spec.visual.source_image_key) or spec.visual.fit == "contain")
         else:
             self.card_text(slide, img_box, [P(spec.visual.description or spec.title, scale=1.0)],
                            fill=self.c["card_bg"], role="visual", max_pt=18, align="center")

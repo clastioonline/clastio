@@ -29,6 +29,18 @@ async def test_catalog_retains_caption_and_asset():
     assert catalog['teacher_image_1']['teacher_supplied'] is True
 
 
+async def test_auto_diagram_cache_does_not_select_stock_photos(environment, monkeypatch):
+    owner, ai, storage, db, added = environment
+    monkeypatch.setattr(assets, 'search_openverse', AsyncMock(return_value=None))
+    item = slide()
+    item.visual.kind = 'diagram'
+    await assets.resolve_images(db, owner_id=owner, slides=[item], colors={},
+                                image_mode='auto', require_real_image=True)
+    params = db.execute.call_args.args[0].compile().params
+    assert ['ai', 'upload'] in params.values()
+    ai.image.assert_not_awaited()
+
+
 @pytest.mark.parametrize('mode', ['hybrid', 'stock', 'ai'])
 async def test_supplied_image_precedes_search_and_generation(environment, monkeypatch, mode):
     owner, ai, storage, db, added = environment

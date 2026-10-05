@@ -204,8 +204,9 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
             existing = (await db.execute(select(Asset).where(
                 or_(Asset.owner_id == owner_id, Asset.owner_id.is_(None)), Asset.tags.any(query),
                 Asset.source != "placeholder",
-                Asset.source == "openverse" if image_mode in ("stock", "hybrid", "auto") else
-                Asset.source.in_(["ai", "upload"]) if image_mode == "ai" or s.visual.kind == "diagram" else True).limit(1))).scalars().first() if reuse_cached else None
+                Asset.source == "openverse" if image_mode == "stock" else
+                Asset.source.in_(["ai", "upload"]) if image_mode == "ai" or s.visual.kind == "diagram" else
+                Asset.source == "openverse" if image_mode in ("hybrid", "auto") else True).limit(1))).scalars().first() if reuse_cached else None
             if existing:
                 s.asset_id = str(existing.id)
                 images[s.asset_id] = await storage.get(existing.storage_key)
@@ -229,7 +230,9 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                           "no watermarks.")
                 try:
                     res = await ai.image(prompt, "1536x1024", owner_id=owner_id, job_id=job_id)
-                except AIError:  # a missing picture must not fail the lesson; a placeholder is used instead
+                except AIError as exc:  # preserve the lesson, but make the missing image diagnosable
+                    log(logger, logging.WARNING, "slide_image_generation_failed", slide=s.number,
+                        job_id=str(job_id) if job_id else None, error=str(exc))
                     res = None
                 if res:
                     source, lic, data = "ai", "AI-generated (owned by the teacher)", res.data

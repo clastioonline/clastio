@@ -98,6 +98,12 @@ Deck rules:
 - Put student-facing explanations, worked steps and examples ON the slide. Put delivery guidance,
   expected answers, misconceptions, scaffolds and transitions in teacher notes. Notes must supplement,
   not replace, the explanation students need to understand the slide.
+- On each concept or image_text teaching slide, use 3-5 substantive points when space permits:
+  explain what happens, why it happens, and a concrete example or application. Use the supplied
+  word budgets as upper limits, not a request for telegraphic fragments. Include units, relevant
+  quantities and cause-and-effect reasoning. Adapt language to the grade; never pad with repetition.
+- A visual must explain the same idea as its slide text. Describe the exact subject, arrangement,
+  viewpoint and essential details. Preserve the whole diagram; do not crop educational parts.
 - Every slide needs usable teacher notes: explain what to say, what students do, the question to ask,
   expected answer or success criterion, and what to do if they struggle. Include a practical transition.
 - For a typical daily class: retrieve prior knowledge, state success criteria, explain in small steps,

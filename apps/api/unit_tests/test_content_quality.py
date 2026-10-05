@@ -32,6 +32,16 @@ def budgets():
     return compute_budgets(build_builtin(next(iter(BUILTIN_STYLES)))[1])
 
 
+def test_spacious_template_content_budget_is_not_limited_by_short_reference_bullets():
+    spec = build_builtin(next(iter(BUILTIN_STYLES)))[1]
+    spec['content_style'] = {'avg_words_per_bullet': 2}
+    short = compute_budgets(spec)
+    spec['content_style'] = {'avg_words_per_bullet': 15}
+    longer = compute_budgets(spec)
+    assert short['bullet_max_words'] == longer['bullet_max_words']
+    assert short['image_text_bullet_max_words'] >= 10
+
+
 def quiz(**patch):
     return QuizItem(**{"question": "What is 2 + 3?", "options": ["4", "5", "6", "7"],
                        "answer_index": 1, "explanation": "Add two objects and three objects to make five.", **patch})

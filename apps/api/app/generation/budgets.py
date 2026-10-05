@@ -23,7 +23,7 @@ def compute_budgets(spec: dict[str, Any]) -> dict[str, Any]:
     max_lines = max(4, int(bh / (line_h * 1.25)))
     style = spec.get("content_style") or {}
     teacher_words = style.get("avg_words_per_bullet") or 9
-    max_words_bullet = int(min(max(8, teacher_words * 1.8), chars_per_line * 2 / 6.2, 22))
+    max_words_bullet = int(min(max(8, chars_per_line * 2 / 6.2), 28))
     max_bullets = int(min(6, max(3, max_lines // 2)))
     title_chars = max(24, int(title[2] * W * 0.93 / (title_pt * 0.55)))
     return {
@@ -31,7 +31,7 @@ def compute_budgets(spec: dict[str, Any]) -> dict[str, Any]:
         "bullets_max": max_bullets,
         "bullet_max_words": max_words_bullet,
         "image_text_bullets_max": max(3, max_bullets - 1),
-        "image_text_bullet_max_words": max(7, int(max_words_bullet * 0.7)),
+        "image_text_bullet_max_words": max(10, int(max_words_bullet * 0.75)),
         "column_bullets_max": 4,
         "column_bullet_max_words": min(14, max(7, chars_per_line // 6)),
         "steps_max": 5,
