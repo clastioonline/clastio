@@ -152,6 +152,7 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
     prompt = prompts.deck_prompt(req=req, context_text=context_text, course=course.model_dump(),
                                  lecture=lecture.model_dump(), previous=previous, budgets=budgets,
                                  carry_over=carry_over, homework=homework)
+    outline = None
     if ai.mode == "live":
         outline = await ai.structured(task="lesson_outline", tier="planning",
             system="Plan a coherent classroom PowerPoint outline, not the finished slides. "
@@ -177,20 +178,25 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
                                schema=LessonDeck, effort="medium", max_tokens=24000, owner_id=owner_id, job_id=job_id,
                                offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION,
                                images=reference_images, cache=True)
-    structural = deck_structure_issues(deck, req)
+    structural = deck_structure_issues(deck, req, outline=outline)
     if structural and ai.mode == "live":
         deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM,
             prompt=prompt + "\n\nCorrect these issues and return the complete lesson without filler slides:\n" + "\n".join(structural),
             schema=LessonDeck, effort="medium", max_tokens=24000, owner_id=owner_id, job_id=job_id,
             offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
-    if deck_structure_issues(deck, req):
-        raise ContentQualityError("The lesson did not meet its slide-count or learning-goal checks. Review the brief and try again.")
+    if deck_structure_issues(deck, req, outline=outline):
+        raise ContentQualityError("The lesson did not meet its planned-layout, slide-count or learning-goal checks. Review the brief and try again.")
     return normalize_deck(deck, req=req, lecture_number=lecture_number, total=len(course.lectures),
                           lecture_title=lecture.title)
 
 
-def deck_structure_issues(deck: LessonDeck, req: dict[str, Any]) -> list[str]:
+def deck_structure_issues(deck: LessonDeck, req: dict[str, Any], *, outline: DeckOutline | None = None) -> list[str]:
     issues = []
+    if outline is not None:
+        planned = {slide.number: slide.layout for slide in outline.slides}
+        for slide in deck.slides:
+            if slide.number in planned and slide.layout != planned[slide.number]:
+                issues.append(f"Slide {slide.number} must use its planned {planned[slide.number]} layout, not {slide.layout}.")
     if len(deck.slides) != int(req["slides_per_lecture"]):
         issues.append(f"Return exactly {req['slides_per_lecture']} purposeful slides, including one opening cover.")
     if not deck.slides or deck.slides[0].layout != "cover" or sum(slide.layout == "cover" for slide in deck.slides) != 1:
@@ -317,6 +323,8 @@ def slide_quality_issues(slide: SlideSpec) -> list[SlideIssue]:
         issues.append(SlideIssue(slide.number, "empty_vocabulary", "Supply vocabulary and meanings."))
     if slide.layout == "chart" and slide.chart is None:
         issues.append(SlideIssue(slide.number, "missing_chart", "Supply chart values and their source."))
+    if slide.layout == "table" and slide.table is None:
+        issues.append(SlideIssue(slide.number, "missing_table", "Supply populated table headers and rows."))
     if slide.visual.counting_groups and len(slide.visual.counting_groups) != 2:
         issues.append(SlideIssue(slide.number, "counting_groups", "Use exactly two counting groups so no objects are silently dropped."))
     return issues

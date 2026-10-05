@@ -129,8 +129,25 @@ class Step(BaseModel):
 
 
 class TableData(BaseModel):
-    headers: list[str]
-    rows: list[list[str]]
+    headers: list[str] = Field(min_length=1)
+    rows: list[list[str]] = Field(min_length=1)
+
+    @field_validator("headers")
+    @classmethod
+    def populated_headers(cls, headers):
+        if any(not header.strip() for header in headers):
+            raise ValueError("Table headers must contain meaningful text")
+        return headers
+
+    @field_validator("rows")
+    @classmethod
+    def populated_rectangular_rows(cls, rows, info):
+        headers = info.data.get("headers", [])
+        if any(len(row) != len(headers) for row in rows):
+            raise ValueError("Each table row must match the header count")
+        if any(not cell.strip() for row in rows for cell in row):
+            raise ValueError("Table cells must contain meaningful text; use an explicit label for unavailable data")
+        return rows
 
 
 class ChartSeries(BaseModel):

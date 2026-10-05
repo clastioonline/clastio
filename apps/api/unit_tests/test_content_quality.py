@@ -14,7 +14,15 @@ from app.generation.quality import (
     quiz_errors,
     reference_count,
 )
-from app.generation.specs import AssessmentDoc, CoursePlan, LessonDeck, Question, QuizItem, SlideRewrite
+from app.generation.specs import (
+    AssessmentDoc,
+    CoursePlan,
+    LessonDeck,
+    Question,
+    QuizItem,
+    SlideRewrite,
+    TableData,
+)
 
 
 def request():
@@ -230,10 +238,52 @@ def test_offline_assessment_and_homework_obey_requested_question_count():
 
 
 def outline(req):
+    layouts = [slide.layout for slide in deck().slides]
     return pipeline.DeckOutline(slides=[pipeline.PlannedSlide(number=n, title=f"Slide {n}",
-        layout="cover" if n == 1 else "concept", purpose="Teach the objective",
+        layout=layouts[n - 1], purpose="Teach the objective",
         teaching_content="Explain an example", minutes=req["lecture_minutes"] / req["slides_per_lecture"])
         for n in range(1, req["slides_per_lecture"] + 1)])
+
+
+@pytest.mark.parametrize('headers,rows', [([], []), (['A'], []), ([' '], [['value']]),
+    (['A', 'B'], [['value']]), (['A'], [['value', 'extra']]), (['A'], [['  ']])])
+def test_tables_reject_empty_or_misaligned_payloads(headers, rows):
+    with pytest.raises(ValueError):
+        TableData(headers=headers, rows=rows)
+
+
+def test_table_allows_explicit_unavailable_data_without_inventing_values():
+    table = TableData(headers=['Material', 'Conductivity'], rows=[['Wood', 'Not measured']])
+    assert table.rows[0][1] == 'Not measured'
+
+
+def test_table_layout_without_payload_cannot_publish():
+    lesson = deck()
+    lesson.slides[1].layout, lesson.slides[1].table = 'table', None
+    with pytest.raises(ContentQualityError):
+        pipeline.assert_publishable(lesson)
+
+
+async def test_generated_layout_drift_is_repaired_before_rendering():
+    req, valid = request(), deck()
+    drifted = valid.model_copy(deep=True)
+    drifted.slides[1].layout = 'concept' if valid.slides[1].layout != 'concept' else 'image_text'
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[outline(req), drifted, valid]))
+    result = await pipeline.generate_deck(ai, req=req, context_text='',
+        course=offline.course_plan(req, CoursePlan), lecture_number=1, budgets=budgets())
+    assert result.slides[1].layout == valid.slides[1].layout
+    assert 'must use its planned' in ai.structured.call_args.kwargs['prompt']
+    assert ai.structured.await_count == 3
+
+
+async def test_persistent_layout_drift_is_rejected_after_one_repair():
+    req, invalid = request(), deck()
+    invalid.slides[1].layout = 'image_text' if invalid.slides[1].layout != 'image_text' else 'concept'
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[outline(req), invalid, invalid]))
+    with pytest.raises(ContentQualityError, match='planned-layout'):
+        await pipeline.generate_deck(ai, req=req, context_text='',
+            course=offline.course_plan(req, CoursePlan), lecture_number=1, budgets=budgets())
+    assert ai.structured.await_count == 3
 
 
 def test_daily_class_requires_teacher_notes_practice_and_assessment():

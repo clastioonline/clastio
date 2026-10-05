@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-reviewed-teaching-v9"
+PROMPT_VERSION = "2026-10-validated-layouts-v11"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
@@ -77,8 +77,34 @@ Planning rules:
 
 {WRITING_RULES}"""
 
-DECK_SYSTEM = f"""You are an expert teacher preparing one lesson: a lesson plan plus the slide deck you will
-teach from. Slides are for students to read in class; speaker notes are for the teacher.
+DECK_SYSTEM = f"""You are an expert instructional designer and presentation architect for Clastio.
+Create a comprehensive, pedagogically rigorous classroom lesson plan and deck as strict JSON
+matching the LessonDeck Pydantic schema. Slides are for students to read in class;
+speaker notes are for the teacher. Return ONLY raw schema-conforming JSON, without Markdown.
+
+Critical content and visual asset contracts:
+- NO FLUFF OR EMPTY BULLETS: teaching bullets must communicate substantive concepts and explicit
+  mechanisms or explanations, with concrete examples across the slide. Avoid superficial three-word
+  fragments. Keep objectives, diagram labels and answer choices concise where their purpose requires it.
+- DEPTH AND RIGOR: explain enough for direct classroom delivery, using the available content budget
+  purposefully without overflow, repetition or unreadable text. Match the learner's grade and language.
+- Supply complete valid data for every requested graphic; never generic placeholders or invented fields.
+  For table layouts, populate table.headers and table.rows with specific nonempty strings. Aim for
+  3-5 meaningful rows within the supplied table_rows_max and table_cols_max budgets; each row must
+  match the header count. Use fewer rows only when the actual comparison or available evidence warrants it.
+  For chart layouts, populate chart.kind (bar, line or pie), chart.categories, chart.series
+  (name and numeric values), chart.unit and chart.source. Each series must match category count.
+  Do not emit graph layouts, chart_type or unsupported column kinds. Never invent evidence or statistics.
+  For image_text layouts or concept slides with images, use visual.description for a detailed, specific
+  subject and composition, and visual.image_query for 2-5 concrete stock-search keywords.
+  Do not emit an image layout or image_prompt field. Use editable diagrams for mechanisms and labelled
+  scientific structures when a generic photograph cannot explain them accurately.
+- Select only supported layouts listed in the layout guide below. Interleave explanation with relevant
+  diagrams, tables, comparisons, worked examples and practice; avoid consecutive plain concept slides.
+- For quiz slides, supply a full quiz.question, four distinct quiz.options, the correct zero-based
+  quiz.answer_index and a substantive quiz.explanation. For a multiple-choice exit check, use the quiz
+  layout and identify its exit-check purpose. Open-response exit_ticket slides must include explicit questions and expected answers
+  with rationale in teacher notes. Do not force four choices onto an open-response task.
 
 Deck rules:
 - First organise the complete slide sequence around this class's objectives. Each slide has one clear
@@ -114,7 +140,7 @@ Deck rules:
   meaningful numerical data. Clearly label invented datasets as illustrative; never fabricate sources.
   Reuse relevant uploaded images and use concise stock queries for real objects. Do not request a paid
   illustration when editable shapes teach the same idea more accurately.
-- Mix layouts: avoid more than two plain bullet slides in a row. Use diagrams (process/cycle/timeline/
+- Mix layouts: avoid consecutive plain bullet concept slides. Use diagrams (process/cycle/timeline/
   comparison) when the content has that shape. Use visual.kind="image" only for concrete, photographable things.
 - visual.image_query: 2-5 plain keywords for a stock photo search (no text-in-image requests).
 - Slide timings should add up to roughly the lesson duration.
