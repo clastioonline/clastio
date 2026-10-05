@@ -517,6 +517,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
 
 async def save_lesson_output(lesson_id: uuid.UUID, deck: LessonDeck, pptx: bytes, visual, qc: dict[str, Any],
                              reason: str = "generated") -> dict[str, Any]:
+    from app.engine.render.manual import editable_objects
+    objects = await asyncio.to_thread(editable_objects, pptx)
     storage = get_storage()
     qc = {**qc, "visual_status": "checked" if visual is not None else "unavailable"}
     async with get_sessionmaker()() as db:
@@ -546,7 +548,8 @@ async def save_lesson_output(lesson_id: uuid.UUID, deck: LessonDeck, pptx: bytes
                 preview_key = f"lessons/{lesson_id}/v{v}/slide_{spec.number}.png"
                 await storage.put(preview_key, visual.previews[spec.number - 1], "image/png")
             render_rep = next((r for r in qc.get("render", []) if r["number"] == spec.number), {})
-            slide_qc = {"overflow": render_rep.get("overflow", False), "min_font_pt": render_rep.get("min_font_pt"),
+            slide_qc = {"editable_objects": objects[spec.number - 1],
+                        "overflow": render_rep.get("overflow", False), "min_font_pt": render_rep.get("min_font_pt"),
                         "visual": (qc.get("visual") or {}).get(str(spec.number), [])}
             row = existing.get(spec.number)
             data = spec.model_dump()

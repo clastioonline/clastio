@@ -201,6 +201,18 @@ class SlideDifferentiation(BaseModel):
     extension: str | None = None
 
 
+class ManualObjectEdit(BaseModel):
+    x: float | None = Field(default=None, ge=0, le=1)
+    y: float | None = Field(default=None, ge=0, le=1)
+    width: float | None = Field(default=None, gt=0, le=1)
+    height: float | None = Field(default=None, gt=0, le=1)
+    text: str | None = Field(default=None, max_length=10000)
+    color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    font_size: float | None = Field(default=None, ge=8, le=120)
+    font_family: str | None = Field(default=None, min_length=1, max_length=100)
+    bold: bool | None = None
+
+
 class SlideSpec(BaseModel):
     number: int
     layout: SlideLayout
@@ -227,6 +239,7 @@ class SlideSpec(BaseModel):
     # Filled by the pipeline (not by the model)
     asset_id: str | None = None
     sources: list[dict] = Field(default_factory=list)
+    manual_objects: dict[str, ManualObjectEdit] = Field(default_factory=dict, max_length=150)
 
 
 class LessonDeck(BaseModel):

@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { SlideDesignEditor } from "@/components/slide-design-editor";
 import { StatusBadge } from "@/components/common";
 import { DocumentDialog, DocumentFiles } from "@/components/document-dialog";
 import { errorMessage, useToast } from "@/components/toast";
@@ -42,6 +43,7 @@ function toLines(xs: string[] | undefined) {
 function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; slide: any; pending: boolean; onJob: (id: string) => void }) {
   const { notify } = useToast();
   const s = slide.spec;
+  const [manualObjects, setManualObjects] = useState<Record<string, any>>(s.manual_objects || {});
   const [title, setTitle] = useState(s.title);
   const [subtitle, setSubtitle] = useState(s.subtitle || "");
   const [bullets, setBullets] = useState(s.bullets.map((b: any) => (b.level ? "  - " : "") + b.text).join("\n"));
@@ -71,6 +73,7 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
   const { data: versions, mutate: refreshVersions } = useApi<any>(`/lessons/${lessonId}/slides/${slide.number}/versions`);
 
   useEffect(() => {
+    setManualObjects(s.manual_objects || {});
     setTitle(s.title);
     setSubtitle(s.subtitle || "");
     setBullets(s.bullets.map((b: any) => (b.level ? "  - " : "") + b.text).join("\n"));
@@ -91,7 +94,7 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
 
   const save = async () => {
     setBusy("save");
-    const patch: any = { title, speaker_notes: notes, layout, timing_minutes: Number(timing) };
+    const patch: any = { title, speaker_notes: notes, layout, timing_minutes: Number(timing), manual_objects: manualObjects };
     if (s.subtitle !== null || subtitle) patch.subtitle = subtitle || null;
     if (s.bullets.length || ["concept", "summary", "objectives", "homework", "exit_ticket", "image_text", "discussion"].includes(layout)) {
       patch.bullets = bullets.split("\n").filter((l: string) => l.trim()).map((l: string) => ({ text: l.replace(/^\s*-\s*/, "").trim(), level: /^\s+-/.test(l) ? 1 : 0 }));
@@ -177,6 +180,7 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
         <div className="flex items-center gap-2 font-semibold"><Pencil className="h-4 w-4" /> Edit slide manually</div>
         <p className="text-xs text-muted">Change the content yourself, then save to rebuild the PowerPoint without an AI rewrite. For free-positioning shapes, download and edit in PowerPoint.</p>
         <Field label="Layout"><Select aria-label="Layout" value={layout} onChange={(e) => setLayout(e.target.value)}>{Object.entries(LAYOUT_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field>
+        <SlideDesignEditor objects={slide.qc?.editable_objects || []} preview={slide.preview} edits={manualObjects} onChange={setManualObjects} />
         <Field label="Teaching time (minutes)"><Input type="number" min={0} step={0.5} value={timing} onChange={(e) => setTiming(e.target.value)} /></Field>
         <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         {(s.layout === "cover" || s.layout === "section" || s.layout === "activity" || s.subtitle) && (
@@ -375,7 +379,7 @@ export default function LessonPage() {
         <div className="flex flex-wrap gap-2">
           {downloads.pptx && <Button href={downloads.pptx}><Download className="h-4 w-4" /> Download editable PPT</Button>}
           {downloads.pdf && <Button variant="outline" href={downloads.pdf}><FileText className="h-4 w-4" /> PDF</Button>}
-          <Button variant="outline" onClick={() => setRegenOpen(true)}><WandSparkles className="h-4 w-4" /> Rebuild lesson</Button>
+          <Button variant="outline" onClick={() => setRegenOpen(true)}><WandSparkles className="h-4 w-4" /> PPT playground</Button>
         </div>
       </div>
 
@@ -528,14 +532,15 @@ export default function LessonPage() {
       )}
 
       <DocumentDialog open={!!docOpen} kind={docOpen || "worksheet"} lessonId={id} onClose={() => { setDocOpen(null); mutate(); }} />
-      <Modal open={regenOpen} onClose={() => setRegenOpen(false)} title="Rebuild this lesson"
+      <Modal open={regenOpen} onClose={() => setRegenOpen(false)} title="PPT playground — improve this lesson"
         footer={<><Button variant="ghost" onClick={() => setRegenOpen(false)}>Cancel</Button><Button onClick={regenerateLesson}><RotateCcw className="h-4 w-4" /> Rebuild</Button></>}>
         <Alert tone="brand" title="A small edit costs less">Manual edits and restores use 0 generation credits. An AI edit to one slide costs {creditInfo?.costs?.slide ?? "the configured slide rate"}; this full rebuild costs about {creditInfo ? creditInfo.costs.slide * course.slides_per_lecture : "the slide count × the configured rate"} credits. For a wording or example change, cancel and edit the selected slide.</Alert>
+        <p className="text-sm text-muted">This playground generates a new deck for review. It may replace manual object formatting and positions. Use the slide editor to preserve the current design while making small changes.</p>
         <Field label="What should change? (optional)" hint="e.g. make it suitable for Grade 6; more visual; add a practical activity; shorten to 35 minutes">
           <Textarea value={regenText} onChange={(e) => setRegenText(e.target.value)} />
         </Field>
         <div className="mt-3 flex flex-wrap gap-2">
-          {["Make it easier for a younger class", "More visual, less text", "Add a hands-on activity", "Stretch the most able students"].map((s) => (
+          {["Make it easier for a younger class", "Improve explanations with a worked example, answer and student practice", "Use clear typography and balanced spacing from my template", "More visual, less text", "Add a hands-on activity", "Stretch the most able students"].map((s) => (
             <button key={s} className="rounded-full border border-line-strong px-3 py-1 text-xs text-ink-2 hover:border-brand-300" onClick={() => setRegenText(s)}>{s}</button>
           ))}
         </div>

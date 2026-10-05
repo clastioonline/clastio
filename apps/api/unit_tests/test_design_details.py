@@ -1,5 +1,6 @@
 import io
 
+import pytest
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
@@ -82,3 +83,21 @@ def test_plain_deck_has_no_invented_table_or_chart_style():
     result = inspect_design(prs)
     assert result["table"] is None
     assert result["charts"] == {}
+
+
+def test_manual_design_overrides_reach_native_export(tmp_path):
+    from app.engine.render.manual import editable_objects
+    from app.generation.specs import ManualObjectEdit
+
+    path = tmp_path / "source.pptx"
+    uploaded_deck(path)
+    base, template = build_native(path, analyze_pptx(path))
+    slide = SlideSpec(number=1, layout="concept", title="New lesson", purpose="teach")
+    original = DeckRenderer(base, template).render([slide])
+    title = next(item for item in editable_objects(original)[0] if item["text"] == "New lesson")
+    slide.manual_objects = {title["id"]: ManualObjectEdit(color="#AA1234", font_size=30, x=.12)}
+    result = DeckRenderer(base, template).render([slide])
+    edited = next(item for item in editable_objects(result)[0] if item["id"] == title["id"])
+    assert edited["color"] == "#AA1234"
+    assert edited["font_size"] == 30
+    assert edited["x"] == pytest.approx(.12, abs=.0001)

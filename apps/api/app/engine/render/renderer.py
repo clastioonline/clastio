@@ -1004,6 +1004,9 @@ class DeckRenderer:
         # Remove donor slides (they sit at the start of the template base).
         for _ in range(self.donor_count):
             delete_slide(self.prs, 0)
+        from app.engine.render.manual import apply_manual
+        for slide, spec in zip(self.prs.slides, slides, strict=True):
+            apply_manual(slide, spec.manual_objects, self.W, self.H)
         cp = self.prs.core_properties
         props = core_props or {}
         cp.title = props.get("title", "")
