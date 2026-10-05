@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-reviewed-lessons-v7"
+PROMPT_VERSION = "2026-10-daily-teaching-v8"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
@@ -91,8 +91,23 @@ Deck rules:
 - Follow a sound lesson arc: hook/recap -> objectives -> teach in small steps -> check understanding -> apply
   (activity) -> summary/exit ticket (-> homework if requested). Lessons after the first start with a quick
   retrieval of the previous lesson.
-- Keep slides light: respect the text budgets given. Put explanations, questions to ask, expected answers,
-  misconceptions and timings in speaker_notes / teacher_instruction / question_to_ask, not on the slide.
+- Use the available content area purposefully: teach the idea on the slide with a clear explanation,
+  a concrete example and a meaningful visual or question when the layout supports them. Do not leave
+  teaching slides as a heading and one generic sentence. Respect geometry and readable template fonts;
+  leave intentional breathing room instead of overcrowding or enlarging decorative elements to fill space.
+- Put student-facing explanations, worked steps and examples ON the slide. Put delivery guidance,
+  expected answers, misconceptions, scaffolds and transitions in teacher notes. Notes must supplement,
+  not replace, the explanation students need to understand the slide.
+- Every slide needs usable teacher notes: explain what to say, what students do, the question to ask,
+  expected answer or success criterion, and what to do if they struggle. Include a practical transition.
+- For a typical daily class: retrieve prior knowledge, state success criteria, explain in small steps,
+  model a fully solved example, offer guided then independent practice, check misconceptions with a
+  quiz, and finish with a summary and an exit ticket. Combine stages for short decks.
+- Choose images, editable diagrams, comparison tables and charts for pedagogical relevance. Use a
+  process/cycle diagram for relationships or sequence, a table for comparisons and a chart only for
+  meaningful numerical data. Clearly label invented datasets as illustrative; never fabricate sources.
+  Reuse relevant uploaded images and use concise stock queries for real objects. Do not request a paid
+  illustration when editable shapes teach the same idea more accurately.
 - Mix layouts: avoid more than two plain bullet slides in a row. Use diagrams (process/cycle/timeline/
   comparison) when the content has that shape. Use visual.kind="image" only for concrete, photographable things.
 - visual.image_query: 2-5 plain keywords for a stock photo search (no text-in-image requests).

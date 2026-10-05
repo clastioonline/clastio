@@ -193,6 +193,17 @@ def deck_structure_issues(deck: LessonDeck, req: dict[str, Any]) -> list[str]:
     allowed_codes = {str(outcome.get("code")) for outcome in (req.get("outcomes") or []) if isinstance(outcome, dict) and outcome.get("code")}
     if any(code not in allowed_codes for slide in deck.slides for code in slide.outcome_codes):
         issues.append("Use only outcome codes supplied in the request; do not invent curriculum alignment.")
+    if req.get("daily_teaching"):
+        if any(not slide.speaker_notes.strip() for slide in deck.slides):
+            issues.append("Every slide needs actionable teacher notes with delivery guidance and expected answers.")
+        if len(deck.slides) >= 8:
+            layouts = {slide.layout for slide in deck.slides}
+            if not layouts.intersection({"worked_example", "process", "comparison", "two_column"}):
+                issues.append("Include a concrete worked example or structured explanation using a suitable layout.")
+            if not layouts.intersection({"activity", "discussion"}):
+                issues.append("Include student practice with a specific task and teacher-note success criteria.")
+            if not layouts.intersection({"quiz", "exit_ticket"}):
+                issues.append("Include a quiz or exit ticket with explicit questions and expected answers.")
     plan = deck.lesson_plan
     if not any(value.strip() for value in plan.objectives) or not any(value.strip() for value in plan.success_criteria):
         issues.append("Include assessable objectives and success criteria in the lesson plan.")

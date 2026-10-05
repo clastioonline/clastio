@@ -144,7 +144,7 @@ def course_request(course: Course, extra: dict[str, Any] | None = None) -> dict[
            "lecture_minutes": course.lecture_minutes, "language": course.language,
            "outcomes": course.options.get("outcomes") or [], "instructions": course.options.get("instructions"),
            "writing_style": course.options.get("writing_style", "standard"),
-           "image_mode": course.options.get("image_mode", "auto")}
+           "image_mode": course.options.get("image_mode", "auto"), "daily_teaching": True}
     if extra:
         req.update(extra)
     return req

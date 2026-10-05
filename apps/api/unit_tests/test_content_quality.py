@@ -224,3 +224,31 @@ def outline(req):
         layout="cover" if n == 1 else "concept", purpose="Teach the objective",
         teaching_content="Explain an example", minutes=req["lecture_minutes"] / req["slides_per_lecture"])
         for n in range(1, req["slides_per_lecture"] + 1)])
+
+
+def test_daily_class_requires_teacher_notes_practice_and_assessment():
+    sample = deck()
+    for slide in sample.slides:
+        slide.speaker_notes = ""
+        if slide.number > 1:
+            slide.layout = "concept"
+    issues = pipeline.deck_structure_issues(sample, {**request(), "daily_teaching": True})
+    assert any("teacher notes" in issue for issue in issues)
+    assert any("worked example" in issue for issue in issues)
+    assert any("student practice" in issue for issue in issues)
+    assert any("quiz or exit ticket" in issue for issue in issues)
+    sample.slides[2].layout = "worked_example"
+    sample.slides[3].layout = "activity"
+    sample.slides[-1].layout = "exit_ticket"
+    for slide in sample.slides:
+        slide.speaker_notes = "Model the example, ask students to explain, and check their answers."
+    assert not pipeline.deck_structure_issues(sample, {**request(), "daily_teaching": True})
+
+
+def test_teacher_note_budget_supports_explanations_without_shrinking_template_fonts():
+    template = build_builtin(next(iter(BUILTIN_STYLES)))[1]
+    original = dict(template["typography"])
+    limits = compute_budgets(template)
+    assert limits["speaker_notes_max_words"] == 240
+    assert template["typography"] == original
+    assert 7 <= limits["column_bullet_max_words"] <= 14
