@@ -1,4 +1,4 @@
-# Image for both the API and the job worker (same code, different command).
+# Shared image for the API, job worker and scheduler (same code, different commands).
 #
 # Ubuntu 24.04 gives the same LibreOffice build and font packages the renderer and visual QC are tested
 # against. LibreOffice renders slide previews and powers visual QC. The fonts cover what teachers commonly
