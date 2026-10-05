@@ -472,6 +472,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         min_font_pt=float(qc_settings.get("min_body_pt", 16)), max_rounds=int(qc_settings.get("max_repair_attempts", 2)),
         owner_id=user.id, job_id=ctx.job_id, on_progress=_stage)
     await ctx.progress(80, "Visual quality check")
+    visual_error = None
     try:
         visual = await inspect_with_progress(ctx, outcome.pptx)
         if visual.failing_slides:
@@ -488,12 +489,14 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
             await ctx.progress(88, "Checking repaired PowerPoint")
             visual = await inspect_with_progress(ctx, outcome.pptx, pct=88)
     except RenderError as e:
-        log(logger, logging.WARNING, "visual_qc_unavailable", error=str(e))
+        visual_error = str(e)[:300]
+        log(logger, logging.WARNING, "visual_qc_unavailable", error=visual_error)
         visual = None
 
     await ctx.progress(92, "Saving")
     result = await save_lesson_output(lesson_id, deck, outcome.pptx, visual, qc={
         "render": outcome.reports, "repairs": outcome.repairs, "content_fixes": content_fixes, "images": img_counts,
+        "visual_error": visual_error,
         "visual": {str(k): v for k, v in (visual.issues.items() if visual else [])},
         "ai_mode": ai.mode, "content_quality": {"status": "structural_checks_passed",
             "reference_count": reference_count(meta.get("sources", [])), "fact_check_status": "teacher_review_required"}})
@@ -632,12 +635,15 @@ async def rerender_lesson(lesson_id: uuid.UUID, deck: LessonDeck, *, reason: str
     outcome = await pipeline.render_with_qc(ai, base_pptx=base, template_spec=spec, deck=deck, budgets=budgets,
                                             images=images, language=course.language, core_props=core_props,
                                             context_text="", grade=course.grade, owner_id=owner_id, job_id=job_id, max_rounds=0)
+    visual_error = None
     try:
         visual = await asyncio.to_thread(inspect, outcome.pptx)
-    except RenderError:
+    except RenderError as e:
+        visual_error = str(e)[:300]
+        log(logger, logging.WARNING, "visual_qc_unavailable", error=visual_error)
         visual = None
     return await save_lesson_output(lesson_id, deck, outcome.pptx, visual, qc={
-        "render": outcome.reports, "repairs": outcome.repairs,
+        "render": outcome.reports, "repairs": outcome.repairs, "visual_error": visual_error,
         "visual": {str(k): v for k, v in (visual.issues.items() if visual else [])}, "ai_mode": ai.mode},
         reason=reason)
 
