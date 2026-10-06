@@ -30,6 +30,7 @@ from app.ai.base import (
     Usage,
 )
 from app.ai.capacity import provider_capacity
+from app.ai.compatible_provider import CompatibleProvider
 from app.ai.gemini_provider import GeminiProvider
 from app.ai.offline_provider import OfflineProvider
 from app.ai.openai_provider import OpenAIProvider
@@ -42,21 +43,23 @@ logger = logging.getLogger("ai")
 # Same-tier defaults used as fallbacks when the configured provider is unavailable or failing.
 PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     "anthropic": {
-        "planning": "claude-opus-5", "content": "claude-sonnet-5", "fast": "claude-haiku-4-5",
+        "planning": "claude-sonnet-4-6", "content": "claude-sonnet-5", "fast": "claude-haiku-4-5",
         "vision": "claude-sonnet-5", "qc": "claude-haiku-4-5",
     },
     "openai": {
-        "planning": "gpt-5.5", "content": "gpt-5.4-mini", "fast": "gpt-5.4-nano", "vision": "gpt-5.4-mini",
+        "planning": "gpt-5.5", "content": "gpt-4o-mini", "fast": "gpt-5.4-nano", "vision": "gpt-5.4-mini",
         "qc": "gpt-5.4-nano", "embedding": "text-embedding-3-small", "image": "gpt-image-1-mini",
-        "video": "sora-2",
+        "video": "sora-2", "reflection": "gpt-4o-mini",
     },
     "gemini": {
-        "planning": "gemini-2.5-pro", "content": "gemini-3.5-flash", "fast": "gemini-3.1-flash-lite",
+        "ingestion": "gemini-3.5-flash", "planning": "gemini-2.5-pro", "content": "gemini-3.5-flash", "fast": "gemini-3.1-flash-lite",
         "vision": "gemini-3.5-flash", "qc": "gemini-3.1-flash-lite", "embedding": "gemini-embedding-001",
         "image": "gemini-2.5-flash-image", "video": "veo-3.0-fast-generate-001",
     },
 }
-PROVIDER_ORDER = ["anthropic", "openai", "gemini"]
+PROVIDER_DEFAULTS["groq"] = {"fast": "llama-3.3-70b-versatile"}
+PROVIDER_DEFAULTS["perplexity"] = {"search": "sonar"}
+PROVIDER_ORDER = ["anthropic", "openai", "gemini", "groq", "perplexity"]
 
 
 @dataclass
@@ -126,6 +129,8 @@ class AIService:
             "anthropic": AnthropicProvider(),
             "openai": OpenAIProvider(),
             "gemini": GeminiProvider(),
+            "groq": CompatibleProvider("groq", self.settings.groq_api_key, "https://api.groq.com/openai/v1"),
+            "perplexity": CompatibleProvider("perplexity", self.settings.perplexity_api_key, "https://api.perplexity.ai"),
             "offline": OfflineProvider(),
         }
         self._sem = asyncio.Semaphore(self.settings.ai_max_concurrency)
@@ -354,6 +359,32 @@ class AIService:
                     raise
                 last = exc
         raise AIError(f"AI generation unavailable for {task}: {last}", retryable=False)
+
+    async def transcribe(self, audio: bytes, *, filename: str, owner_id: uuid.UUID,
+                         job_id: uuid.UUID | None = None) -> str:
+        from app.ai.base import TextResult
+
+        candidates = [name for name in ("groq", "openai")
+                      if self.providers[name].available() and not self.breaker.is_open(name)]
+        if not candidates:
+            raise AIError("Voice transcription needs a healthy Groq or OpenAI provider", retryable=False)
+        provider = candidates[0]
+        model = "whisper-large-v3-turbo" if provider == "groq" else "whisper-1"
+        route = Route(provider, model)
+
+        async def call():
+            adapter = self.providers[provider]
+            try:
+                result = await adapter._client.audio.transcriptions.create(
+                    model=model, file=(filename, audio), response_format="json")
+            except Exception as exc:
+                raise AIError("Voice transcription failed", provider=provider) from exc
+            # Transcription APIs do not supply token usage; retain the approved reservation ceiling.
+            return TextResult(result.text, Usage(reported=False), model, provider)
+
+        result = await self._execute(route=route, task="transcription", owner_id=owner_id, job_id=job_id,
+                                     input_bytes=len(audio), output_tokens=2000, call=call)
+        return result.text
 
     async def text(self, *, task: str, tier: Tier, system: str, messages: list[ChatMessage],
                    effort: Effort = "medium", max_tokens: int = 8000, owner_id: uuid.UUID | None = None,

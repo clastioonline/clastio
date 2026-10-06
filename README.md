@@ -53,9 +53,13 @@ All AI calls go through one provider-neutral service with task tiers. Routing is
 
 | Tier | Used for | Default | Fallbacks |
 |---|---|---|---|
-| planning | course plans, lesson plans | `anthropic:claude-opus-5` | OpenAI, Gemini |
-| content | slide decks, documents, rewrites | `anthropic:claude-sonnet-5` | OpenAI, Gemini |
-| fast / qc | intent routing, content QC | `anthropic:claude-haiku-4-5` | OpenAI, Gemini |
+| planning | course plans, lesson plans | `anthropic:claude-sonnet-4-6` | OpenAI, Gemini |
+| content | slide decks, documents, rewrites | `openai:gpt-4o-mini` | OpenAI, Gemini |
+| fast | chat and intent routing | `groq:llama-3.3-70b-versatile` | Anthropic, OpenAI, Gemini |
+| qc | content QC | `anthropic:claude-haiku-4-5` | OpenAI, Gemini |
+| vision / ingestion | visual review, scanned sources | `gemini:gemini-3.5-flash` | task-dependent |
+| search | current/live teaching facts | `perplexity:sonar` | none |
+| reflection | daily edit review | `openai:gpt-4o-mini` | none |
 | embedding | memory, curriculum and source retrieval | `openai:text-embedding-3-small` | Gemini |
 | image | illustrations when no CC-licensed image fits; media studio images | `openai:gpt-image-1-mini` | Gemini |
 | video | media studio clips | `openai:sora-2` | Gemini Veo |
@@ -113,6 +117,7 @@ docs         product spec, research, architecture, deployment
 
 ## Documentation
 
+- [`docs/ARCHITECTURE_UPGRADE.md`](docs/ARCHITECTURE_UPGRADE.md): bundles, sidecar rendering, pooling, teacher feedback, voice and scanned ingestion.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the pieces fit, the generation pipeline and the design decisions
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md): production setup, configuration, scaling, backups, costs
 - [`docs/PLATFORM.md`](docs/PLATFORM.md): accounts, roles, audit, limits, notifications, legal, admin console, production checklist and what is not implemented
@@ -127,5 +132,5 @@ docs         product spec, research, architecture, deployment
 - **Curriculum data is illustrative.** The seeded outcomes are topic-level starter sets under our own codes. Import the official framework documents (UAE MoE, CBSE, NGSS, Cambridge and others) before selling to schools.
 - **Integrations need credentials:** Dodo Payments or Stripe, WhatsApp Cloud API (message templates must be approved by Meta), Google/Microsoft sign-in, SMTP, S3. Without them the app uses manual plans, a WhatsApp simulator, email/password sign-in, logged magic links and local storage.
 - **Arabic UI is partial.** Navigation and the dashboard are translated and the layout switches to RTL. Generated Arabic slides are fully RTL.
-- **Scanned PDFs are not supported yet.** There is no OCR, so upload the original PPTX or a text-based PDF. The same applies to scanned reference material.
-- **A vision model tier is configured but unused.** It is reserved for future scanned-page understanding.
+- **Scanned source PDFs need a live ingestion provider.** Up to 40 scanned pages per upload can be transcribed with page provenance. Review equations and small print. PDF design-template extraction still works best with text-based originals.
+- **New live routes require approved price cards and credentials.** Voice, search, reflection and scanned ingestion are not exercised against paid providers by automated tests.

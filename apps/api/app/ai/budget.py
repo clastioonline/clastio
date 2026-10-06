@@ -36,6 +36,8 @@ class BudgetPolicy(BaseModel):
     max_calls_per_job: int = Field(60, ge=1, le=1000)
     max_input_bytes: int = Field(120000, ge=1, le=1000000)
     max_output_tokens: int = Field(24000, ge=1, le=32000)
+    max_audio_bytes: int = Field(10 * 1024 * 1024, ge=1, le=25 * 1024 * 1024)
+    max_ingestion_image_bytes: int = Field(5 * 1024 * 1024, ge=1, le=10 * 1024 * 1024)
 
 
 class RateCard(BaseModel):
@@ -78,7 +80,9 @@ async def reserve(*, provider, model, task, owner_id, job_id, input_bytes=0, out
         if not card_data:
             raise BudgetError("This AI model needs an approved price card before it can be used.")
         card = RateCard.model_validate(card_data)
-        if input_bytes > policy.max_input_bytes or output_tokens > policy.max_output_tokens:
+        input_limit = (policy.max_audio_bytes if task == "transcription" else
+                       policy.max_ingestion_image_bytes if task == "pdf_ingestion" else policy.max_input_bytes)
+        if input_bytes > input_limit or output_tokens > policy.max_output_tokens:
             raise BudgetError("This request is too large. Split the material into smaller sections.")
         job = None
         if job_id:

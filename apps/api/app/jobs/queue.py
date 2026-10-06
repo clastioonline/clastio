@@ -181,6 +181,9 @@ async def run_job(job_id: uuid.UUID) -> None:
 
         await job_finished(job_type, job_id, ctx.owner_id, ctx.payload, ok=True)
     except Exception as e:  # noqa: BLE001 - job boundary
+        if get_settings().sentry_dsn:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
         # Refusals and non-retryable AI errors (bad request, invalid key) fail the same way on every attempt,
         # so retrying would only add cost.
         permanent = isinstance(e, (PermanentJobError, ContentQualityError)) or (isinstance(e, AIError) and not e.retryable)

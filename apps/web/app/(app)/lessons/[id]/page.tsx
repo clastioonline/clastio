@@ -301,6 +301,7 @@ export default function LessonPage() {
   const [reflectionNote, setReflectionNote] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState("");
   const [approving, setApproving] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [coveredSlide, setCoveredSlide] = useState("");
   const [reflectionBusy, setReflectionBusy] = useState(false);
   const [regenText, setRegenText] = useState("");
@@ -435,6 +436,14 @@ export default function LessonPage() {
               <span className="text-sm text-muted">Slide {current} of {slides.length} · {slide && LAYOUT_LABELS[slide.spec.layout]} · {slide?.spec.timing_minutes} min</span>
               <Button variant="ghost" size="sm" disabled={current >= slides.length} onClick={() => setCurrent(current + 1)}>Next <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
             </div>
+            {slide && <Button variant="outline" size="sm" loading={accepting} disabled={generating || !!jobId} onClick={async () => {
+              setAccepting(true);
+              try {
+                await api(`/lessons/${id}/slides/${slide.number}/accept`, { method: "POST" });
+                notify({ tone: "success", title: "Saved as a teaching example", body: "Your assistant can use this slide’s style in future lessons." });
+              } catch (error) { notify({ tone: "error", title: "Couldn’t save example", body: errorMessage(error) }); }
+              finally { setAccepting(false); }
+            }}>Use this slide as a future example</Button>}
             {slide?.spec.speaker_notes && (
               <Card className="p-4 text-sm">
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Teacher notes</div>

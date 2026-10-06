@@ -369,10 +369,15 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
         if not history or history[-1].role != "user":
             history.append(ChatMessage("user", text))
         history[0] = ChatMessage("user", f"TEACHING CONTEXT\n{context_text}\n\nTEACHER: {history[0].content}")
-        async for chunk in get_ai().stream(task="assistant_chat", tier="content", system=prompts.ASSISTANT_SYSTEM,
-                                           messages=history, owner_id=user.id, max_tokens=1500):
-            reply += chunk
-            yield {"event": "token", "data": {"text": chunk}}
+        if re.search(r"\b(?:live search|search the web|latest|current)\b", text, re.I) and get_ai().providers["perplexity"].available():
+            reply = await get_ai().text(task="live_search", tier="search", system=prompts.ASSISTANT_SYSTEM,
+                                        messages=history, owner_id=user.id, max_tokens=1500)
+            yield {"event": "token", "data": {"text": reply}}
+        else:
+            async for chunk in get_ai().stream(task="assistant_chat", tier="fast", system=prompts.ASSISTANT_SYSTEM,
+                                               messages=history, owner_id=user.id, max_tokens=1500):
+                reply += chunk
+                yield {"event": "token", "data": {"text": chunk}}
     else:
         yield {"event": "token", "data": {"text": reply}}
     for a in actions:

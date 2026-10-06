@@ -185,6 +185,7 @@ def template_out(t: Template, default_id: uuid.UUID | None = None, full: bool = 
            "is_default": default_id == t.id, "created_at": t.created_at.isoformat() if t.created_at else None,
            "previews": [signed(k) for k in t.preview_keys or []],
            "colors": spec.get("colors", {}), "fonts": spec.get("fonts", {}),
+           "font_warnings": spec.get("font_warnings", []),
            "description": spec.get("catalog", {}).get("description"),
            "tags": spec.get("catalog", {}).get("tags", []),
            "curricula": spec.get("catalog", {}).get("curricula", [])}
@@ -468,16 +469,17 @@ async def update_plan(course_id: uuid.UUID, plan: CoursePlan, user: CurrentUser,
 
 
 class GenerateIn(BaseModel):
+    bundle: bool = False
     lessons: list[int] | None = Field(None, min_length=1, max_length=30)
     previous_taught: str | None = Field(None, max_length=2000)
     revision_needed: str | None = Field(None, max_length=2000)
     instructions: str | None = Field(None, max_length=2000)
 
 
-@router.post("/courses/{course_id}/generate", dependencies=[Depends(rate_limit("generate", 30, 3600))])
+@router.post("/courses/{course_id}/generate", status_code=202, dependencies=[Depends(rate_limit("generate", 30, 3600))])
 async def generate(course_id: uuid.UUID, data: GenerateIn, user: CurrentUser, db: DB):
     job_ids = await course_svc.start_generation(db, user, course_id, data.lessons, data.instructions,
-                                                 previous_taught=data.previous_taught, revision_needed=data.revision_needed)
+                                                 previous_taught=data.previous_taught, revision_needed=data.revision_needed, bundle=data.bundle)
     return {"job_ids": [str(j) for j in job_ids]}
 
 
@@ -812,3 +814,13 @@ async def download(key: str, exp: int, sig: str, fn: str | None = None):
         ascii_name = fn.encode("ascii", "ignore").decode().replace('"', "") or "download"
         headers["Content-Disposition"] = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(fn)}"
     return Response(path.read_bytes(), media_type=ctype, headers=headers)
+
+
+@router.post("/lessons/{lesson_id}/slides/{number}/accept")
+async def accept_slide(lesson_id: uuid.UUID, number: int, user: CurrentUser, db: DB):
+    """Explicit acceptance, never inferred from a download or preview."""
+    from app.services.feedback import accept
+
+    await accept(db, user, lesson_id, number)
+    await db.commit()
+    return {"accepted": True}

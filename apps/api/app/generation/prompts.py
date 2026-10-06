@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION = "2026-10-outline-recovery-v12"
+PROMPT_VERSION = "2026-10-bundle-load-v13"
 
 WRITING_RULES = """Writing rules (apply to every piece of student-facing and teacher-facing text):
 - Write like an experienced, warm classroom teacher: plain, specific and natural. Vary sentence openings and lengths.
@@ -83,6 +83,9 @@ matching the LessonDeck Pydantic schema. Slides are for students to read in clas
 speaker notes are for the teacher. Return ONLY raw schema-conforming JSON, without Markdown.
 
 Critical content and visual asset contracts:
+- manual_objects MUST be empty. Never emit coordinates, font sizes or design transforms; the native template engine owns geometry.
+- Total visible text per slide MUST NOT exceed 120 words. Move explanations into speaker notes.
+- Use native timeline, process, cycle, comparison or worked_example layouts for relationships and mechanisms.
 - NO FLUFF OR EMPTY BULLETS: teaching bullets must communicate substantive concepts and explicit
   mechanisms or explanations, with concrete examples across the slide. Avoid superficial three-word
   fragments. Keep objectives, diagram labels and answer choices concise where their purpose requires it.

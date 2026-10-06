@@ -28,3 +28,6 @@ apps/web/e2e/screenshots/
 
 # Re-renderable intermediate product-film audio
 assets/product-video/soundtrack.wav
+
+/deploy/fonts/*.ttf
+/deploy/fonts/*.otf

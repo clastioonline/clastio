@@ -19,12 +19,14 @@ x-backend: &backend
     - path: ${APP_ENV_FILE:-.env}
       required: false
   environment: &backend-env
-    DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/teacher_assistant
+    DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@pgbouncer:5432/teacher_assistant
+    GOTENBERG_URL: http://gotenberg:3000
     REDIS_URL: redis://redis:6379/0
     STORAGE_LOCAL_DIR: /app/var/storage
     PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
   volumes:
     - storage:/app/var/storage
+    - ./deploy/fonts:/usr/local/share/fonts/custom:ro
   restart: unless-stopped
 
 services:
@@ -43,6 +45,35 @@ services:
       retries: 30
     restart: unless-stopped
 
+  pgbouncer:
+    image: ${PGBOUNCER_IMAGE:-edoburu/pgbouncer:v1.24.1-p0}
+    environment:
+      DB_HOST: db
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: teacher_assistant
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 30
+      MAX_PREPARED_STATEMENTS: 100
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d teacher_assistant"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  gotenberg:
+    image: ${GOTENBERG_IMAGE:-gotenberg/gotenberg:8.32.0}
+    command: ["gotenberg", "--libreoffice-auto-start=true", "--api-timeout=180s", "--libreoffice-max-queue-size=20", "--libreoffice-deny-private-ips=true", "--libreoffice-deny-public-ips=true"]
+    volumes:
+      - ./deploy/fonts:/usr/local/share/fonts/custom:ro
+    restart: unless-stopped
+
   redis:
     image: ${REDIS_IMAGE:-redis:7-alpine}
     restart: unless-stopped
@@ -53,6 +84,7 @@ services:
     command: ["sh", "-c", "alembic upgrade head && python -m app.seed"]
     environment:
       <<: *backend-env
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/teacher_assistant
       SEED_DEMO: ${SEED_DEMO:-true}
     depends_on:
       db:
@@ -64,6 +96,10 @@ services:
     ports:
       - "${API_PORT:-127.0.0.1:8000}:8000"
     depends_on:
+      pgbouncer:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
       migrate:
         condition: service_completed_successfully
       redis:
@@ -78,6 +114,10 @@ services:
     <<: *backend
     command: ["python", "-m", "app.worker", "--concurrency", "${WORKER_CONCURRENCY:-4}"]
     depends_on:
+      pgbouncer:
+        condition: service_healthy
+      gotenberg:
+        condition: service_started
       migrate:
         condition: service_completed_successfully
 

@@ -172,10 +172,10 @@ def lesson_plan_docx(plan: LessonPlan, *, meta: dict[str, Any], accent: str, fon
         info.cell(r, c * 2).text = k
         _shade(info.cell(r, c * 2), "F3F4F6")
         info.cell(r, c * 2 + 1).text = str(v)
-    doc.add_heading("Learning objectives", level=2)
+    doc.add_heading("WALT — We Are Learning To", level=2)
     for o in plan.objectives:
         doc.add_paragraph(o, style="List Bullet")
-    doc.add_heading("Success criteria", level=2)
+    doc.add_heading("WILF — What I’m Looking For", level=2)
     for o in plan.success_criteria:
         doc.add_paragraph(o, style="List Bullet")
     if outcomes:

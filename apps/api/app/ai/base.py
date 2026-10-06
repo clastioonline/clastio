@@ -12,7 +12,7 @@ from typing import Any, Literal, Protocol, TypeVar
 
 from pydantic import BaseModel
 
-Tier = Literal["planning", "content", "fast", "vision", "qc", "embedding", "image", "video"]
+Tier = Literal["planning", "content", "fast", "vision", "qc", "embedding", "image", "video", "reflection", "ingestion", "search"]
 Effort = Literal["low", "medium", "high"]
 
 T = TypeVar("T", bound=BaseModel)

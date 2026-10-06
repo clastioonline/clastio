@@ -62,11 +62,16 @@ class Settings(BaseSettings):
     ai_offline_mode: bool = False  # force the deterministic offline provider (tests, demos)
 
     # Model routing: "<provider>:<model>". Admins can override at runtime (app_settings table).
-    model_planning: str = "anthropic:claude-opus-5"
-    model_content: str = "anthropic:claude-sonnet-5"
-    model_fast: str = "anthropic:claude-haiku-4-5"
-    model_vision: str = "anthropic:claude-sonnet-5"
+    model_planning: str = "anthropic:claude-sonnet-4-6"
+    model_content: str = "openai:gpt-4o-mini"
+    model_fast: str = "groq:llama-3.3-70b-versatile"
+    model_vision: str = "gemini:gemini-3.5-flash"
     model_qc: str = "anthropic:claude-haiku-4-5"
+    model_reflection: str = "openai:gpt-4o-mini"
+    model_ingestion: str = "gemini:gemini-3.5-flash"
+    model_search: str = "perplexity:sonar"
+    groq_api_key: str | None = None
+    perplexity_api_key: str | None = None
     model_embedding: str = "openai:text-embedding-3-small"
     model_image: str = "openai:gpt-image-1-mini"
     model_video: str = "openai:sora-2"
@@ -131,6 +136,7 @@ class Settings(BaseSettings):
     api_request_log: bool = True
 
     # --- rendering / QC ---
+    gotenberg_url: str = ""  # empty: local LibreOffice for development
     soffice_path: str = "soffice"
     render_timeout_s: int = 180
     min_body_font_pt: float = 16.0

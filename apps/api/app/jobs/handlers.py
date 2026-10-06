@@ -153,3 +153,10 @@ async def template_preview(ctx: JobContext) -> dict[str, Any]:
 async def image_replacement(ctx: JobContext) -> dict[str, Any]:
     from app.services.image_assistant import replace
     return await replace(ctx)
+
+
+@handler("whatsapp_voice", queue="ai")
+async def whatsapp_voice(ctx: JobContext) -> dict[str, Any]:
+    from app.services.voice import handle
+
+    return await handle(ctx)

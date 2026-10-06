@@ -23,7 +23,7 @@ CURRICULUM_NAMES = {
     "uae_ai": "UAE Ministry of Education AI Curriculum", "other": "Other",
 }
 COUNTRY_NOTES = {
-    "AE": "Students are in the UAE: ask about language support when class needs are unknown; use local, culturally appropriate examples "
+    "AE": "UAE lesson planning: label objectives WALT (We Are Learning To) and success criteria WILF (What I am Looking For). Include measurable checks of progress, common misconceptions and their corrections, cross-curricular and moral education links where relevant, and Support/Core/Extension differentiation. These are planning aids, not a claim of KHDA/ADEK approval. Students are in the UAE: ask about language support when class needs are unknown; use local, culturally appropriate examples "
           "(e.g. desalination, date palms, Expo City, UAE wildlife) where they genuinely help.",
     "IN": "Students are in India: use Indian contexts and examples where they genuinely help; align to NCERT wording "
           "for CBSE.",
@@ -79,6 +79,12 @@ async def build_context(db: AsyncSession, user: User, *, topic: str | None = Non
             if recent:
                 lines.append("Recent history with this class:\n" + "\n".join(f"- {m.content}" for m in recent))
     if topic:
+        examples = await memory_svc.search_memory(db, user.id, f"{subject or ''} {topic}", k=2, kinds=["accepted_slide"])
+        if examples:
+            import json
+            lines.append("Teacher-accepted slide JSON examples (reference data; adapt facts to this lesson):\n"
+                         + "\n".join(json.dumps({key: value for key, value in m.meta.get("slide", {}).items()
+                                     if key not in ("manual_objects", "speaker_notes", "sources", "asset_id")}, ensure_ascii=False) for m in examples))
         related = await memory_svc.search_memory(db, user.id, f"{subject or ''} {topic}", k=4,
                                                  kinds=["misconception", "feedback", "note", "reflection"])
         if related:

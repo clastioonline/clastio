@@ -74,7 +74,12 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
         from app.services.styles import convert_ppt_to_pptx
         data = await asyncio.to_thread(convert_ppt_to_pptx, data)
         ext = "pptx"
-    chunks = chunk(extract_pages(data, ext))
+    pages = await asyncio.to_thread(extract_pages, data, ext)
+    native_page_numbers = {number for number, _ in pages}
+    if ext == "pdf":
+        from app.services.pdf_ingestion import extract_scanned
+        pages = await extract_scanned(data, pages, owner_id)
+    chunks = chunk(pages)
     if not chunks:
         raise PermanentJobError("No readable text found. For a scanned book, upload an OCR/text PDF or typed notes.")
     vectors = []
@@ -86,6 +91,7 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
             s.add(SourceChunk(file_id=file_id, owner_id=owner_id, page=page, text=text, embedding=vec))
         f = await s.get(UploadedFile, file_id)
         f.status, f.stage, f.page_count = "ready", "Ready", len({c[0] for c in chunks})
+        f.meta = {**(f.meta or {}), "ai_transcribed_pages": [number for number, _ in pages if number not in native_page_numbers]}
         await s.commit()
     return {"chunks": len(chunks)}
 

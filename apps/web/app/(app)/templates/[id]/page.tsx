@@ -88,6 +88,7 @@ export default function TemplateDetail() {
             {editable && <Button variant="ghost" size="icon" onClick={remove} disabled={!!action || busy || refreshing} aria-label="Delete template"><Trash className="h-4 w-4" /></Button>}
           </>
         } />
+      {data.font_warnings?.length > 0 && <Alert tone="warn" title="Some fonts may be substituted">{data.font_warnings.filter((warning: { font?: string }) => warning.font).map((warning: { font: string }) => warning.font).join(", ") || "Font availability could not be checked"}. Your previews may wrap text differently. Ask your school administrator to install the licensed fonts.</Alert>}
       {data.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{data.tags.map((tag: string) => <Badge key={tag}>{tag}</Badge>)}</div>}
       {refreshing && <Alert>Refreshing your previews. You can leave this page and follow progress in <a href="/activity" className="underline">Activity</a>.</Alert>}
       {data.design_inspection?.slides_inspected > 0 && <Card>

@@ -359,6 +359,9 @@ async def process_style_upload(file_id: uuid.UUID, *, name: str | None = None) -
         await _set_stage(file_id, "Extracting design")
         analysis, base, spec = await asyncio.to_thread(analyze_file, path, ext)
 
+    from app.engine.fonts import audit_fonts
+    spec["font_warnings"] = await asyncio.to_thread(audit_fonts, base)
+
     await _set_stage(file_id, "Understanding content", page_count=analysis.get("stats", {}).get("slides"))
     tone = await describe_tone(analysis, owner_id)
     if tone:

@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pymupdf as fitz
 from PIL import Image
 from pptx import Presentation
@@ -33,8 +34,30 @@ class RenderError(Exception):
     pass
 
 
+def office_to_pdf(data: bytes, filename: str, timeout: int | None = None) -> bytes:
+    """Convert on the persistent sidecar. Call from a worker thread, as with local LO.
+
+    Never fall back locally on sidecar failure: doing so defeats memory isolation.
+    """
+    settings = get_settings()
+    try:
+        with httpx.Client(timeout=timeout or settings.render_timeout_s) as client:
+            response = client.post(
+                settings.gotenberg_url.rstrip("/") + "/forms/libreoffice/convert",
+                files={"files": (filename, data, "application/octet-stream")},
+            )
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise RenderError("The rendering service could not convert the document") from exc
+    if not response.content.startswith(b"%PDF-"):
+        raise RenderError("The rendering service returned an invalid PDF")
+    return response.content
+
+
 def pptx_to_pdf(pptx: bytes, timeout: int | None = None) -> bytes:
     settings = get_settings()
+    if settings.gotenberg_url:
+        return office_to_pdf(pptx, "deck.pptx", timeout)
     soffice = shutil.which(settings.soffice_path) or settings.soffice_path
     with tempfile.TemporaryDirectory(prefix="ata-lo-") as tmp:
         src = Path(tmp) / "deck.pptx"
@@ -54,6 +77,8 @@ def pptx_to_pdf(pptx: bytes, timeout: int | None = None) -> bytes:
 
 def docx_to_pdf(docx: bytes, timeout: int | None = None) -> bytes:
     settings = get_settings()
+    if settings.gotenberg_url:
+        return office_to_pdf(docx, "doc.docx", timeout)
     soffice = shutil.which(settings.soffice_path) or settings.soffice_path
     with tempfile.TemporaryDirectory(prefix="ata-lo-") as tmp:
         src = Path(tmp) / "doc.docx"

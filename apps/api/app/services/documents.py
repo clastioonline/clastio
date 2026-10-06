@@ -18,7 +18,7 @@ from app.engine.exports import documents as builders
 from app.engine.qc.visual import RenderError, docx_to_pdf
 from app.generation import prompts
 from app.generation.quality import ContentQualityError, assessment_errors
-from app.generation.specs import AssessmentDoc, HomeworkDoc, LessonPlan, SlideSpec
+from app.generation.specs import AssessmentDoc, HomeworkDoc, LessonPlan, QuestionSection, SlideSpec
 from app.jobs.queue import JobContext, enqueue, run_inline_if_configured
 from app.models import ClassSection, Course, Document, Lesson, Question, Slide, Template, User
 from app.services import usage
@@ -190,6 +190,13 @@ async def handle_document_generation(ctx: JobContext) -> dict[str, Any]:
                 offline_context=generation_context, prompt_version=prompts.PROMPT_VERSION)
         if assessment_errors(result, n):
             raise ContentQualityError("The assessment did not pass its question-count and answer-key checks. No worksheet was published. Review the brief and try again.")
+        if doc.difficulty == "tiered" and isinstance(result, AssessmentDoc):
+            questions = builders.all_questions(result)
+            groups = [(label, [q for q in questions if q.difficulty == difficulty])
+                      for label, difficulty in (("Support", "easy"), ("Core", "medium"), ("Extension", "hard"))]
+            if any(not group for _, group in groups):
+                raise ContentQualityError("The differentiated worksheet needs questions at all three tiers.")
+            result.sections = [QuestionSection(title=label, instructions="", questions=group) for label, group in groups]
         content["quality"] = {"status": "structural_checks_passed", "fact_check_status": "teacher_review_required"}
         await ctx.progress(65, "Formatting documents")
         rtl = (info.get("language") or "en") in ("ar", "ur")

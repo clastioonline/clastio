@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 SlideLayout = Literal[
     "cover", "section", "objectives", "concept", "image_text", "two_column", "comparison", "process",
@@ -234,7 +234,7 @@ class SlideSpec(BaseModel):
     number: int
     layout: SlideLayout
     purpose: str
-    title: str
+    title: str = Field(description="Student-facing slide text must total at most 120 words; explanations belong in speaker notes.")
     teaching_stage: Literal["topic", "engage", "objective", "explore", "explain", "elaborate", "evaluate", "self_reflect"] | None = None
     subtitle: str | None = None
     bullets: list[Bullet] = Field(default_factory=list)
@@ -264,6 +264,25 @@ class LessonDeck(BaseModel):
 
     lesson_plan: LessonPlan
     slides: list[SlideSpec]
+
+
+    @model_validator(mode="after")
+    def cognitive_load(self) -> LessonDeck:
+        for slide in self.slides:
+            text = [slide.title, slide.subtitle or "", slide.question or ""]
+            text += [bullet.text for bullet in slide.bullets]
+            text += [word for col in slide.columns for word in [col.heading, *col.bullets]]
+            text += [word for step in slide.steps for word in [step.label, step.detail]]
+            text += [word for term in slide.terms for word in [term.term, term.meaning, term.translation or ""]]
+            if slide.table:
+                text += slide.table.headers + [cell for row in slide.table.rows for cell in row]
+            if slide.chart:
+                text += [*slide.chart.categories, *[series.name for series in slide.chart.series], slide.chart.unit or "", slide.chart.source or ""]
+            if slide.quiz:
+                text += [slide.quiz.question, *slide.quiz.options]
+            if sum(len(word.split()) for word in text) > 120:
+                raise ValueError(f"Slide {slide.number} exceeds the 120-word cognitive-load limit")
+        return self
 
 
 class SlideRewrite(BaseModel):

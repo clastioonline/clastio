@@ -56,6 +56,7 @@ export default function ProjectPage() {
   const [previousTaught, setPreviousTaught] = useState("");
   const [revisionNeeded, setRevisionNeeded] = useState("");
   const [preparationNotes, setPreparationNotes] = useState("");
+  const [bundle, setBundle] = useState(false);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -73,7 +74,7 @@ export default function ProjectPage() {
   const generate = async (numbers?: number[]) => {
     setBusy("generate");
     try {
-      await api(`/courses/${course.id}/generate`, { body: { lessons: numbers, previous_taught: previousTaught, revision_needed: revisionNeeded, instructions: preparationNotes || null } });
+      await api(`/courses/${course.id}/generate`, { body: { bundle, lessons: numbers, previous_taught: previousTaught, revision_needed: revisionNeeded, instructions: preparationNotes || null } });
       mutate();
       setPreparing(null);
     } catch (e) {
@@ -105,6 +106,7 @@ export default function ProjectPage() {
           <p className="text-sm text-muted">Recorded classroom reflections and unfinished work are included automatically. Add anything the assistant should know before this class.</p>
           <Field label="What did you teach in the previous class?"><Textarea value={previousTaught} maxLength={2000} onChange={(e) => setPreviousTaught(e.target.value)} placeholder="We introduced sin, cos and tan and completed the first two examples." /></Field>
           <Field label="What should be revised again?"><Textarea value={revisionNeeded} maxLength={2000} onChange={(e) => setRevisionNeeded(e.target.value)} placeholder="Revise identifying opposite and adjacent with a short diagnostic question." /></Field>
+          <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={bundle} onChange={(event) => setBundle(event.target.checked)} /><span>Prepare the complete bundle: slides, lesson plan, Support/Core/Extension worksheet and quiz exports. Uses document credits in addition to slide credits.</span></label>
           <Field label="Instructions for this part / day"><Textarea value={preparationNotes} maxLength={2000} onChange={(e) => setPreparationNotes(e.target.value)} placeholder="Start with 5 minutes of revision, then cover worked examples and finish with an exit ticket." /></Field>
         </div>
       </Modal>

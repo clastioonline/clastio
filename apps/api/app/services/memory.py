@@ -17,6 +17,7 @@ PREFERENCE_LABELS: dict[str, str] = {
     "language_level": "Language level",
     "explanation_depth": "Explanation depth",
     "tone": "Tone",
+    "preferred_layouts": "Preferred slide layouts",
     "slides_per_lesson": "Slides per lesson",
     "bullets_per_slide": "Bullets per slide",
     "words_per_bullet": "Words per bullet",

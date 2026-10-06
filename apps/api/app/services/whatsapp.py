@@ -229,6 +229,8 @@ def _inbound_text(m: dict[str, Any]) -> tuple[str, str | None]:
 
 
 async def handle_inbound(db: AsyncSession, m: dict[str, Any]) -> None:
+    if not m.get("id"):
+        return
     phone = "+" + m.get("from", "").lstrip("+")
     text, payload = _inbound_text(m)
     if m.get("id") and (await db.execute(select(WhatsAppMessage.id).where(
@@ -272,6 +274,17 @@ async def handle_inbound(db: AsyncSession, m: dict[str, Any]) -> None:
     if upper in ("START", "RESUME"):
         contact.opted_in, contact.opted_in_at = True, utcnow()
         await send_text(db, contact, "Welcome back! Daily plans are on again.")
+        return
+    if m.get("type") == "audio" and contact.opted_in and user.status == "active":
+        from app.jobs.queue import enqueue
+
+        media_id = (m.get("audio") or {}).get("id")
+        if not media_id or not str(media_id).isdigit():
+            await send_text(db, contact, "That voice note could not be read. Please send it again.")
+            return
+        await enqueue(db, "whatsapp_voice", {"media_id": str(media_id), "message_id": m["id"]},
+                      owner_id=user.id, dedupe=True)
+        await send_text(db, contact, "Voice note received. I’ll read your request and prepare the materials in the background.")
         return
     if payload and payload.startswith("REFLECT:"):
         _, lesson_id, outcome = payload.split(":", 2)

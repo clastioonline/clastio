@@ -23,6 +23,18 @@ services:
         limits:
           memory: 3G
 
+  pgbouncer:
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  gotenberg:
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
   redis:
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
     volumes:
