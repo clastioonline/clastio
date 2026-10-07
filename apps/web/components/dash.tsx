@@ -49,7 +49,7 @@ export function KpiCard({ label, value, hint, trend, href, hero = false }: {
           <ArrowUpRight className="h-5 w-5" />
         </span>
       </div>
-      <div className={cn("mt-4 text-5xl font-bold tracking-tight tabular-nums", hero ? "text-white" : "text-ink")}>{value}</div>
+      <div className={cn("mt-4 text-3xl sm:text-5xl font-bold tracking-tight tabular-nums", hero ? "text-white" : "text-ink")}>{value}</div>
       {(hint || trend != null) && (
         <div className={cn("mt-4 flex items-center gap-2 text-sm", hero ? "text-accent-100" : "text-brand-600")}>
           {trend != null && (
@@ -61,7 +61,7 @@ export function KpiCard({ label, value, hint, trend, href, hero = false }: {
       )}
     </>
   );
-  const cls = cn("group block rounded-3xl p-5 sm:p-6 transition-shadow hover:shadow-[var(--shadow-pop)]",
+  const cls = cn("group block rounded-3xl p-3 sm:p-6 transition-shadow hover:shadow-[var(--shadow-pop)]",
     hero ? "ui-hero bg-brand-800 text-white" : "bg-surface");
   return href ? <Link href={href} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
 }

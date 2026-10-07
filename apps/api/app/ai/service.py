@@ -34,6 +34,7 @@ from app.ai.compatible_provider import CompatibleProvider
 from app.ai.gemini_provider import GeminiProvider
 from app.ai.offline_provider import OfflineProvider
 from app.ai.openai_provider import OpenAIProvider
+from app.ai.openrouter_provider import OPENROUTER_MODELS, OpenRouterProvider
 from app.ai.pricing import cost_usd
 from app.core.config import get_settings
 from app.core.logging import log
@@ -59,7 +60,8 @@ PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
 }
 PROVIDER_DEFAULTS["groq"] = {"fast": "llama-3.3-70b-versatile"}
 PROVIDER_DEFAULTS["perplexity"] = {"search": "sonar"}
-PROVIDER_ORDER = ["anthropic", "openai", "gemini", "groq", "perplexity"]
+PROVIDER_DEFAULTS["openrouter"] = OPENROUTER_MODELS
+PROVIDER_ORDER = ["openrouter", "anthropic", "openai", "gemini", "groq", "perplexity"]
 
 
 @dataclass
@@ -126,6 +128,7 @@ class AIService:
     def __init__(self) -> None:
         self.settings = get_settings()
         self.providers = {
+            "openrouter": OpenRouterProvider(),
             "anthropic": AnthropicProvider(),
             "openai": OpenAIProvider(),
             "gemini": GeminiProvider(),
@@ -149,7 +152,8 @@ class AIService:
     def live_providers(self) -> list[str]:
         if self.settings.ai_offline_mode:
             return []
-        return [p for p in PROVIDER_ORDER if self.providers[p].available()]
+        order = ["openrouter"] if self.settings.openrouter_only else PROVIDER_ORDER
+        return [p for p in order if self.providers[p].available()]
 
     @property
     def mode(self) -> str:
@@ -365,7 +369,7 @@ class AIService:
         from app.ai.base import TextResult
 
         candidates = [name for name in ("groq", "openai")
-                      if self.providers[name].available() and not self.breaker.is_open(name)]
+                      if name in self.live_providers and not self.breaker.is_open(name)]
         if not candidates:
             raise AIError("Voice transcription needs a healthy Groq or OpenAI provider", retryable=False)
         provider = candidates[0]

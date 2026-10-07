@@ -94,7 +94,7 @@ function Assistant() {
   };
 
   return (
-    <div className="grid h-[calc(100vh-8rem)] gap-5 lg:grid-cols-[260px_1fr]">
+    <div className="grid h-[calc(100dvh-12rem)] min-h-[420px] lg:h-[calc(100dvh-8rem)] gap-5 lg:grid-cols-[260px_1fr]">
       <Card className="hidden flex-col overflow-hidden lg:flex">
         <div className="border-b border-line p-3 space-y-2">
           <Button className="w-full" variant="outline" onClick={() => router.push("/assistant?mode=playground")}>PPT playground</Button>
@@ -117,7 +117,7 @@ function Assistant() {
             {(convs?.items || []).map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </Select>
         </div>
-        <div className="flex-1 space-y-5 overflow-y-auto p-5 sm:p-6">
+        <div className="flex-1 space-y-5 overflow-y-auto p-3 sm:p-6">
           {imageEdit && <Alert tone="brand" title="Image change assistant">Tell me what should change and what must stay. I’ll use your confirmed preferences and prepare a brief for you to review before replacing one image.</Alert>}
           {imageJob && <Alert tone="brand" title={imageJob.status === "succeeded" ? "Image request completed" : imageJob.status === "failed" ? "Image request failed" : "Preparing your confirmed replacement"}>{imageJob.result?.message || imageJob.stage}<Link href={`/lessons/${latestImageAction?.lesson_id || params.get("lesson")}`} className="ms-2 underline">Review lesson</Link></Alert>}
           {playground && <Alert tone="brand" title="PPT playground">Discuss → refine → review draft → create. No presentations are generated during this conversation.</Alert>}
@@ -141,7 +141,7 @@ function Assistant() {
           {messages.map((m, i) => (
             <div key={i} className={cn("flex gap-3", m.role === "user" && "justify-end")}>
               {m.role === "assistant" && <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-white"><Bot className="h-4 w-4" /></div>}
-              <div className={cn("max-w-[85%] rounded-2xl px-4 py-3", m.role === "user" ? "bg-brand-600 text-white" : "border border-line bg-surface-2/60")}>
+              <div className={cn("min-w-0 max-w-[90%] sm:max-w-[85%] break-words rounded-2xl px-4 py-3", m.role === "user" ? "bg-brand-600 text-white" : "border border-line bg-surface-2/60")}>
                 {m.role === "user" ? <div className="whitespace-pre-wrap text-sm">{m.content}</div> :
                   m.pending && !m.content ? <Spinner className="h-4 w-4" /> : <Markdown text={m.content} />}
                 {m.actions?.filter((a) => a.type === "image_brief").map((a, k) => <div key={k} className="mt-4 space-y-3 rounded-xl border border-line p-3">
@@ -164,7 +164,7 @@ function Assistant() {
               </div>
             </div>
           ))}
-          {pending && <div className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-white"><Bot className="h-4 w-4" /></div><div className="max-w-[85%] rounded-2xl border border-line bg-surface-2/60 px-4 py-3">{partial ? <Markdown text={partial} /> : <span className="flex items-center gap-2 text-sm text-muted"><Spinner className="h-4 w-4" />{conversation.job.stage || "Preparing your reply"}</span>}</div></div>}
+          {pending && <div className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-white"><Bot className="h-4 w-4" /></div><div className="min-w-0 max-w-[90%] sm:max-w-[85%] break-words rounded-2xl border border-line bg-surface-2/60 px-4 py-3">{partial ? <Markdown text={partial} /> : <span className="flex items-center gap-2 text-sm text-muted"><Spinner className="h-4 w-4" />{conversation.job.stage || "Preparing your reply"}</span>}</div></div>}
           <div ref={bottom} />
         </div>
         <form className="border-t border-line p-3 sm:p-4" onSubmit={(e) => { e.preventDefault(); send(); }}>

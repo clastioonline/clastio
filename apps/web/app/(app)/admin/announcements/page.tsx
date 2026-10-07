@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminPushComposer } from "@/components/admin-push-composer";
 import { useState } from "react";
 import { AdminPage, DataTable, StatusPill, When } from "@/components/admin-kit";
 import { errorMessage, useToast } from "@/components/toast";
@@ -29,6 +30,8 @@ export default function Announcements() {
   };
   return (
     <AdminPage title="Announcements" perm="announcements.manage" subtitle="Banners at the top of the app for maintenance, new features and important notices. Optionally also sent as a notification.">
+      <AdminPushComposer />
+      <h2 className="text-xl font-semibold">In-app announcement banners</h2>
       <section className="grid gap-4 rounded-3xl bg-surface p-5 sm:p-6 md:grid-cols-2">
         <Field label="Title"><Input value={f.title} maxLength={200} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3">

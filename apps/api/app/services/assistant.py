@@ -369,7 +369,7 @@ async def converse(db: AsyncSession, user: User, text: str, conversation_id: uui
         if not history or history[-1].role != "user":
             history.append(ChatMessage("user", text))
         history[0] = ChatMessage("user", f"TEACHING CONTEXT\n{context_text}\n\nTEACHER: {history[0].content}")
-        if re.search(r"\b(?:live search|search the web|latest|current)\b", text, re.I) and get_ai().providers["perplexity"].available():
+        if re.search(r"\b(?:live search|search the web|latest|current)\b", text, re.I) and await get_ai().routes("search"):
             reply = await get_ai().text(task="live_search", tier="search", system=prompts.ASSISTANT_SYSTEM,
                                         messages=history, owner_id=user.id, max_tokens=1500)
             yield {"event": "token", "data": {"text": reply}}

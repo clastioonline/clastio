@@ -219,7 +219,8 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
     structural = deck_structure_issues(deck, req, outline=outline)
     if structural and ai.mode == "live":
         deck = await ai.structured(task="lesson_deck", tier="content", system=prompts.DECK_SYSTEM,
-            prompt=prompt + "\n\nCorrect these issues and return the complete lesson without filler slides:\n" + "\n".join(structural),
+            prompt=prompt + "\n\nPREVIOUS DECK:\n" + deck.model_dump_json() +
+                   "\nCorrect these issues, preserve valid teaching content, and return the complete lesson without filler slides:\n" + "\n".join(structural),
             schema=LessonDeck, effort="medium", max_tokens=24000, owner_id=owner_id, job_id=job_id,
             offline_context=offline_ctx, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
     if deck_structure_issues(deck, req, outline=outline):

@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
     openai_base_url: str | None = None  # any OpenAI-compatible endpoint
+    openrouter_api_key: str | None = None
+    openrouter_only: bool = False  # prevent fallback to separately billed direct providers
     gemini_api_key: str | None = None
     ai_offline_mode: bool = False  # force the deterministic offline provider (tests, demos)
 

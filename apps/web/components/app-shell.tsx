@@ -99,7 +99,7 @@ const ADMIN_GROUPS: { title: string; items: AdminItem[] }[] = [
   ] },
   { title: "Support", items: [
     { href: "/admin/support", key: "", label: "Tickets & requests", icon: LifeBuoy, perm: "support.manage" },
-    { href: "/admin/announcements", key: "", label: "Announcements", icon: Megaphone, perm: "announcements.manage" },
+    { href: "/admin/announcements", key: "", label: "Announcements & push", icon: Megaphone, perm: "announcements.manage" },
   ] },
   { title: "Security", items: [
     { href: "/admin/security", key: "", label: "Security events", icon: Activity, perm: "security.view" },
@@ -217,7 +217,7 @@ function AdminSearch() {
     ...(data.request ? [{ key: data.request, label: data.request, hint: "request trace", href: `/admin/system?trace=${data.request}` }] : []),
   ] : [];
   return (
-    <form ref={ref} className="relative hidden max-w-md flex-1 sm:block" role="search"
+    <form ref={ref} className="relative hidden min-w-0 max-w-md flex-1 sm:block" role="search"
       onSubmit={(e) => { e.preventDefault(); if (results[0]) go(results[0].href); else if (term.startsWith("req_")) go(`/admin/system?trace=${term}`); else go(`/admin/users?q=${encodeURIComponent(term)}`); }}>
       <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
       <input ref={inputRef} value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
@@ -259,7 +259,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
         <Menu className="h-5 w-5" />
       </button>
       {admin ? <AdminSearch /> : (
-        <form className="relative hidden max-w-md flex-1 sm:block" role="search"
+        <form className="relative hidden min-w-0 max-w-md flex-1 sm:block" role="search"
           onSubmit={(e) => { e.preventDefault(); router.push(`/lessons${q ? `?q=${encodeURIComponent(q)}` : ""}`); }}>
           <Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lessons and documents" aria-label="Search lessons and documents"
@@ -285,7 +285,7 @@ function TopBar({ user, onMenu }: { user: any; onMenu: () => void }) {
           <span className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-brand-400 to-brand-700 text-base font-semibold text-white">
             {(user.name || user.email).slice(0, 1).toUpperCase()}
           </span>
-          <span className="hidden min-w-0 md:block">
+          <span className="hidden min-w-0 xl:block">
             <span className="block max-w-[11rem] truncate text-sm font-semibold text-ink">{user.name || (admin ? "Admin" : "Teacher")}</span>
             <span className="block max-w-[11rem] truncate text-xs text-muted">{admin ? user.admin_role_label || "Staff" : user.email}</span>
           </span>
@@ -301,6 +301,25 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const mobileDrawer = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileDrawer.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Tab") return;
+      const elements = Array.from(mobileDrawer.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') || []).filter((element) => element.offsetParent !== null);
+      const first = elements[0], last = elements.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === mobileDrawer.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === mobileDrawer.current)) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = overflow; window.removeEventListener("keydown", onKey); previous?.focus(); };
+  }, [open]);
   const can = useCan();
   const { data: teacherUsage } = useApi<any>(user?.role === "teacher" ? "/me/usage" : null, { refreshInterval: 60_000 });
   const { data: sysHealth } = useApi<any>(user?.role === "admin" && can("system.logs.view") ? "/admin/system/health" : null, { refreshInterval: 120_000 });
@@ -365,18 +384,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-canvas p-2 sm:p-3 lg:p-4">
+    <div className="min-h-screen bg-canvas p-2 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:p-3 sm:pb-[calc(5rem+env(safe-area-inset-bottom))] lg:p-4">
       <div className="lg:flex lg:gap-4">
         <aside className="sticky top-4 hidden h-[calc(100vh-2rem)] w-[17rem] shrink-0 rounded-3xl bg-panel lg:block">{sidebar}</aside>
         {open && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div className="absolute inset-0 bg-ink/40" onClick={() => setOpen(false)} />
-            <aside className="absolute inset-y-0 start-0 w-[84%] max-w-xs bg-panel shadow-xl">{sidebar}</aside>
+            <aside ref={mobileDrawer} role="dialog" aria-modal="true" aria-label="Navigation menu" tabIndex={-1} className="absolute inset-y-0 start-0 w-[84%] max-w-xs bg-panel shadow-xl">{sidebar}</aside>
           </div>
         )}
         <div className="min-w-0 flex-1 space-y-3 lg:space-y-4">
           <TopBar user={user} onMenu={() => setOpen(true)} />
-          <main className="min-h-[calc(100vh-8.5rem)] rounded-3xl bg-panel px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <main className="min-w-0 min-h-[calc(100dvh-8.5rem)] rounded-2xl sm:rounded-3xl bg-panel px-3 py-4 sm:px-6 lg:px-8 lg:py-8">
             <MaintenanceBanner />
             <AnnouncementBanners />
             {!user.email_verified && <VerifyEmailBanner email={user.email} />}
@@ -392,6 +411,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <LegalGate />
         </div>
       </div>
+      {!admin && <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+        {[{ href: "/dashboard", label: "Home", icon: LayoutDashboard }, { href: "/projects", label: "Chapters", icon: FolderKanban }, { href: "/assistant", label: "Assistant", icon: Bot }, { href: "/activity", label: "Activity", icon: Activity }].map((item) => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={cn("focus-ring flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs", isActive(item.href) ? "bg-brand-50 font-semibold text-brand-700" : "text-muted")}><item.icon className="h-5 w-5" />{item.label}</Link>)}
+      </nav>}
     </div>
   );
 }

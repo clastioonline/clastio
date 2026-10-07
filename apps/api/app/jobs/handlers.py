@@ -160,3 +160,10 @@ async def whatsapp_voice(ctx: JobContext) -> dict[str, Any]:
     from app.services.voice import handle
 
     return await handle(ctx)
+
+
+@handler("admin_push_campaign", queue="default")
+async def admin_push_campaign(ctx: JobContext) -> dict[str, Any]:
+    from app.services.push_campaigns import handle_campaign
+
+    return await handle_campaign(ctx)

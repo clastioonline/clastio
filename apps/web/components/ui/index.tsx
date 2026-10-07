@@ -29,10 +29,10 @@ const variants: Record<Variant, string> = {
   danger: "bg-danger-500 text-white hover:bg-danger-700",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5 rounded-lg",
-  md: "h-10 px-4 text-sm gap-2 rounded-xl",
+  sm: "h-11 sm:h-8 px-3 text-sm gap-1.5 rounded-lg",
+  md: "h-11 sm:h-10 px-4 text-sm gap-2 rounded-xl",
   lg: "h-12 px-5 text-base gap-2 rounded-xl",
-  icon: "h-9 w-9 rounded-lg",
+  icon: "h-11 w-11 sm:h-9 sm:w-9 rounded-lg",
 };
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -47,7 +47,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const cls = cn(
-    "ui-btn focus-ring inline-flex items-center justify-center font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none select-none whitespace-nowrap",
+    "ui-btn focus-ring inline-flex items-center justify-center font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none select-none max-w-full whitespace-normal sm:whitespace-nowrap",
     variants[variant],
     sizes[size],
     className,
@@ -100,10 +100,10 @@ export function CardHeader({ title, subtitle, action, icon }: { title: ReactNode
 // --------------------------------------------------------------------------- Form controls
 
 const control =
-  "focus-ring min-w-0 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-sm text-ink placeholder:text-muted/70 transition-colors hover:border-brand-300";
+  "focus-ring min-w-0 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base sm:text-sm text-ink placeholder:text-muted/70 transition-colors hover:border-brand-300";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...p }, ref) {
-  return <input ref={ref} className={cn(control, "h-10", className)} {...p} />;
+  return <input ref={ref} className={cn(control, "h-11 sm:h-10", className)} {...p} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
@@ -118,7 +118,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   ref,
 ) {
   return (
-    <select ref={ref} className={cn(control, "h-10 appearance-none pe-9", className)}
+    <select ref={ref} className={cn(control, "h-11 sm:h-10 appearance-none pe-9", className)}
       style={{
         backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7289' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
         backgroundSize: "16px", backgroundPosition: "right 0.75rem center", backgroundRepeat: "no-repeat",
@@ -236,7 +236,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow }: { title: React
         <h1 className="break-words text-3xl font-bold tracking-tight text-ink sm:text-[2.6rem] sm:leading-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
     </div>
   );
 }
@@ -259,7 +259,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { valu
     <div className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-surface-2 p-1" role="tablist">
       {tabs.map((t) => (
         <button key={t.value} role="tab" aria-selected={value === t.value} onClick={() => onChange(t.value)}
-          className={cn("focus-ring shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+          className={cn("focus-ring min-h-11 sm:min-h-0 shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
             value === t.value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink")}>
           {t.label}
         </button>

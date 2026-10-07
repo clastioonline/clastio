@@ -372,7 +372,7 @@ export default function Dashboard() {
 
   const k = data?.kpis;
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <DashHeader title="Dashboard" subtitle={`${greeting(user?.name)}. Plan, prepare and teach with ease.`}
         actions={<>
           <PillButton variant="outline" href="/billing#license">Redeem license key</PillButton>
@@ -381,11 +381,11 @@ export default function Dashboard() {
             <CalendarCheck className="h-5 w-5" /> {busy === "week" ? "Preparing…" : "Prepare my week"}
           </PillButton>
         </>} />
-      <ActivityOverview />
+      <div className="order-2 xl:order-none"><ActivityOverview /></div>
 
       {dashboardError ? <LoadError retry={mutate} label="your dashboard" /> : !data ? <Skeleton className="h-40 rounded-3xl" /> : (
-        <>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="order-3 space-y-5 xl:order-none">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <KpiCard hero label="Lessons prepared" value={k.total} trend={k.new_this_month || null} hint={k.new_this_month ? "new this month" : "Create your first unit"} href="/projects" />
             <KpiCard label="Ready to teach" value={k.ready} hint="PowerPoints ready to open" href="/lessons" />
             <KpiCard label="Taught" value={k.taught} hint="with reflections recorded" href="/calendar" />
@@ -395,21 +395,21 @@ export default function Dashboard() {
           <GettingStarted checklist={data.checklist} />
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-            <Panel title="Lessons prepared this week" className="xl:col-span-6">
+            <Panel title="Lessons prepared this week" className="order-3 xl:order-none xl:col-span-6">
               <PillChart unit="lessons" points={data.week.map((d: any) => ({ label: d.label.slice(0, 1), value: d.value, future: d.future, highlight: d.today, title: `${d.label}: ${d.value} lesson${d.value === 1 ? "" : "s"}` }))} />
             </Panel>
-            <div className="xl:col-span-3"><NextClass n={data.next_class} /></div>
-            <div className="xl:col-span-3"><Upcoming items={data.upcoming} /></div>
-            <div className="xl:col-span-5"><Classes items={data.classes} /></div>
-            <div className="xl:col-span-4"><Coverage c={data.coverage} /></div>
-            <div className="xl:col-span-3"><LessonTimer /></div>
+            <div className="order-1 xl:order-none xl:col-span-3"><NextClass n={data.next_class} /></div>
+            <div className="order-2 xl:order-none xl:col-span-3"><Upcoming items={data.upcoming} /></div>
+            <div className="order-4 xl:order-none xl:col-span-5"><Classes items={data.classes} /></div>
+            <div className="order-5 xl:order-none xl:col-span-4"><Coverage c={data.coverage} /></div>
+            <div className="order-6 xl:order-none xl:col-span-3"><LessonTimer /></div>
           </div>
-        </>
+        </section>
       )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+      <div className="order-1 grid grid-cols-1 gap-5 xl:order-none xl:grid-cols-12">
         <section className="rounded-3xl bg-surface xl:col-span-7">
-          <div className="flex items-center justify-between px-6 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-6 sm:pt-6">
             <h2 className="text-lg font-semibold text-ink sm:text-xl">Today's classes</h2>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" loading={busy === "today"} onClick={() => prepare("today")}><WandSparkles className="h-4 w-4" /> Prepare today</Button>

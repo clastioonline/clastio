@@ -40,7 +40,7 @@ function toLines(xs: string[] | undefined) {
   return (xs || []).join("\n");
 }
 
-function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; slide: any; pending: boolean; onJob: (id: string) => void }) {
+function SlideEditor({ lessonId, slide, onJob, pending, onDirty }: { lessonId: string; slide: any; pending: boolean; onJob: (id: string) => void; onDirty: () => void }) {
   const { notify } = useToast();
   const s = slide.spec;
   const [manualObjects, setManualObjects] = useState<Record<string, any>>(s.manual_objects || {});
@@ -160,8 +160,8 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
   };
 
   return (
-    <fieldset disabled={pending || !!busy} className="space-y-5">
-      <div>
+    <fieldset onChange={onDirty} disabled={pending || !!busy} className="space-y-5">
+      <details className="rounded-xl border border-line p-3"><summary className="cursor-pointer font-semibold">AI assistant · optional</summary><div className="pt-3">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">AI edit — this slide only</div>
         <p className="mb-3 text-xs text-muted">{creditInfo ? `${creditInfo.costs.slide} credit(s) per successful changed slide` : "Loading edit cost…"}. Manual edits and version restores use 0 generation credits. Other slides are not sent for rewriting.</p>
         {["image_text", "concept"].includes(s.layout) && <Link href={`/assistant?mode=image_edit&lesson=${lessonId}&slide=${slide.number}`} className="mb-3 inline-flex text-sm font-semibold text-brand-700">Discuss image changes with your assistant →</Link>}
@@ -175,12 +175,12 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
           <Input value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="Or describe a change… e.g. use a camel example" />
           <Button onClick={() => regenerate()} disabled={!instruction.trim() || !!busy} loading={busy === "custom"}><WandSparkles className="h-4 w-4" /></Button>
         </div>
-      </div>
-      <div className="space-y-3 border-t border-line pt-5">
+      </div></details>
+      <div className="space-y-3">
         <div className="flex items-center gap-2 font-semibold"><Pencil className="h-4 w-4" /> Edit slide manually</div>
-        <p className="text-xs text-muted">Change the content yourself, then save to rebuild the PowerPoint without an AI rewrite. For free-positioning shapes, download and edit in PowerPoint.</p>
+        <p className="text-xs text-muted">Change the content yourself, then save to rebuild the PowerPoint without an AI rewrite. Select and position objects on the canvas below. Undo and redo apply to canvas edits before saving.</p>
         <Field label="Layout"><Select aria-label="Layout" value={layout} onChange={(e) => setLayout(e.target.value)}>{Object.entries(LAYOUT_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></Field>
-        <SlideDesignEditor objects={slide.qc?.editable_objects || []} preview={slide.preview} edits={manualObjects} onChange={setManualObjects} />
+        <SlideDesignEditor objects={slide.qc?.editable_objects || []} preview={slide.preview} edits={manualObjects} onChange={(next) => { setManualObjects(next); onDirty(); }} />
         <Field label="Teaching time (minutes)"><Input type="number" min={0} step={0.5} value={timing} onChange={(e) => setTiming(e.target.value)} /></Field>
         <Field label="Title"><Input value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         {(s.layout === "cover" || s.layout === "section" || s.layout === "activity" || s.subtitle) && (
@@ -227,9 +227,9 @@ function SlideEditor({ lessonId, slide, onJob, pending }: { lessonId: string; sl
           {imageChanged && <p className="mt-1 text-xs text-muted">Image change will apply when you save.</p>}
         </Field>
         <Field label="Speaker notes"><Textarea className="min-h-[100px]" value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           {versions?.items?.length > 1 ? (
-            <Select className="max-w-[60%]" value="" onChange={(e) => e.target.value && restore(Number(e.target.value))}>
+            <Select className="w-full sm:max-w-[60%]" value="" onChange={(e) => e.target.value && restore(Number(e.target.value))}>
               <option value="">Version history ({versions.items.length})</option>
               {versions.items.slice(1).map((v: any) => <option key={v.version} value={v.version}>v{v.version} · {v.reason || "edit"} · {formatDate(v.created_at, { hour: "2-digit", minute: "2-digit" })}</option>)}
             </Select>
@@ -297,6 +297,10 @@ export default function LessonPage() {
   const [current, setCurrent] = useState(1);
   const [jobId, setJobId] = useState<string | null>(null);
   const [docOpen, setDocOpen] = useState<string | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [sequenceBusy, setSequenceBusy] = useState(false);
+  const [insertLayout, setInsertLayout] = useState("concept");
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [regenOpen, setRegenOpen] = useState(false);
   const [reflectionNote, setReflectionNote] = useState("");
   const [reviewFeedback, setReviewFeedback] = useState("");
@@ -324,15 +328,40 @@ export default function LessonPage() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName?.match(/INPUT|TEXTAREA|SELECT/)) return;
       if (!data?.slides?.length) return;
+      if (draftDirty) return;
       if (e.key === "ArrowRight") setCurrent((c) => Math.min(data.slides.length, c + 1));
       if (e.key === "ArrowLeft") setCurrent((c) => Math.max(1, c - 1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [data]);
+  }, [data, draftDirty]);
+
+  useEffect(() => {
+    if (!draftDirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [draftDirty]);
+
+  useEffect(() => { setDraftDirty(false); }, [slide?.id, slide?.version]);
 
   if (!data) return <div className="space-y-4"><Skeleton className="h-16" /><Skeleton className="h-[480px]" /></div>;
   const { lesson, course, slides, documents, downloads, reflections } = data;
+
+  const selectSlide = (number: number) => {
+    if (draftDirty && !window.confirm("Discard your unsaved slide changes?")) return;
+    setCurrent(number); setDraftDirty(false);
+  };
+
+  const arrange = async (action: string, target?: number) => {
+    if (draftDirty && !window.confirm("Discard unsaved changes before changing the slide sequence?")) return;
+    setSequenceBusy(true);
+    try {
+      const result = await api<any>(`/lessons/${id}/slide-sequence`, { body: { action, number: current, target, layout: insertLayout } });
+      setCurrent(result.current); setJobId(result.job_id); setDeleteOpen(false); await mutate();
+    } catch (error) { notify({ tone: "error", title: "Couldn't update slides", body: errorMessage(error) }); }
+    finally { setSequenceBusy(false); }
+  };
 
   const createPlanDoc = async (kind: "lesson_plan" | "teacher_guide") => {
     const existing = documents.find((d: any) => d.kind === kind && d.status === "ready");
@@ -407,17 +436,18 @@ export default function LessonPage() {
         <Alert tone="brand"><span className="flex items-center gap-2"><LoaderCircle className="h-4 w-4 animate-spin" /> {job?.stage || "Working on your lesson"}… {job ? `${job.progress}%` : ""}</span><p className="mt-2 text-sm">No need to wait here. Your changes keep processing; track them in <Link href="/activity" className="underline">Activity</Link>.</p></Alert>
       )}
 
+      {deleteOpen && <Card className="space-y-3 border-red-300 p-4"><p>Delete slide {current}? This removes the slide and its version history from this lesson.</p><div className="flex gap-2"><Button loading={sequenceBusy} onClick={() => arrange("delete")}>Delete this slide</Button><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button></div></Card>}
       <Tabs value={tab} onChange={setTab} tabs={[
         { value: "slides", label: "Slides & manual editor" }, { value: "plan", label: "Lesson plan" },
         { value: "documents", label: `Documents (${documents.length})` }, { value: "qc", label: "Quality check" },
       ]} />
 
       {tab === "slides" && (slides.length ? (
-        <div className="grid gap-5 xl:grid-cols-[140px_1fr_380px]">
-          <div className="order-2 flex gap-2 overflow-x-auto pb-2 xl:order-1 xl:max-h-[76vh] xl:flex-col xl:overflow-y-auto xl:pb-0">
+        <div className="grid gap-5 xl:grid-cols-[160px_1fr]">
+          <div className="order-1 flex min-w-0 gap-2 overflow-x-auto pb-2 xl:order-1 xl:max-h-[76vh] xl:flex-col xl:overflow-y-auto xl:pb-0">
             {slides.map((s: any) => (
-              <button key={s.id} onClick={() => setCurrent(s.number)}
-                className={cn("focus-ring w-32 shrink-0 rounded-lg border-2 p-0.5 text-start transition xl:w-full", s.number === current ? "border-brand-600" : "border-transparent hover:border-line-strong")}>
+              <button key={s.id} onClick={() => selectSlide(s.number)}
+                className={cn("focus-ring w-28 sm:w-32 shrink-0 rounded-lg border-2 p-0.5 text-start transition xl:w-full", s.number === current ? "border-brand-600" : "border-transparent hover:border-line-strong")}>
                 <div className="aspect-[16/9] overflow-hidden rounded-md bg-surface-2">{s.preview && <img src={s.preview} alt={`Slide ${s.number}`} className="h-full w-full object-cover" />}</div>
                 <div className="mt-0.5 flex items-center justify-between px-0.5 text-[11px] text-muted">
                   <span>{s.number}</span><span className="truncate">{LAYOUT_LABELS[s.spec.layout]}</span>
@@ -425,16 +455,21 @@ export default function LessonPage() {
               </button>
             ))}
           </div>
-          <div className="order-1 space-y-3 xl:order-2">
-            <Card className="overflow-hidden p-2">
-              <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-surface-2">
-                {slide?.preview && <img src={slide.preview} alt={slide.spec.title} className={cn("h-full w-full object-contain transition", jobId && "opacity-60")} />}
-              </div>
-            </Card>
-            <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" disabled={current <= 1} onClick={() => setCurrent(current - 1)}><ChevronLeft className="h-4 w-4 rtl:rotate-180" /> Previous</Button>
+          <div className="order-2 min-w-0 space-y-3 xl:order-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3">
+              <Select aria-label="New slide layout" value={insertLayout} onChange={(e) => setInsertLayout(e.target.value)} className="w-40">{["concept", "section", "image_text", "two_column", "comparison", "process", "timeline", "table", "chart", "discussion", "activity", "summary"].map((key) => <option key={key} value={key}>{LAYOUT_LABELS[key]}</option>)}</Select>
+              <Button size="sm" variant="outline" disabled={sequenceBusy || !!jobId || generating} onClick={() => arrange("insert")}>Insert slide after</Button>
+              <Button size="sm" variant="outline" disabled={sequenceBusy || !!jobId || generating} onClick={() => arrange("duplicate")}>Duplicate</Button>
+              <Button size="sm" variant="ghost" disabled={current <= 1 || sequenceBusy || !!jobId || generating} onClick={() => arrange("move", current - 1)}>Move earlier</Button>
+              <Button size="sm" variant="ghost" disabled={current >= slides.length || sequenceBusy || !!jobId || generating} onClick={() => arrange("move", current + 1)}>Move later</Button>
+              <Button size="sm" variant="ghost" disabled={slides.length <= 1 || sequenceBusy || !!jobId || generating} onClick={() => setDeleteOpen(true)}>Delete slide</Button>
+              <span className="text-xs text-muted">{draftDirty ? "Unsaved changes" : "Manual editing · 0 generation credits"}</span>
+            </div>
+            <Card className="p-3 sm:p-5">{slide && <SlideEditor key={slide.id + ":" + slide.version} lessonId={id} slide={slide} onJob={setJobId} pending={!!jobId || generating || sequenceBusy} onDirty={() => setDraftDirty(true)} />}</Card>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button variant="ghost" size="sm" disabled={current <= 1} onClick={() => selectSlide(current - 1)}><ChevronLeft className="h-4 w-4 rtl:rotate-180" /> Previous</Button>
               <span className="text-sm text-muted">Slide {current} of {slides.length} · {slide && LAYOUT_LABELS[slide.spec.layout]} · {slide?.spec.timing_minutes} min</span>
-              <Button variant="ghost" size="sm" disabled={current >= slides.length} onClick={() => setCurrent(current + 1)}>Next <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
+              <Button variant="ghost" size="sm" disabled={current >= slides.length} onClick={() => selectSlide(current + 1)}>Next <ChevronRight className="h-4 w-4 rtl:rotate-180" /></Button>
             </div>
             {slide && <Button variant="outline" size="sm" loading={accepting} disabled={generating || !!jobId} onClick={async () => {
               setAccepting(true);
@@ -453,7 +488,7 @@ export default function LessonPage() {
               </Card>
             )}
           </div>
-          <div data-tour="slide-editor" className="order-3"><Card className="p-5">{slide && <SlideEditor lessonId={id} slide={slide} onJob={setJobId} pending={!!jobId || generating} />}</Card></div>
+
         </div>
       ) : <EmptyState title="This lesson hasn't been built yet" description="Build it from the project page." />)}
 

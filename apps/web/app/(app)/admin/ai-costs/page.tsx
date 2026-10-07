@@ -10,8 +10,10 @@ import { useApi, useMe } from "@/lib/hooks";
 
 const TIERS = [
   ["planning", "Course planning (strong reasoning)"], ["content", "Lesson & slide writing"], ["fast", "Routing, quick rewrites"],
-  ["qc", "Quality checks"], ["vision", "Vision (PDF analysis)"], ["embedding", "Embeddings"], ["image", "Image generation"],
+  ["qc", "Quality checks"], ["vision", "Rendered-slide visual review"], ["ingestion", "Document analysis"], ["reflection", "Teaching reflection"], ["search", "Live factual search"], ["embedding", "Embeddings"], ["image", "Image generation"],
 ];
+
+const OPENROUTER_PRESET: Record<string, string> = {"planning": "openrouter:anthropic/claude-sonnet-4.6", "content": "openrouter:openai/gpt-5.4-mini", "fast": "openrouter:google/gemini-3.5-flash-lite", "qc": "openrouter:openai/gpt-5.4-mini", "vision": "openrouter:google/gemini-3.5-flash", "ingestion": "openrouter:google/gemini-3.5-flash", "reflection": "openrouter:openai/gpt-5.4-mini", "search": "openrouter:perplexity/sonar", "embedding": "openrouter:openai/text-embedding-3-small", "image": "openrouter:google/gemini-3.1-flash-image"};
 
 export default function AiCosts() {
   const { user } = useMe();
@@ -77,10 +79,12 @@ export default function AiCosts() {
       </Card>
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Model routing" subtitle="provider:model per task tier. Leave blank to use the server default (Anthropic Claude first, then OpenAI, then Gemini)." />
+          <CardHeader title="Model routing" subtitle="provider:model per task tier. Leave blank to use the server configuration. OpenRouter uses one server-side key for several model vendors." />
           <div className="space-y-3 p-5">
+            <Button onClick={() => setRouting({ ...routing, ...OPENROUTER_PRESET })}>Load OpenRouter PPT preset</Button>
+            <p className="text-sm text-muted">Save routing to apply the preset. Configure the server key and approve model rate cards in the budget controls above.</p>
             {TIERS.map(([k, label]) => (
-              <Field key={k} label={label}><Input value={routing[k] || ""} placeholder={k === "planning" ? "anthropic:claude-opus-5" : k === "embedding" ? "openai:text-embedding-3-small" : "default"} onChange={(e) => setRouting({ ...routing, [k]: e.target.value })} /></Field>
+              <Field key={k} label={label}><Input value={routing[k] || ""} placeholder={k === "planning" ? "openrouter:anthropic/claude-sonnet-4.6" : k === "embedding" ? "openai:text-embedding-3-small" : "default"} onChange={(e) => setRouting({ ...routing, [k]: e.target.value })} /></Field>
             ))}
             <Button onClick={() => save("model_routing", Object.fromEntries(Object.entries(routing).filter(([, v]) => v)))}>Save routing</Button>
           </div>

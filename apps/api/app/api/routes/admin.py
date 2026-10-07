@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, exists, func, or_, select
@@ -1264,3 +1264,63 @@ async def system_health(_: Staff("system.logs.view"), db: DB):
                        "updated_at": _iso(p.updated_at)} for p in providers],
         "critical_security_events_24h": critical,
     }
+
+
+# --------------------------------------------------------------------------- admin push composer
+from app.services.push_campaigns import CampaignIn  # noqa: E402
+
+
+@router.post('/push-campaigns/preview')
+async def preview_push_campaign(data: CampaignIn, _: Staff('announcements.manage'), db: DB):
+    from app.services.push_campaigns import preview
+
+    return await preview(db, data)
+
+
+@router.post('/push-campaigns', status_code=202)
+async def send_push_campaign(data: CampaignIn, admin: Staff('announcements.manage'), request: Request, db: DB):
+    from app.jobs.queue import enqueue
+    from app.services.push_campaigns import preview
+
+    summary = await preview(db, data)
+    if not summary['configured']:
+        raise AppError('push_unconfigured', 'Configure Web Push keys before sending.', 409)
+    if not summary['devices']:
+        raise AppError('no_recipients', 'No opted-in devices match this audience.', 400)
+    await usage.lock_user(db, admin.id)
+    job = await enqueue(db, 'admin_push_campaign', data.model_dump(mode='json'), owner_id=admin.id, dedupe=True)
+    audit(db, admin.id, 'push_campaign.queued', request=request, target_type='push_campaign', target_id=str(job.id),
+          after={**data.model_dump(mode='json'), 'eligible_devices': summary['devices']})
+    await db.commit()
+    return {'job_id': str(job.id), **summary}
+
+
+@router.get('/push-campaigns')
+async def push_campaign_history(_: Staff('announcements.manage'), db: DB):
+    from app.models.push import PushDelivery
+    from app.services.push import push_configured
+
+    jobs = list((await db.execute(select(GenerationJob).where(GenerationJob.type == 'admin_push_campaign')
+                                 .order_by(GenerationJob.created_at.desc()).limit(50))).scalars())
+    keys = [f'admin-push:{job.id}' for job in jobs]
+    rows = (await db.execute(select(PushDelivery.dedupe_key, PushDelivery.status, func.count())
+                            .where(PushDelivery.dedupe_key.in_(keys))
+                            .group_by(PushDelivery.dedupe_key, PushDelivery.status))).all()
+    counts = {}
+    for key, status, count in rows:
+        counts.setdefault(key, {})[status] = count
+    return {'configured': push_configured(), 'items': [{
+        'id': str(job.id), 'title': job.payload.get('title'), 'body': job.payload.get('body'),
+        'audience': job.payload.get('audience'), 'status': job.status, 'created_at': job.created_at.isoformat(),
+        'delivery': counts.get(f'admin-push:{job.id}', {}), 'error': job.error, 'queued_devices': (job.result or {}).get('queued_devices'),
+    } for job in jobs]}
+
+
+@router.get('/push-campaigns/recipients')
+async def push_recipient_search(_: Staff('announcements.manage'), db: DB, q: str = Query('', max_length=100)):
+    query = select(User).where(User.status == 'active')
+    if q.strip():
+        pattern = '%' + q.strip().replace('%', '').replace('_', '') + '%'
+        query = query.where(or_(User.name.ilike(pattern), User.email.ilike(pattern)))
+    rows = (await db.execute(query.order_by(User.name, User.id).limit(30))).scalars()
+    return {'items': [{'id': str(user.id), 'name': user.name, 'email': user.email} for user in rows]}

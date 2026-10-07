@@ -599,6 +599,20 @@ async def edit_slide(lesson_id: uuid.UUID, number: int, data: SlidePatch, user: 
     return {"job_id": str(job_id)}
 
 
+class SlideArrangeIn(BaseModel):
+    action: Literal["insert", "duplicate", "move", "delete"]
+    number: int = Field(ge=1, le=60)
+    target: int | None = Field(None, ge=1, le=60)
+    layout: Literal["concept", "section", "image_text", "two_column", "comparison", "process",
+                    "timeline", "table", "chart", "discussion", "activity", "summary"] = "concept"
+
+
+@router.post("/lessons/{lesson_id}/slide-sequence", status_code=202)
+async def arrange_slides(lesson_id: uuid.UUID, data: SlideArrangeIn, user: CurrentUser, db: DB):
+    job_id, current = await course_svc.arrange_slides(db, user, lesson_id, **data.model_dump())
+    return {"job_id": str(job_id), "current": current}
+
+
 class SlideRegenIn(BaseModel):
     keep_images: bool = True
     action: str | None = None

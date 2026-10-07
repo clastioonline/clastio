@@ -806,6 +806,57 @@ async def edit_slide(db: AsyncSession, user: User, lesson_id: uuid.UUID, number:
     return job.id
 
 
+async def arrange_slides(db: AsyncSession, user: User, lesson_id: uuid.UUID, *, action: str,
+                         number: int, target: int | None = None, layout: str = "concept") -> tuple[uuid.UUID, int]:
+    """Keep slide identities/history while changing the sequence under the edit lock."""
+    await usage.lock_user(db, user.id)
+    lesson = await get_owned(db, Lesson, lesson_id, user)
+    if await pending_lesson_edit(db, user.id, lesson_id):
+        raise AppError("edit_pending", "Wait for the current lesson update to finish.", 409)
+    rows = list((await db.execute(select(Slide).where(Slide.lesson_id == lesson_id)
+                                 .order_by(Slide.number))).scalars().all())
+    if not rows or not lesson.plan:
+        raise AppError("not_generated", "Build this lesson before editing its slides.", 409)
+    if not 1 <= number <= len(rows):
+        raise NotFound("Slide")
+    selected = rows[number - 1]
+    if action in ("insert", "duplicate"):
+        if len(rows) >= 60:
+            raise AppError("slide_limit", "A lesson can contain at most 60 slides.", 400)
+        data = (SlideSpec.model_validate(selected.spec).model_dump() if action == "duplicate" else
+                SlideSpec(number=number + 1, layout=layout, purpose="Teacher-created slide",
+                          title="New slide", timing_minutes=1, language=selected.spec.get("language", "en")).model_dump())
+        added = Slide(lesson_id=lesson_id, number=1000, spec=data, qc={})
+        rows.insert(number, added)
+        db.add(added)
+        current = number + 1
+    elif action == "move":
+        if target is None or not 1 <= target <= len(rows):
+            raise AppError("invalid_position", "Choose an existing slide position.", 400)
+        rows.insert(target - 1, rows.pop(number - 1))
+        current = target
+    elif action == "delete":
+        if len(rows) == 1:
+            raise AppError("last_slide", "Keep at least one slide in the lesson.", 400)
+        rows.pop(number - 1)
+        await db.delete(selected)
+        current = min(number, len(rows))
+    else:
+        raise AppError("invalid_action", "Unknown slide action.", 400)
+    # Temporary positions prevent immediate unique-constraint collisions on swaps.
+    for index, row in enumerate(rows):
+        row.number = 1000 + index
+    await db.flush()
+    for index, row in enumerate(rows, 1):
+        row.number = index
+        row.spec = {**row.spec, "number": index}
+    job = await enqueue(db, "lesson_render", {"lesson_id": str(lesson.id), "reason": "teacher slide " + action},
+                        owner_id=user.id)
+    await db.commit()
+    await run_inline_if_configured([job.id])
+    return job.id, current
+
+
 async def restore_slide_version(db: AsyncSession, user: User, lesson_id: uuid.UUID, number: int,
                                 version: int) -> uuid.UUID:
     row = (await db.execute(select(Slide).where(Slide.lesson_id == lesson_id, Slide.number == number))

@@ -22,6 +22,7 @@ os.environ["WHATSAPP_VERIFY_TOKEN"] = "verify-me"
 os.environ["ANTHROPIC_API_KEY"] = ""
 os.environ["OPENAI_API_KEY"] = ""
 os.environ["GEMINI_API_KEY"] = ""
+os.environ["OPENROUTER_API_KEY"] = ""
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402

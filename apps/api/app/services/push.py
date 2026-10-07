@@ -171,7 +171,7 @@ async def send_pending_push(limit: int = 30) -> int:
             session = await db.get(UserSession, device.session_id) if device else None
             prefs = await get_prefs(db, row.user_id)
             if (not device or device.user_id != row.user_id or not user or user.status != "active"
-                    or not session or session.revoked_at
+                    or not session or session.revoked_at or session.expires_at <= utcnow()
                     or getattr(user, "role", "teacher") == "admin" and row.category in {"product", "usage", "feedback"}
                     or row.category == "staff" and not staff_target_allowed(user, row.link)
                     or not prefs.get(row.category, {"push": row.category == "staff"}).get("push", False)

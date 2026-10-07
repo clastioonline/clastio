@@ -3,15 +3,34 @@ import io
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Pt
 
 
 def apply_manual(slide, edits, width, height):
-    shapes = {str(shape.shape_id): shape for shape in slide.shapes}
+    shapes = {(shape.name.removeprefix("ClastioCustom:") if shape.name.startswith("ClastioCustom:") else str(shape.shape_id)): shape for shape in slide.shapes}
     for key, edit in edits.items():
         shape = shapes.get(key)
+        if shape is None and key.startswith("custom-") and edit.object_type:
+            left, top = int((edit.x or 0.1) * width), int((edit.y or 0.1) * height)
+            w, h = int((edit.width or 0.4) * width), int((edit.height or 0.15) * height)
+            shape = (slide.shapes.add_textbox(left, top, w, h) if edit.object_type == "text" else
+                     slide.shapes.add_shape(MSO_SHAPE.RECTANGLE if edit.object_type == "rectangle" else MSO_SHAPE.OVAL, left, top, w, h))
+            shape.name = "ClastioCustom:" + key
         if shape is None:
             continue
+        if edit.hidden:
+            shape._element.getparent().remove(shape._element)
+            continue
+        if edit.rotation is not None:
+            shape.rotation = edit.rotation
+        if edit.fill is not None and hasattr(shape, "fill"):
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = RGBColor.from_string(edit.fill.lstrip("#"))
+        if edit.layer:
+            parent = shape._element.getparent()
+            parent.remove(shape._element)
+            parent.insert(2 if edit.layer == "back" else len(parent), shape._element)
         for name, scale in (("x", width), ("y", height), ("width", width), ("height", height)):
             value = getattr(edit, name)
             if value is not None:
@@ -41,6 +60,8 @@ def apply_manual(slide, edits, width, height):
                         run.font.name = edit.font_family
                     if edit.bold is not None:
                         run.font.bold = edit.bold
+                    if edit.italic is not None:
+                        run.font.italic = edit.italic
 
 
 def editable_objects(pptx):
@@ -58,7 +79,7 @@ def editable_objects(pptx):
                     color = "#" + str(run.font.color.rgb) if run.font.color.rgb else None
                 except (AttributeError, ValueError):
                     pass
-            objects.append({"id": str(shape.shape_id), "name": shape.name,
+            objects.append({"id": shape.name.removeprefix("ClastioCustom:") if shape.name.startswith("ClastioCustom:") else str(shape.shape_id), "name": shape.name,
                 "text": shape.text if shape.has_text_frame else None,
                 "kind": "text" if shape.has_text_frame else "table" if shape.has_table else "object",
                 "x": shape.left / presentation.slide_width, "y": shape.top / presentation.slide_height,
@@ -66,6 +87,7 @@ def editable_objects(pptx):
                 "font_size": run.font.size.pt if run and run.font.size else None,
                 "font_family": run.font.name if run else None, "color": color,
                 "bold": run.font.bold if run else None,
+                "italic": run.font.italic if run else None, "rotation": shape.rotation,
                 "aspect_ratio": presentation.slide_width / presentation.slide_height})
         slides.append(objects)
     return slides

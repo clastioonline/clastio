@@ -219,6 +219,12 @@ class SlideDifferentiation(BaseModel):
 
 
 class ManualObjectEdit(BaseModel):
+    object_type: Literal["text", "rectangle", "ellipse"] | None = None
+    fill: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
+    hidden: bool = False
+    italic: bool | None = None
+    rotation: float | None = Field(default=None, ge=0, le=360)
+    layer: Literal["front", "back"] | None = None
     x: float | None = Field(default=None, ge=0, le=1)
     y: float | None = Field(default=None, ge=0, le=1)
     width: float | None = Field(default=None, gt=0, le=1)
