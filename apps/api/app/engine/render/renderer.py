@@ -293,6 +293,14 @@ class DeckRenderer:
                           family=self.f.get("arabic") if is_arabic(p.text) else None) for p in paras]
         result = fit(fit_paras, family, box.w_pt - 2 * inset_pt, box.h_pt - 1.2 * inset_pt, max_pt, min_pt,
                      spacing=spacing)
+        if role == "body" and len(paras) >= 2 and result.fits and result.height_pt < box.h_pt * .65:
+            # Spread short teaching points instead of leaving a tall body frame mostly unused.
+            extra = (box.h_pt * .72 - result.height_pt) / (len(paras) * result.size_pt)
+            space_em = min(1.8, space_em + max(0, extra))
+            for paragraph in fit_paras:
+                paragraph.space_after_em = space_em
+            result = fit(fit_paras, family, box.w_pt - 2 * inset_pt, box.h_pt - 1.2 * inset_pt,
+                         max_pt, min_pt, spacing=spacing)
         if shape is None:
             shape = slide.shapes.add_textbox(*box.emu())
         tf = shape.text_frame
@@ -569,7 +577,8 @@ class DeckRenderer:
         n = max(1, len(items))
         gap = int(self.H * 0.022)
         h = int((box.h - gap * (n - 1)) / n)
-        h = min(h, int(self.H * 0.17))
+        if n <= 2:
+            h = min(h, int(self.H * 0.17))
         total = h * n + gap * (n - 1)
         y = box.y + max(0, (box.h - total) // 2) if n <= 2 else box.y
         badge = int(min(h * 0.62, self.H * 0.085))
@@ -695,7 +704,15 @@ class DeckRenderer:
             self.card_text(slide, right, [P(b.text) for b in spec.bullets], fill=self.c["card_bg"], role="note",
                            anchor="top", bullets=True)
         else:
-            self.text(slide, body, paras, role="body", space_em=0.25)
+            gap = min(self.gap, int(body.h * .025))
+            height = (body.h - gap * (len(steps) - 1)) // len(steps)
+            for index, step in enumerate(steps):
+                card = Box(body.x, body.y + index * (height + gap), body.w, height)
+                content = [P(f"{index + 1}. {step.label}", bold=True)]
+                if step.detail:
+                    content.append(P(step.detail))
+                self.card_text(slide, card, content, fill=self.c["card_bg"], role="body",
+                               max_pt=max(self.t["body_pt"], 24), anchor="middle")
 
     def render_chart(self, slide, spec: SlideSpec) -> None:
         if spec.chart is None:
@@ -955,7 +972,7 @@ class DeckRenderer:
                 items = [b.text for b in spec.bullets]
                 if kind == "exit_ticket" and spec.question and spec.question not in items:
                     items = [spec.question] + items
-                if self.spec.get("stage_variants") or len(items) > 6 or sum(len(i) for i in items) > 420:
+                if len(items) > 6 or sum(len(i) for i in items) > 420:
                     self._bullets(slide, self.zone("body"), spec)
                 else:
                     self.render_numbered_cards(slide, spec, items)

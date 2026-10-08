@@ -63,3 +63,26 @@ def test_uploaded_template_placeholder_does_not_bypass_content_cards(tmp_path):
     assert len(cards) == 3
     assert all(not shape.is_placeholder for shape in cards)
     assert not any(report.overflow for report in renderer.reports)
+
+
+@pytest.mark.parametrize('layout', ['objectives', 'worked_example'])
+def test_short_teaching_sequences_use_available_body_height(layout):
+    from app.generation.specs import Step
+
+    base, template = build_builtin(next(iter(BUILTIN_STYLES)))
+    # A stage catalogue must not force objectives back into a sparse plain list.
+    template['stage_variants'] = {'unused_stage': {}}
+    renderer = DeckRenderer(base, template)
+    points = ['Identify the variable in 3x + 5.', 'Substitute x = 2 into the expression.',
+              'Calculate 3 times 2 plus 5 to get 11.']
+    slide = SlideSpec(number=1, layout=layout, title='Working with expressions', purpose='Explain',
+                      bullets=[Bullet(text=text) for text in points] if layout=='objectives' else [],
+                      steps=[Step(label=f'Step {index+1}', detail=text) for index,text in enumerate(points)]
+                      if layout=='worked_example' else [])
+    data=renderer.render([slide])
+    shapes=Presentation(io.BytesIO(data)).slides[0].shapes
+    body=renderer.zone('body')
+    bodies=[shape for shape in shapes if shape.has_text_frame and any(text in shape.text for text in points)]
+    assert len(bodies)==3
+    assert max(shape.top+shape.height for shape in bodies)>=body.bottom-5
+    assert not any(report.overflow for report in renderer.reports)

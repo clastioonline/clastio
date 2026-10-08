@@ -293,7 +293,7 @@ export default function LessonPage() {
   const { notify } = useToast();
   const { data, mutate } = useApi<any>(`/lessons/${id}`);
   const { data: creditInfo } = useApi<any>("/usage/estimates");
-  const [tab, setTab] = useState<"slides" | "plan" | "documents" | "qc">("slides");
+  const [tab, setTab] = useState<"preview" | "slides" | "plan" | "documents" | "qc">("preview");
   const [current, setCurrent] = useState(1);
   useEffect(() => {
     if (window.location.hash !== "#ppt-editor" || !data?.slides?.length) return;
@@ -449,9 +449,18 @@ export default function LessonPage() {
 
       {deleteOpen && <Card className="space-y-3 border-red-300 p-4"><p>Delete slide {current}? This removes the slide and its version history from this lesson.</p><div className="flex gap-2"><Button loading={sequenceBusy} onClick={() => arrange("delete")}>Delete this slide</Button><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button></div></Card>}
       <Tabs value={tab} onChange={setTab} tabs={[
-        { value: "slides", label: "Slides & manual editor" }, { value: "plan", label: "Lesson plan" },
+        { value: "preview", label: "Preview PPT" }, { value: "slides", label: "Edit PPT" }, { value: "plan", label: "Lesson plan" },
         { value: "documents", label: `Documents (${documents.length})` }, { value: "qc", label: "Quality check" },
       ]} />
+
+      {tab === "preview" && (slides.length ? <section aria-label="PPT preview" className="space-y-4">
+        <div className="flex gap-2 overflow-x-auto pb-2">{slides.map((item: any) => <button key={item.id} onClick={() => selectSlide(item.number)} aria-label={`Preview slide ${item.number}`} aria-pressed={item.number === current} className={cn("w-28 shrink-0 rounded-lg border-2 p-1", item.number === current ? "border-brand-600" : "border-line")}>
+          <div className="aspect-[16/9] overflow-hidden rounded bg-surface-2">{item.preview && <img src={item.preview} alt="" className="h-full w-full object-contain" />}</div><span className="text-xs">Slide {item.number}</span>
+        </button>)}</div>
+        <Card className="overflow-hidden p-2 sm:p-4">{slide?.preview ? <img src={slide.preview} alt={`Slide ${current}: ${slide.spec.title}`} className="max-h-[75vh] w-full object-contain" /> : <EmptyState title="Slide preview unavailable" description="Download the PowerPoint to view this slide, or rebuild the lesson to create previews." />}</Card>
+        <div className="flex items-center justify-between gap-2"><Button variant="ghost" disabled={current <= 1} onClick={() => selectSlide(current - 1)}>Previous</Button><span className="text-sm text-muted">Slide {current} of {slides.length}</span><Button variant="ghost" disabled={current >= slides.length} onClick={() => selectSlide(current + 1)}>Next</Button></div>
+        {slide?.spec.speaker_notes && <Card className="p-4"><h3 className="mb-2 font-semibold">Teacher notes</h3><p className="whitespace-pre-line text-sm">{slide.spec.speaker_notes}</p></Card>}
+      </section> : <EmptyState title="This lesson hasn't been built yet" description="Build it from the project page." />)}
 
       {tab === "slides" && (slides.length ? (
         <div id="ppt-editor" tabIndex={-1} aria-label="PowerPoint slide editor" className="scroll-mt-20 grid gap-5 xl:grid-cols-[160px_1fr]">

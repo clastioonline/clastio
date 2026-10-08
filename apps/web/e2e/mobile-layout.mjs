@@ -29,7 +29,7 @@ try {
   for (const path of ['/dashboard', '/projects', '/assistant', '/lessons/mobile-lesson']) {
    await page.goto(base + path);
    await page.getByRole('navigation', { name: 'Mobile navigation' }).waitFor({ state: width < 1024 ? 'visible' : 'hidden' });
-   if (path.includes('/lessons/')) await page.getByText('Design canvas', { exact: true }).waitFor();
+   if (path.includes('/lessons/')) { await page.getByRole('region', { name: 'PPT preview', exact: true }).waitFor(); assert.equal(await page.getByText('Design canvas', {exact:true}).count(), 0); await page.getByRole('button', { name: 'Edit generated PPT', exact: true }).click(); await page.getByText('Design canvas', {exact:true}).waitFor(); assert.equal(await page.getByRole('region', {name:'PPT preview', exact:true}).count(), 0); }
    else if (path === '/dashboard') await page.getByRole('heading', { name: "Today's classes", exact: true }).waitFor();
    else if (path === '/projects') await page.getByRole('heading', { name: 'Lessons & PPTs', exact: true }).waitFor();
    else await page.getByRole('textbox').last().waitFor();
