@@ -82,8 +82,12 @@ async def reserve(*, provider, model, task, owner_id, job_id, input_bytes=0, out
         card = RateCard.model_validate(card_data)
         input_limit = (policy.max_audio_bytes if task == "transcription" else
                        policy.max_ingestion_image_bytes if task == "pdf_ingestion" else policy.max_input_bytes)
-        if input_bytes > input_limit or output_tokens > policy.max_output_tokens:
-            raise BudgetError("This request is too large. Split the material into smaller sections.")
+        if input_bytes > input_limit:
+            raise BudgetError(f"This request is too large: {input_bytes:,} input bytes exceeds the "
+                              f"{input_limit:,} byte limit. Use fewer source sections or reference images.")
+        if output_tokens > policy.max_output_tokens:
+            raise BudgetError(f"This request is too large: {output_tokens:,} requested output tokens exceeds "
+                              f"the configured {policy.max_output_tokens:,} token limit.")
         job = None
         if job_id:
             job = await db.get(GenerationJob, job_id)

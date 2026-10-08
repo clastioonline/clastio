@@ -37,6 +37,7 @@ from app.ai.openai_provider import OpenAIProvider
 from app.ai.openrouter_provider import OPENROUTER_MODELS, OpenRouterProvider
 from app.ai.pricing import cost_usd
 from app.core.config import get_settings
+from app.core.db import get_sessionmaker
 from app.core.logging import log
 
 logger = logging.getLogger("ai")
@@ -340,6 +341,16 @@ class AIService:
                          prompt_version: str | None = None, cache: bool = False) -> T:
         req = AIRequest(task=task, system=system, messages=[ChatMessage("user", prompt, images or [])],
                         max_tokens=max_tokens, effort=effort, offline_context=offline_context or {})
+        from app.ai.request_size import PPT_TASKS, fit_ppt_request
+
+        if self.mode == "live" and task in PPT_TASKS:
+            async with get_sessionmaker()() as db:
+                policy, _ = await budget.config(db)
+            image_bytes = sum(len(image.data) for message in req.messages for image in message.images)
+            req = await asyncio.to_thread(fit_ppt_request, req, policy,
+                                         self._input_bytes(req, schema) - image_bytes)
+            max_tokens = req.max_tokens
+            images = req.messages[0].images
         last = None
         for route in await self.routes(tier):
             key = self._cache_key(owner_id, task, route.provider, route.model, system, prompt,
