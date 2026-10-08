@@ -455,8 +455,10 @@ def _validate_setting(key: str, value: dict[str, Any]) -> None:
                 BudgetPolicy.model_validate(value)
             else:
                 for name, card in value.items():
-                    if ":" not in name or name.split(":", 1)[0] not in ("openai", "anthropic", "gemini"):
-                        raise bad("Price cards must be keyed by provider:model.")
+                    provider, separator, model = name.partition(":")
+                    if (not separator or provider not in ("openai", "anthropic", "gemini", "openrouter", "groq", "perplexity")
+                            or not model or model != model.strip() or any(char.isspace() for char in model)):
+                        raise bad("Price cards must use a supported provider:model key, for example openrouter:openai/gpt-5.4-mini.")
                     RateCard.model_validate(card)
         except ValidationError as exc:
             raise bad(str(exc)) from exc

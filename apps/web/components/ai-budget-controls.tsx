@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Card, CardHeader, Field, Input, Stat, Textarea, Toggle } from "@/components/ui";
 import { errorMessage, useToast } from "@/components/toast";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 
 const labels: Record<string, string> = {
@@ -17,6 +17,7 @@ export function AiBudgetControls() {
   const { notify } = useToast();
   const [policy, setPolicy] = useState<any>(null);
   const [cards, setCards] = useState("{}");
+  const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState("");
   const [amount, setAmount] = useState("");
@@ -26,13 +27,20 @@ export function AiBudgetControls() {
   }, [data]);
   async function save() {
     setBusy(true);
+    setSaveError("");
     try {
       const parsed = JSON.parse(cards);
       await api("/admin/settings/ai_rate_cards", { method: "PUT", body: parsed });
       await api("/admin/settings/ai_budget", { method: "PUT", body: policy });
       notify({ tone: "success", title: "AI spending controls saved" });
       mutate();
-    } catch (e) { notify({ tone: "error", title: "Couldn't save controls", body: errorMessage(e) }); }
+    } catch (e) {
+      const details = e instanceof ApiError && Array.isArray(e.details)
+        ? e.details.map((issue: any) => `${(issue.loc || []).join(".")}: ${issue.msg || "Invalid value"}`).join("; ") : "";
+      const message = [errorMessage(e), details].filter(Boolean).join(" ");
+      setSaveError(message);
+      notify({ tone: "error", title: "Couldn't save controls", body: message });
+    }
     finally { setBusy(false); }
   }
   async function reconcile() {
@@ -67,6 +75,7 @@ export function AiBudgetControls() {
         <Textarea rows={8} className="font-mono text-xs" value={cards} onChange={(e) => setCards(e.target.value)} />
       </Field>
       <p className="text-xs text-muted">Key each card by provider:model. Required fields: input, output, cached and cache_write (USD per million tokens), ceiling_usd (maximum cost of one allowed request), and source (pricing reference). Use verified rates covering cache writes and long contexts. Unknown models are blocked. Media and missing usage keep their full hold until reconciliation.</p>
+      {saveError && <Alert tone="danger" title="Spending controls were not fully saved"><p role="alert" className="break-words">{saveError}</p></Alert>}
       <Button loading={busy} onClick={save}>Save spending controls</Button>
       <p className="text-xs text-muted">This ledger covers calls made since these controls were installed. Limits reset at UTC midnight or month start; unresolved holds carry forward. Compare charges with provider invoices before releasing holds.</p>
       {data.unresolved.length > 0 && <div className="space-y-3">
