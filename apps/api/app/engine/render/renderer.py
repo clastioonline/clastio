@@ -492,7 +492,22 @@ class DeckRenderer:
         self.text(slide, text_box, [P(b.text, level=b.level) for b in spec.bullets] or [P(spec.purpose)],
                   role="body", bullets=True, bullet_color=self.c["primary"])
         img_box = Box(img_box.x, img_box.y + int(img_box.h * 0.04), img_box.w, int(img_box.h * 0.92))
-        if spec.visual.counting_groups:
+        from app.generation.math_visuals import algebra_visual
+
+        algebra = algebra_visual(spec) if image is None else None
+        if algebra:
+            rows = [algebra['expression'], f"Coefficient: {algebra['coefficient']}",
+                    f"Variable: {algebra['variable']}", f"Constant: {algebra['constant']}"]
+            if algebra['value'] is not None:
+                rows.append(f"{algebra['variable']} = {algebra['value']} → {algebra['answer']}")
+            gap = min(self.gap, int(img_box.h * .025))
+            height = (img_box.h - gap * (len(rows) - 1)) // len(rows)
+            for index, label in enumerate(rows):
+                row = Box(img_box.x, img_box.y + index * (height + gap), img_box.w, height)
+                self.card_text(slide, row, [P(label, bold=index == 0)],
+                               fill=self.c['primary'] if index == 0 else self.c['card_bg'],
+                               role='visual', align='center', max_pt=30 if index == 0 else 24)
+        elif spec.visual.counting_groups:
             self.render_counting_groups(slide, img_box, spec)
         elif image is not None:
             self.picture(slide, img_box, image, alt=spec.visual.alt_text or spec.visual.description,

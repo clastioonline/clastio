@@ -325,8 +325,9 @@ def content_qc(deck: LessonDeck, budgets: dict[str, Any]) -> list[SlideIssue]:
     titles: dict[str, int] = {}
     for s in deck.slides:
         issues.extend(slide_quality_issues(s))
-        if (s.layout == "concept" and s.visual.kind == "none" and not s.manual_objects
-                and s.bullets and sum(words(bullet.text) for bullet in s.bullets) < 25):
+        if (s.layout in ("concept", "image_text") and not s.manual_objects
+                and s.bullets and sum(words(bullet.text) for bullet in s.bullets) <
+                min(40, int(budgets["bullet_max_words"] * budgets["bullets_max"] * .65))):
             issues.append(SlideIssue(s.number, "sparse_explanation",
                                     "Develop the explanation with a concrete example or a worked question and answer. "
                                     "Use 3–5 substantive points within the supplied text budgets; do not add filler or invented facts."))
@@ -445,6 +446,9 @@ async def pre_render_qc(ai: AIService, deck: LessonDeck, budgets: dict[str, Any]
     """Fix content issues: AI rewrite for style/structure problems, deterministic trims for length."""
     log_: list[dict[str, Any]] = []
     issues = content_qc(deck, budgets)
+    # Early primary classes need shorter reading loads, even on large templates.
+    if re.fullmatch(r"(?:grade\s*)?[12]", str(grade).strip(), re.I):
+        issues = [issue for issue in issues if issue.code != "sparse_explanation"]
     by_slide: dict[int, list[SlideIssue]] = {}
     for i in issues:
         by_slide.setdefault(i.number, []).append(i)

@@ -4,7 +4,8 @@ Order (cheapest and most reliable first):
   1. reuse an existing asset for the same query (owner's or shared)
   2. Openverse (openly licensed images, licence + attribution recorded)
   3. AI image generation (if a provider is configured and the plan allows)
-  4. a clean, branded placeholder illustration (clearly replaceable; the notes say what to insert)
+  4. editable teaching content, with a clear note when no suitable image is available
+Algebra labels use exact editable shapes instead of stock photos or generated formula text.
 """
 
 from __future__ import annotations
@@ -119,7 +120,18 @@ async def search_openverse(query: str, client: httpx.AsyncClient) -> dict[str, A
         results = r.json().get("results", [])
     except (httpx.HTTPError, ValueError):
         return None
-    for item in results:
+    keywords = {word.rstrip("s") for word in normalize_query(query).split()
+                if len(word) >= 3 and word not in {"photo", "image", "picture", "educational", "illustration"}}
+
+    def relevance(item):
+        metadata = str(item.get("title") or "") + " " + " ".join(
+            str(tag.get("name", "")) if isinstance(tag, dict) else str(tag) for tag in item.get("tags", []))
+        words = {word.rstrip("s") for word in normalize_query(metadata).split()}
+        return len(keywords & words)
+
+    for item in sorted(results, key=relevance, reverse=True):
+        if keywords and relevance(item) == 0:
+            continue
         if item.get("license", "").lower() not in {"cc0", "pdm", "by"}:
             continue
         if (item.get("width") or 0) < 640 or not item.get("url"):
@@ -144,7 +156,7 @@ def stock_image_unavailable(slide: SlideSpec) -> None:
     slide.visual.kind = "none"
     if slide.layout == "image_text":
         slide.layout = "concept"
-    note = "No matching licensed stock photo was available. Add a suitable photo in the editor if needed."
+    note = "No suitable image was available from the enabled image sources. This slide uses editable teaching content instead of a placeholder."
     if note not in slide.speaker_notes:
         slide.speaker_notes += "\n" + note
 
@@ -200,6 +212,12 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                         s.sources.append({"type": "image", "attribution": asset.attribution})
                     continue
             s.visual.source_image_key = None
+            from app.generation.math_visuals import algebra_visual
+
+            if algebra_visual(s) and not require_real_image:
+                # Exact algebra labels are editable shapes, not generated bitmap text.
+                s.visual.kind = "diagram"
+                continue
             query = normalize_query(s.visual.image_query or s.visual.description or s.title)
             existing = (await db.execute(select(Asset).where(
                 or_(Asset.owner_id == owner_id, Asset.owner_id.is_(None)), Asset.tags.any(query),
@@ -239,36 +257,19 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                 if res:
                     source, lic, data = "ai", "AI-generated (owned by the teacher)", res.data
                     counters["ai"] += 1
-            if data is None and (image_mode == "stock" or require_real_image):
+            if data is None:
                 stock_image_unavailable(s)
                 continue
-            if data is None:
-                data = await asyncio.to_thread(placeholder_illustration, s.visual.description or s.title,
-                                               colors.get("primary", "#2563EB"), colors.get("secondary", "#F59E0B"))
-                source, lic = "placeholder", "Generated placeholder"
-                counters["placeholder"] += 1
-            else:
-                counters[source] += 1 if source == "openverse" else 0
+            counters[source] += 1 if source == "openverse" else 0
             try:
                 data, w, h = await asyncio.to_thread(_normalise_image, data)
             except (OSError, ValueError):
-                if image_mode == "stock" or require_real_image:
-                    if source == "ai":
-                        counters["ai"] = max(0, counters["ai"] - 1)
-                    counters["openverse"] = max(0, counters["openverse"] - 1)
-                    stock_image_unavailable(s)
-                    continue
-                data = await asyncio.to_thread(placeholder_illustration, s.title,
-                    colors.get("primary", "#2563EB"), colors.get("secondary", "#F59E0B"))
-                data, w, h = await asyncio.to_thread(_normalise_image, data)
                 if source == "ai":
-                    counters["ai"] -= 1
+                    counters["ai"] = max(0, counters["ai"] - 1)
                 elif source == "openverse":
-                    counters["openverse"] -= 1
-                source, lic = "placeholder", "Generated placeholder"
-                counters["placeholder"] += 1
-            if source == "placeholder":
-                s.speaker_notes += "\nImage placeholder: upload a suitable image in the manual editor. A real illustration was unavailable."
+                    counters["openverse"] = max(0, counters["openverse"] - 1)
+                stock_image_unavailable(s)
+                continue
             s.sources.append({"type": "image", "source": source, "description": s.visual.alt_text or s.visual.description})
             sha = hashlib.sha256(data).hexdigest()
             ext = "png" if data[:4] == b"\x89PNG" else "jpg"

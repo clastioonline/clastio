@@ -92,6 +92,12 @@ Critical content and visual asset contracts:
 - Explanation slides without a visual need 3–5 substantive teaching points, including a concrete
   example or worked question and answer, within the supplied budgets. Use the available slide area.
   Covers, section dividers, quizzes and student tasks may retain purposeful whitespace.
+- For explanation slides, aim for 50–85 visible teaching words when geometry permits; for
+  picture-plus-text slides, aim for 35–60. Include a definition, reasoning, a fully solved example
+  and a quick application or misconception check. Respect the supplied word budgets and grade.
+  Do not achieve these targets by repeating text or inventing source facts.
+- Algebra expressions and substitution need labelled editable diagrams or worked_example layouts,
+  never stock photographs or AI pictures of formulas. Use exact expressions from the teaching text.
 - DEPTH AND RIGOR: explain enough for direct classroom delivery, using the available content budget
   purposefully without overflow, repetition or unreadable text. Match the learner's grade and language.
 - Supply complete valid data for every requested graphic; never generic placeholders or invented fields.
