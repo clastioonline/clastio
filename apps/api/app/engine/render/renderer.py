@@ -449,12 +449,8 @@ class DeckRenderer:
         paras = [P(b.text, level=b.level) for b in spec.bullets] or [P(spec.question or spec.purpose)]
         if max_pt is None and len(paras) <= 4:
             max_pt = self.t["body_pt"] * 1.15
-        ph = self._placeholder(slide, "body") if self.spec["content"].get("use_placeholders") else None
-        if ph is not None and not self.rtl:
-            self.text(slide, box, paras, role="body", shape=ph, keep_font=True, max_pt=max_pt or self.t["body_pt"],
-                      bullets=True, color=self.c["text"])
-            return
-        if spec.layout == "concept" and 2 <= len(paras) <= 5 and all(p.level == 0 for p in paras):
+        if spec.layout == "concept" and 2 <= len(paras) <= 6 and all(p.level == 0 for p in paras):
+            self._remove_body_placeholder(slide)
             # Native editable cards distribute explanation points over the body area.
             count = len(paras)
             gap = min(self.gap, int(box.h * .035))
@@ -463,6 +459,11 @@ class DeckRenderer:
                 card_box = Box(box.x, box.y + index * (height + gap), box.w, height)
                 self.card_text(slide, card_box, [paragraph], fill=self.c["card_bg"],
                                role="body", max_pt=max_pt or self.t["body_pt"], anchor="middle")
+            return
+        ph = self._placeholder(slide, "body") if self.spec["content"].get("use_placeholders") else None
+        if ph is not None and not self.rtl:
+            self.text(slide, box, paras, role="body", shape=ph, keep_font=True, max_pt=max_pt or self.t["body_pt"],
+                      bullets=True, color=self.c["text"])
             return
         self.text(slide, box, paras, role="body", max_pt=max_pt or self.t["body_pt"], bullets=True,
                   bullet_color=self.c["primary"])
