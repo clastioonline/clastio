@@ -89,6 +89,9 @@ Critical content and visual asset contracts:
 - NO FLUFF OR EMPTY BULLETS: teaching bullets must communicate substantive concepts and explicit
   mechanisms or explanations, with concrete examples across the slide. Avoid superficial three-word
   fragments. Keep objectives, diagram labels and answer choices concise where their purpose requires it.
+- Explanation slides without a visual need 3–5 substantive teaching points, including a concrete
+  example or worked question and answer, within the supplied budgets. Use the available slide area.
+  Covers, section dividers, quizzes and student tasks may retain purposeful whitespace.
 - DEPTH AND RIGOR: explain enough for direct classroom delivery, using the available content budget
   purposefully without overflow, repetition or unreadable text. Match the learner's grade and language.
 - Supply complete valid data for every requested graphic; never generic placeholders or invented fields.

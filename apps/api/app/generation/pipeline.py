@@ -325,6 +325,11 @@ def content_qc(deck: LessonDeck, budgets: dict[str, Any]) -> list[SlideIssue]:
     titles: dict[str, int] = {}
     for s in deck.slides:
         issues.extend(slide_quality_issues(s))
+        if (s.layout == "concept" and s.visual.kind == "none" and not s.manual_objects
+                and s.bullets and sum(words(bullet.text) for bullet in s.bullets) < 25):
+            issues.append(SlideIssue(s.number, "sparse_explanation",
+                                    "Develop the explanation with a concrete example or a worked question and answer. "
+                                    "Use 3–5 substantive points within the supplied text budgets; do not add filler or invented facts."))
         key = s.title.strip().lower()
         if key in titles and s.layout not in ("section",):
             issues.append(SlideIssue(s.number, "duplicate_title", f"Title repeats slide {titles[key]}"))
@@ -446,7 +451,7 @@ async def pre_render_qc(ai: AIService, deck: LessonDeck, budgets: dict[str, Any]
     for num, its in by_slide.items():
         slide = deck.slides[num - 1]
         needs_ai = any(i.code in ("duplicate_title", "style", "bad_quiz", "missing_steps", "missing_columns",
-                                  "missing_table", "empty_title", "empty_content", "empty_vocabulary", "missing_chart", "counting_groups") for i in its)
+                                  "missing_table", "empty_title", "empty_content", "empty_vocabulary", "missing_chart", "counting_groups", "sparse_explanation") for i in its)
         if needs_ai and ai.mode == "live":
             try:
                 deck.slides[num - 1] = await repair_slide(

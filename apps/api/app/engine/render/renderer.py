@@ -454,6 +454,16 @@ class DeckRenderer:
             self.text(slide, box, paras, role="body", shape=ph, keep_font=True, max_pt=max_pt or self.t["body_pt"],
                       bullets=True, color=self.c["text"])
             return
+        if spec.layout == "concept" and 2 <= len(paras) <= 5 and all(p.level == 0 for p in paras):
+            # Native editable cards distribute explanation points over the body area.
+            count = len(paras)
+            gap = min(self.gap, int(box.h * .035))
+            height = (box.h - gap * (count - 1)) // count
+            for index, paragraph in enumerate(paras):
+                card_box = Box(box.x, box.y + index * (height + gap), box.w, height)
+                self.card_text(slide, card_box, [paragraph], fill=self.c["card_bg"],
+                               role="body", max_pt=max_pt or self.t["body_pt"], anchor="middle")
+            return
         self.text(slide, box, paras, role="body", max_pt=max_pt or self.t["body_pt"], bullets=True,
                   bullet_color=self.c["primary"])
 

@@ -44,6 +44,10 @@ try {
     assert.ok(today.y < analytics.y, 'Classroom tasks precede statistics on phones');
    }
    if (path.includes('/lessons/')) {
+    await page.getByRole('button', { name: 'Edit generated PPT', exact: true }).click();
+    await page.getByRole('button', { name: 'Select Title', exact: true }).dblclick();
+    await page.locator('#object-text-2').waitFor();
+    assert.equal(await page.locator('#object-text-2').inputValue(), spec.title);
     const canvas = await page.getByText('Design canvas', { exact: true }).boundingBox();
     const strip = await page.getByRole('button', { name: /Select Title/ }).boundingBox();
     assert.ok(canvas && strip, 'Editor objects are reachable');

@@ -184,6 +184,7 @@ export default function ProjectPage() {
                       ) : l.status !== "generating" ? (
                         <Button size="sm" variant="outline" disabled={working || lessons.some((prior: any) => prior.number < l.number && !prior.review_approved)} onClick={() => prepare([l.number])}>Build</Button>
                       ) : null}
+                      {l.has_pptx && <Button size="sm" variant="outline" href={`/lessons/${l.id}#ppt-editor`}><Pencil className="h-4 w-4" /> Edit generated PPT</Button>}
                       {l.has_pptx && (
                         <Button size="sm" variant="ghost" onClick={() => prepare([l.number])}><RefreshCw className="h-4 w-4" /> Rebuild</Button>
                       )}

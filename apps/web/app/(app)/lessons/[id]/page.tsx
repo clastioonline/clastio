@@ -295,6 +295,16 @@ export default function LessonPage() {
   const { data: creditInfo } = useApi<any>("/usage/estimates");
   const [tab, setTab] = useState<"slides" | "plan" | "documents" | "qc">("slides");
   const [current, setCurrent] = useState(1);
+  useEffect(() => {
+    if (window.location.hash !== "#ppt-editor" || !data?.slides?.length) return;
+    setTab("slides");
+    const frame = window.requestAnimationFrame(() => {
+      const editor = document.getElementById("ppt-editor");
+      editor?.scrollIntoView({ block: "start" });
+      editor?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [data?.slides?.length]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [docOpen, setDocOpen] = useState<string | null>(null);
   const [draftDirty, setDraftDirty] = useState(false);
@@ -407,6 +417,7 @@ export default function LessonPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {!!slides.length && <Button variant="outline" onClick={() => { setTab("slides"); window.setTimeout(() => { const editor = document.getElementById("ppt-editor"); editor?.scrollIntoView({ behavior: "smooth", block: "start" }); editor?.focus({ preventScroll: true }); }, 0); }}><Pencil className="h-4 w-4" /> Edit generated PPT</Button>}
           {downloads.pptx && <Button href={downloads.pptx}><Download className="h-4 w-4" /> Download editable PPT</Button>}
           {downloads.pdf && <Button variant="outline" href={downloads.pdf}><FileText className="h-4 w-4" /> PDF</Button>}
           <Button variant="outline" onClick={() => setRegenOpen(true)}><WandSparkles className="h-4 w-4" /> PPT playground</Button>
@@ -443,7 +454,7 @@ export default function LessonPage() {
       ]} />
 
       {tab === "slides" && (slides.length ? (
-        <div className="grid gap-5 xl:grid-cols-[160px_1fr]">
+        <div id="ppt-editor" tabIndex={-1} aria-label="PowerPoint slide editor" className="scroll-mt-20 grid gap-5 xl:grid-cols-[160px_1fr]">
           <div className="order-1 flex min-w-0 gap-2 overflow-x-auto pb-2 xl:order-1 xl:max-h-[76vh] xl:flex-col xl:overflow-y-auto xl:pb-0">
             {slides.map((s: any) => (
               <button key={s.id} onClick={() => selectSlide(s.number)}
