@@ -109,6 +109,7 @@ const ADMIN_GROUPS: { title: string; items: AdminItem[] }[] = [
   { title: "System", items: [
     { href: "/admin/system", key: "", label: "Health & logs", icon: ServerCog, perm: "system.logs.view" },
     { href: "/admin/settings", key: "", label: "Settings & flags", icon: SlidersHorizontal, perm: "settings.modify" },
+    { href: "/books", key: "", label: "Book catalogue", icon: FileText, perm: "settings.modify" },
     { href: "/admin/legal", key: "", label: "Legal documents", icon: FileText, perm: "legal.manage" },
   ] },
 ];

@@ -14,7 +14,7 @@ from sqlalchemy import case, func, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.core.db import get_sessionmaker
-from app.core.deps import DB, CurrentUser, can_access
+from app.core.deps import DB, CurrentUser, can_access, require
 from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.core.security import verify_signed_value
@@ -200,6 +200,8 @@ async def list_books(user: CurrentUser, db: DB):
 @router.post("/books/import", dependencies=[Depends(rate_limit("book_import", 10, 3600))])
 async def import_book(body: BookImport, user: CurrentUser, db: DB):
     from app.core.remote_images import validate_public_image_url
+    from app.services.book_library import validate_book_identity
+    validate_book_identity(body.title, body.url, body.curriculum)
     if not body.rights_confirmed:
         raise AppError("rights_required", "Confirm that you may use this PDF for teaching.", 400)
     try:
@@ -214,12 +216,89 @@ async def import_book(body: BookImport, user: CurrentUser, db: DB):
 
 class BookDiscovery(BaseModel):
     query: str = Field(min_length=5, max_length=500)
+    curriculum: Literal['moe', 'british', 'american', 'ib', 'cbse', 'icse', 'other'] = 'moe'
+    grade: str = Field(default='', max_length=30)
+    subject: str = Field(default='', max_length=100)
+    language: str = Field(default='', max_length=30)
 
 
 @router.post("/books/discover", dependencies=[Depends(rate_limit("book_search", 10, 3600))])
 async def discover_books(body: BookDiscovery, user: CurrentUser, db: DB):
     from app.services.book_library import discover
-    return await discover(db, user, body.query)
+    return await discover(db, user, body.query, curriculum=body.curriculum, grade=body.grade,
+                          subject=body.subject, language=body.language)
+
+
+@router.get('/books/catalogue')
+async def book_catalogue(user: CurrentUser, db: DB):
+    from app.services.book_catalog import catalog
+    return await catalog(db)
+
+
+@router.post('/books/catalogue/{file_id}/save', dependencies=[Depends(rate_limit('catalogue_save', 20, 3600))])
+async def save_catalogue_book(file_id: uuid.UUID, user: CurrentUser, db: DB):
+    job = await enqueue(db, 'book_catalogue_copy', {'file_id': str(file_id)}, owner_id=user.id,
+                        dedupe=True, max_attempts=1)
+    await db.commit()
+    return {'job_id': str(job.id)}
+
+
+class BookMetadata(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    curriculum: Literal['moe', 'british', 'american', 'ib', 'cbse', 'icse', 'other']
+    subject: str = Field(min_length=1, max_length=100)
+    grade: str = Field(min_length=1, max_length=30)
+    language: str = Field(min_length=1, max_length=30)
+    edition: str = Field(default='', max_length=100)
+
+
+@router.put('/books/{file_id}/metadata')
+async def update_book_metadata(file_id: uuid.UUID, body: BookMetadata, user: CurrentUser, db: DB):
+    from app.services.book_library import book_out, owned_book
+    book = await owned_book(db, user, file_id)
+    from app.services.book_library import validate_book_identity
+    validate_book_identity(body.title+" "+book.filename, (book.meta or {}).get("book", {}).get("source_url", ""), body.curriculum)
+    # Ordinary teacher metadata edits cannot publish a private upload.
+    book.meta = {**(book.meta or {}), 'book': {**(book.meta or {}).get('book', {}), **body.model_dump()}}
+    await db.commit()
+    return {'book': book_out(book)}
+
+
+class BookPublication(BaseModel):
+    published: bool
+    sharing_rights_confirmed: bool = False
+    license: str = Field(default='', max_length=500)
+    license_url: str = Field(default='', max_length=2000)
+
+
+@router.put('/books/{file_id}/publication', dependencies=[Depends(require('settings.modify'))])
+async def publish_book(file_id: uuid.UUID, body: BookPublication, request: Request, user: CurrentUser, db: DB):
+    from app.services.book_library import book_out, owned_book
+    from app.services.events import audit
+    book = await owned_book(db, user, file_id)
+    if body.published:
+        from app.services.book_catalog import CURRICULA, SUBJECTS
+        from app.services.book_library import valid_https_url
+        metadata = (book.meta or {}).get('book', {})
+        if book.status != 'ready' or book.mime != 'application/pdf':
+            raise AppError('book_not_ready', 'Publish only an indexed PDF book.', 409)
+        if metadata.get('curriculum') not in CURRICULA or metadata.get('subject') not in SUBJECTS or not all(
+            metadata.get(field) for field in ['title', 'grade', 'language', 'edition']):
+            raise AppError('book_metadata_required', 'Save the curriculum, subject, grade, language and edition before publishing.', 400)
+        if not body.sharing_rights_confirmed or not body.license.strip() or not valid_https_url(body.license_url):
+            raise AppError('sharing_rights_required', 'Confirm permission to share with all teachers and provide the licence or permission reference URL.', 400)
+        from app.models import SourceChunk
+        if not (await db.execute(select(SourceChunk.id).where(SourceChunk.file_id == book.id).limit(1))).first():
+            raise AppError('book_index_required', 'Finish indexing the PDF before publishing it.', 409)
+        from app.services.book_library import validate_book_identity
+        validate_book_identity(metadata['title']+' '+book.filename, metadata.get('source_url', ''), metadata['curriculum'])
+    before = (book.meta or {}).get('catalogue', {})
+    after = body.model_dump()
+    book.meta = {**(book.meta or {}), 'catalogue': after}
+    audit(db, user.id, 'book.catalogue_publication', request=request, target_type='uploaded_file',
+          target_id=str(book.id), before=before, after=after)
+    await db.commit()
+    return {'book': book_out(book)}
 
 
 class BookPages(BaseModel):

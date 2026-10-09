@@ -189,3 +189,21 @@ async def book_import(ctx: JobContext) -> dict[str, Any]:
             metadata={key:body[key] for key in ['grade','subject','curriculum','edition','language']},
             rights_confirmed=body['rights_confirmed'], max_bytes=cap)
         return {'file_id':str(book.id), 'filename':book.filename}
+
+
+@handler('book_catalogue_copy', queue='docs')
+async def book_catalogue_copy(ctx: JobContext) -> dict[str, Any]:
+    from app.api.routes.content import upload_limit_mb
+    from app.core.db import get_sessionmaker
+    from app.jobs.queue import PermanentJobError
+    from app.models import User
+    from app.services.book_catalog import copy_to_library
+
+    await ctx.progress(10, 'Adding a saved catalogue book')
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, ctx.owner_id)
+        if not user or user.status != 'active':
+            raise PermanentJobError('This account is no longer available.')
+        book = await copy_to_library(db, user, uuid.UUID(ctx.payload['file_id']),
+                                     await upload_limit_mb(db, user)*1024*1024)
+        return {'file_id': str(book.id), 'filename': book.filename}
