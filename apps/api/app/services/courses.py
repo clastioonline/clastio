@@ -144,7 +144,8 @@ def course_request(course: Course, extra: dict[str, Any] | None = None) -> dict[
            "lecture_minutes": course.lecture_minutes, "language": course.language,
            "outcomes": course.options.get("outcomes") or [], "instructions": course.options.get("instructions"),
            "writing_style": course.options.get("writing_style", "standard"),
-           "image_mode": course.options.get("image_mode", "auto"), "daily_teaching": True}
+           "image_mode": course.options.get("image_mode", "auto"), "daily_teaching": True,
+           "workflow_version": 2, "flexible_slides": course.options.get("flexible_slides", False)}
     if extra:
         req.update(extra)
     return req
@@ -192,6 +193,12 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
             raise NotFound("Source")
         if source.status != "ready":
             raise AppError("source_not_ready", f"Wait until {source.filename} finishes processing before creating the chapter.", 409)
+    for file_id, span in data.get("source_page_ranges", {}).items():
+        if file_id not in selected_sources or len(span) != 2 or any(not isinstance(page, int) for page in span) or not 1 <= span[0] <= span[1] or span[1] - span[0] >= 80:
+            raise AppError("invalid_source_pages", "Choose valid PDF page ranges for the selected books (up to 80 pages).", 400)
+        source = await db.get(UploadedFile, uuid.UUID(file_id))
+        if span[1] > (source.page_count or 0):
+            raise AppError("invalid_source_pages", "The selected range exceeds the book's PDF pages.", 400)
     plan, _ = await usage.get_plan(db, user)
     max_lectures = int(plan.limits.get("max_lectures", 30))
     if data["num_lectures"] > max_lectures and user.role != "admin":
@@ -217,7 +224,9 @@ async def create_course(db: AsyncSession, user: User, data: dict[str, Any]) -> t
                     options={"outcomes": data.get("outcomes", []), "instructions": data.get("instructions"),
                              "auto_generate": bool(data.get("auto_generate")), "bundle": bool(data.get("bundle")),
                              "homework": data.get("homework", True), "start_date": data.get("start_date"),
-                             "teacher_images": teacher_images, "source_file_ids": selected_sources, "chapter_mode": data.get("chapter_mode", "complete"),
+                             "teacher_images": teacher_images, "source_file_ids": selected_sources,
+                             "source_page_ranges": data.get("source_page_ranges", {}),
+                             "flexible_slides": data.get("flexible_slides", True), "research_enabled": data.get("research_enabled", True), "chapter_mode": data.get("chapter_mode", "complete"),
                              "previous_taught": data.get("previous_taught"), "revision_needed": data.get("revision_needed"),
                              "image_mode": effective_image_mode, "writing_style": data.get("writing_style", "standard")},
                     status="planning")
@@ -240,7 +249,8 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
         user = await db.get(User, course.owner_id)
         await ctx.progress(10, "Reading your teaching context")
         context_text, meta = await build_context(db, user, topic=course.topic, class_section_id=course.class_section_id,
-                                                 subject=course.subject, source_file_ids=course.options.get("source_file_ids"))
+                                                 subject=course.subject, source_file_ids=course.options.get("source_file_ids"),
+                                                 include_sources=False)
         template = await resolve_template(db, user.id, course.template_id)
         from app.services.styles import source_context
 
@@ -259,12 +269,18 @@ async def handle_course_plan(ctx: JobContext) -> dict[str, Any]:
             image_data = await get_storage().get(entry["storage_key"])
             reference_images.append(ImageInput(data=image_data, media_type="image/png" if image_data.startswith(b"\x89PNG") else "image/jpeg"))
         req = course_request(course, {"country": meta.get("country", "AE")})
+    from app.services.chapter_knowledge import prepare
+    await ctx.progress(20, "Preparing reusable chapter knowledge")
+    chapter_pack = await prepare(course, context_text)
+    context_text += "\nCHAPTER KNOWLEDGE (source-grounded reference data):\n" + __import__('json').dumps(chapter_pack)
+    req["chapter_topics"] = [topic["title"] for topic in chapter_pack.get("topics", [])]
     await ctx.progress(30, "Planning the lesson sequence")
     plan = await pipeline.plan_course(get_ai(), req, context_text, owner_id=course.owner_id, job_id=ctx.job_id,
                                       reference_images=reference_images)
     async with get_sessionmaker()() as db:
         course = await db.get(Course, course_id)
         course.plan = plan.model_dump()
+        course.options = {**course.options, "chapter_pack": chapter_pack}
         course.status = "planned"
         await db.execute(delete(Lesson).where(Lesson.course_id == course_id, Lesson.status == "planned"))
         existing = {n for (n,) in (await db.execute(select(Lesson.number).where(Lesson.course_id == course_id))).all()}
@@ -337,7 +353,7 @@ async def start_generation(db: AsyncSession, user: User, course_id: uuid.UUID,
         pending = await pending_lesson_edit(db, user.id, lesson.id)
         if pending and pending.type != "lesson_generation":
             raise AppError("edit_pending", "Wait for the current slide update before rebuilding this lesson.", 409)
-    per_lesson = await usage.credit_cost("slide", course.slides_per_lecture)
+    per_lesson = await usage.credit_cost("slide", min(30, course.slides_per_lecture + 3) if course.options.get("flexible_slides") else course.slides_per_lecture)
     if bundle:
         per_lesson += sum([await usage.credit_cost(key) for key in ("lesson_plan_doc", "worksheet", "quiz")])
     await usage.check(db, user, "credits", per_lesson * len(targets), jobs=len(targets))
@@ -406,7 +422,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
             raise PermanentJobError("No template available")
         await ctx.progress(5, "Reading your teaching context")
         context_text, meta = await build_context(db, user, topic=f"{course.topic}: {lesson.title}",
-                                                 class_section_id=course.class_section_id, subject=course.subject, source_file_ids=course.options.get("source_file_ids"))
+                                                 class_section_id=course.class_section_id, subject=course.subject, source_file_ids=course.options.get("source_file_ids"),
+                                                 include_sources=not bool(course.options.get("chapter_pack", {}).get("topics")))
         prefs = meta.get("preferences", {})
         homework = bool(prefs.get("homework_last", course.options.get("homework", True)))
         req = course_request(course, {"instructions": ctx.payload.get("instructions") or
@@ -434,6 +451,9 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         from app.services.styles import source_context
 
         context_text += source_context(spec, course.topic)
+        req["source_catalog"] = course.options.get("chapter_pack", {}).get("source_catalog", {})
+        if course.options.get("chapter_pack"):
+            context_text += "\nSAVED CHAPTER KNOWLEDGE:\n" + __import__('json').dumps(course.options["chapter_pack"])
         teacher_catalog = await teacher_image_catalog(db, user.id, course.options.get("teacher_images", []))
         image_catalog = {**(spec.get("source_images") or {}), **teacher_catalog}
         if teacher_catalog:
@@ -462,7 +482,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
                                         lecture_number=lesson.number, budgets=budgets, carry_over=carry,
                                         homework=homework, owner_id=user.id, job_id=ctx.job_id,
                                         reference_images=reference_images)
-    if meta.get("sources"):
+    if meta.get("sources") and req.get("workflow_version", 1) < 2:
         for s in deck.slides:
             if s.layout not in ("cover", "section"):
                 s.sources = [dict(src) for src in meta["sources"][:2]]
@@ -557,7 +577,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         "page_review": page_review,
         "visual": {str(k): v for k, v in (visual.issues.items() if visual else [])},
         "ai_mode": ai.mode, "content_quality": {"status": "structural_checks_passed",
-            "reference_count": reference_count(meta.get("sources", [])), "fact_check_status": "teacher_review_required"}})
+            "reference_count": reference_count(source for slide in deck.slides for source in slide.sources), "fact_check_status": "teacher_review_required"}})
     async with get_sessionmaker()() as db:
         await usage.consume(db, user.id, await usage.credit_cost("slide", len(deck.slides)), "lesson_generation",
                             str(lesson_id))

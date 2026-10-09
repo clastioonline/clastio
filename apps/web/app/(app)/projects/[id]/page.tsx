@@ -125,6 +125,7 @@ export default function ProjectPage() {
 
       {course.options?.chapter_mode === "daily" && <Alert tone="neutral" title="Prepare day by day">Teach the ready lesson, record how the class went, then prepare the next day. The chapter plan stays connected while each new lesson can respond to revision needs.</Alert>}
       {course.options?.chapter_mode === "parts" && <Alert tone="neutral" title="Prepare selected parts">Build one lesson, review its slides and request changes, then approve it to unlock the next lesson.</Alert>}
+      {course.options?.chapter_pack?.missing_material?.length > 0 && <Alert tone="warn" title="Source coverage needs review"><ul className="list-disc space-y-1 pl-5">{course.options.chapter_pack.missing_material.map((message: string, index: number) => <li key={index}>{message}</li>)}</ul></Alert>}
       {(course.options?.source_file_ids?.length || 0) > 0 && <p className="text-sm text-muted">Grounded in {course.options.source_file_ids.length} selected book / notes file(s).</p>}
       {working && <Alert tone="brand" title="Keep teaching while we prepare">This work continues in the background. You can leave this page or close the browser. <Link href="/activity" className="font-medium underline">Follow progress in Activity</Link>.</Alert>}
       {course.status === "planning" && (

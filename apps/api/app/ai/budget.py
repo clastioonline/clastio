@@ -132,6 +132,11 @@ async def reserve(*, provider, model, task, owner_id, job_id, input_bytes=0, out
 
 
 def price(rates, usage):
+    import math
+    if usage.reported_cost_usd is not None:
+        if not math.isfinite(usage.reported_cost_usd) or usage.reported_cost_usd < 0:
+            raise ValueError("Invalid provider-reported cost")
+        return Decimal(str(usage.reported_cost_usd)).quantize(Decimal("0.00000001"))
     total = sum(Decimal(str(rates[key])) * count for key, count in (
         ("input", usage.input_tokens), ("output", usage.output_tokens),
         ("cached", usage.cached_tokens), ("cache_write", usage.cache_write_tokens))) / 1000000

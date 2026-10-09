@@ -62,6 +62,7 @@ const MENU: Item[] = [
   { href: "/lessons", key: "nav.lessons", label: "Library", icon: NotebookPen },
   { href: "/calendar", key: "nav.calendar", label: "Calendar", icon: CalendarDays },
   { href: "/curriculum", key: "nav.curriculum", label: "Classes", icon: GraduationCap },
+  { href: "/books", key: "nav.books", label: "Books & notes", icon: FileText },
   { href: "/templates", key: "nav.templates", label: "My designs", icon: Palette },
   { href: "/media", key: "nav.media", label: "Media studio", icon: ImagePlay },
   { href: "/teacher-memory", key: "nav.memory", label: "Teacher memory", icon: Brain },

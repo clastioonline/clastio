@@ -42,6 +42,9 @@ function NewCourse() {
     homework: true,
     chapter_mode: "daily",
     source_file_ids: [] as string[],
+    source_page_ranges: {} as Record<string, [number, number]>,
+    flexible_slides: true,
+    research_enabled: true,
     teacher_images: [] as TeacherImage[],
     previous_taught: "",
     revision_needed: "",
@@ -105,7 +108,7 @@ function NewCourse() {
     const c = classes?.items?.find((x: any) => x.id === id);
     setForm((f) => ({ ...f, class_section_id: id, ...(c ? { grade: c.grade, subject: c.subject } : {}) }));
   };
-  const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? form.slides_per_lecture * creditInfo.costs.slide : 0) : null;
+  const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? (form.flexible_slides ? Math.min(30, form.slides_per_lecture + 3) : form.slides_per_lecture) * creditInfo.costs.slide : 0) : null;
 
   const submit = async () => {
     setBusy(true);
@@ -138,7 +141,8 @@ function NewCourse() {
       <PageHeader eyebrow="New chapter" title="What chapter are you teaching?" subtitle="The planner builds a connected sequence: each lesson introduces new ideas and revisits earlier ones." />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="min-w-0 space-y-6">
-          <ChapterSources value={form.source_file_ids} onChange={(ids) => set("source_file_ids", ids)} onBlocked={setSourcesBlocked} />
+          <ChapterSources value={form.source_file_ids} pageRanges={form.source_page_ranges} onPagesChange={(ranges) => set("source_page_ranges", ranges)} onChange={(ids) => { setForm((current) => ({...current, source_file_ids: ids, source_page_ranges: Object.fromEntries(Object.entries(current.source_page_ranges).filter(([id]) => ids.includes(id)))})); }} onBlocked={setSourcesBlocked} />
+          <Card className="space-y-3 p-5"><Toggle checked={form.flexible_slides} onChange={(value) => set("flexible_slides", value)} label="Allow up to 3 more or fewer slides" description="Fit the teaching content to the lesson. Credits are reserved for the maximum and charged for the actual slides." /><Toggle checked={form.research_enabled} onChange={(value) => set("research_enabled", value)} label="Research when no book material is available" description="Research is saved with the chapter and reused across its lessons." /></Card>
           <TeacherImages value={form.teacher_images} onChange={(images) => set("teacher_images", images)} onBlocked={setImagesBlocked} />
           <Card className="p-5 sm:p-6">
             <div className="space-y-5">
@@ -278,7 +282,7 @@ function NewCourse() {
               <li>• Lesson plans with differentiation (EAL, SEND, stretch)</li>
               <li>• Activities, checks for understanding{form.homework ? " and homework" : ""}</li>
             </ul>
-            <div className="mt-3 text-xs text-muted">{estimate === null ? "Loading credit estimate…" : `About ${estimate} credits`}
+            <div className="mt-3 text-xs text-muted">{estimate === null ? "Loading credit estimate…" : `Reserve up to ${estimate} credits; charge only generated slides`}
               {creditInfo && <p className="mt-1">{creditInfo.remaining === null ? "Unlimited plan credits" : `${creditInfo.remaining} credits available`} · Resets {new Date(creditInfo.reset_at).toLocaleDateString()}</p>}</div>
             {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
             <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || !form.grade || !form.subject || sourcesBlocked || imagesBlocked}>

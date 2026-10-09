@@ -30,7 +30,13 @@ class CompatibleProvider(OpenAIProvider):
         usage = super()._usage(response)
         if self.name == "perplexity":
             # Search/request charges are additional to tokens; preserve the approved ceiling.
-            usage.reported = False
+            import math
+            cost = getattr(getattr(response, "usage", None), "cost", None)
+            total = cost.get("total_cost") if isinstance(cost, dict) else getattr(cost, "total_cost", None)
+            if isinstance(total, (int, float)) and math.isfinite(total) and total >= 0:
+                usage.reported_cost_usd = float(total)
+            else:
+                usage.reported = False
         return usage
 
     async def generate_text(self, model: str, req: AIRequest) -> TextResult:

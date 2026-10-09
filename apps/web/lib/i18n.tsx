@@ -12,6 +12,7 @@ const ar: Dict = {
   "nav.lessons": "الدروس والمستندات",
   "nav.calendar": "التقويم والجدول",
   "nav.curriculum": "الصفوف والمنهج",
+  "nav.books": "الكتب والملاحظات",
   "nav.templates": "قوالب التصميم",
   "nav.media": "استوديو الوسائط",
   "nav.memory": "ذاكرة المعلم",

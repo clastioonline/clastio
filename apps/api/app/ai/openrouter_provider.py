@@ -49,7 +49,7 @@ class OpenRouterProvider(OpenAIProvider):
         if model.startswith("anthropic/") and req.system:
             messages[0]["content"] = [{"type": "text", "text": req.system,
                                        "cache_control": {"type": "ephemeral"}}]
-        extra: dict[str, Any] = {"provider": {"require_parameters": True}}
+        extra: dict[str, Any] = {"provider": {"require_parameters": True}, "usage": {"include": True}}
         if model.startswith(("openai/gpt-5", "google/gemini-3", "anthropic/claude-sonnet-4")):
             extra["reasoning"] = {"effort": req.effort}
         return {"model": model, "messages": messages, "max_tokens": req.max_tokens, "extra_body": extra}
@@ -59,6 +59,11 @@ class OpenRouterProvider(OpenAIProvider):
         usage = OpenAIProvider._usage(resp)
         details = getattr(getattr(resp, "usage", None), "prompt_tokens_details", None)
         written = getattr(details, "cache_write_tokens", 0) or 0
+        import math
+        cost = getattr(getattr(resp, "usage", None), "cost", None)
+        if isinstance(cost, (int, float)) and math.isfinite(cost) and cost >= 0:
+            usage.reported_cost_usd = float(cost)
+            usage.reported = True
         usage.cache_write_tokens = written
         usage.input_tokens = max(0, usage.input_tokens - written)
         return usage
@@ -76,8 +81,23 @@ class OpenRouterProvider(OpenAIProvider):
         response = await super()._call(**params)
         # Search can carry request fees that cannot be priced from token counts.
         if not params.get("stream") and str(params.get("model", "")).startswith("perplexity/"):
-            response.usage = None
+            if self._usage(response).reported_cost_usd is None:
+                response.usage = None
         return response
+
+    async def generate_text(self, model: str, req: AIRequest):
+        from urllib.parse import urlsplit
+
+        from app.ai.base import TextResult
+
+        response = await self._call(**self._params(model, req))
+        answer = self._check(response)
+        if model.startswith("perplexity/"):
+            links = [url for url in (getattr(response, "citations", None) or [])
+                     if isinstance(url, str) and urlsplit(url).scheme == "https"]
+            if links:
+                answer += "\n\nSources:\n" + "\n".join(links[:10])
+        return TextResult(answer, self._usage(response), model, self.name)
 
     async def stream_text(self, model: str, req: AIRequest, usage_out: Usage) -> AsyncIterator[str]:
         stream = await self._call(**(self._params(model, req) | {

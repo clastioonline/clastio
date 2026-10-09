@@ -18,7 +18,7 @@ from app.models import (
 )
 
 LABELS = {
-    "style_analysis": "Learn your presentation style", "source_indexing": "Read reference material",
+    "style_analysis": "Learn your presentation style", "source_indexing": "Read reference material", "book_import": "Save book PDF",
     "course_plan": "Plan your lessons", "lesson_generation": "Build lesson slides",
     "slide_regeneration": "Update a slide", "lesson_render": "Rebuild presentation",
     "document_generation": "Create a worksheet or quiz", "media_generation": "Create lesson media",
@@ -36,6 +36,8 @@ async def summaries(db: AsyncSession, jobs: list[GenerationJob]) -> list[dict]:
     out = []
     for j in jobs:
         title, href = LABELS.get(j.type, "Background task"), "/activity"
+        if j.type == "book_import":
+            title, href = j.payload.get("title") or title, "/books"
         for field, group in objects.items():
             obj = group.get(j.payload.get(field))
             if not obj or obj.owner_id != j.owner_id:

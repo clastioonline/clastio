@@ -167,3 +167,25 @@ async def admin_push_campaign(ctx: JobContext) -> dict[str, Any]:
     from app.services.push_campaigns import handle_campaign
 
     return await handle_campaign(ctx)
+
+
+@handler("book_import", queue="docs")
+async def book_import(ctx: JobContext) -> dict[str, Any]:
+    from app.core.config import get_settings
+    from app.core.db import get_sessionmaker
+    from app.jobs.queue import PermanentJobError
+    from app.models import User
+    from app.services.book_library import import_pdf
+
+    await ctx.progress(10, "Saving the book PDF")
+    async with get_sessionmaker()() as db:
+        user = await db.get(User, ctx.owner_id)
+        if not user or user.status != "active":
+            raise PermanentJobError("This account is no longer available.")
+        from app.api.routes.content import upload_limit_mb
+        cap = min(get_settings().max_upload_mb, await upload_limit_mb(db, user))*1024*1024
+        body = ctx.payload
+        book, _ = await import_pdf(db, user, url=body['url'], title=body['title'],
+            metadata={key:body[key] for key in ['grade','subject','curriculum','edition','language']},
+            rights_confirmed=body['rights_confirmed'], max_bytes=cap)
+        return {'file_id':str(book.id), 'filename':book.filename}

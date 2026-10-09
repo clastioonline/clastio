@@ -65,6 +65,8 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
         f = await s.get(UploadedFile, file_id)
         if f is None:
             raise ValueError("source not found")
+        if f.status == "ready" and (await s.execute(select(SourceChunk.id).where(SourceChunk.file_id == file_id).limit(1))).first():
+            return {"cached": True}
         f.status, f.stage = "processing", "Reading document"
         await s.commit()
         owner_id, key = f.owner_id, f.storage_key
@@ -74,6 +76,15 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
         from app.services.styles import convert_ppt_to_pptx
         data = await asyncio.to_thread(convert_ppt_to_pptx, data)
         ext = "pptx"
+    total_pages, chapters = None, []
+    if ext == "pdf":
+        with fitz.open(stream=data, filetype="pdf") as document:
+            total_pages = len(document)
+            toc = document.get_toc()
+            for index, (level, title, start) in enumerate(toc):
+                if level == 1 and start > 0:
+                    following = next((page for depth, _, page in toc[index + 1:] if depth == 1 and page > start), total_pages + 1)
+                    chapters.append({"title": title, "start": start, "end": following - 1})
     pages = await asyncio.to_thread(extract_pages, data, ext)
     native_page_numbers = {number for number, _ in pages}
     if ext == "pdf":
@@ -90,8 +101,8 @@ async def index_source(file_id: uuid.UUID) -> dict[str, Any]:
         for (page, text), vec in zip(chunks, vectors, strict=False):
             s.add(SourceChunk(file_id=file_id, owner_id=owner_id, page=page, text=text, embedding=vec))
         f = await s.get(UploadedFile, file_id)
-        f.status, f.stage, f.page_count = "ready", "Ready", len({c[0] for c in chunks})
-        f.meta = {**(f.meta or {}), "ai_transcribed_pages": [number for number, _ in pages if number not in native_page_numbers]}
+        f.status, f.stage, f.page_count = "ready", "Ready", total_pages or len({c[0] for c in chunks})
+        f.meta = {**(f.meta or {}), "chapters": (f.meta or {}).get("chapters") or chapters, "ai_transcribed_pages": [number for number, _ in pages if number not in native_page_numbers]}
         await s.commit()
     return {"chunks": len(chunks)}
 

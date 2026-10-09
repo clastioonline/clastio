@@ -54,6 +54,7 @@ class Usage:
     reported: bool = True
     images: int = 0
     video_seconds: int = 0
+    reported_cost_usd: float | None = None
 
 
 @dataclass

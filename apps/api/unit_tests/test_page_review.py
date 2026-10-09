@@ -32,7 +32,8 @@ async def test_review_preserves_images_and_teacher_edits_and_ignores_invalid_num
     assert [r['slide'] for r in result] == [2]
     assert lesson.slides[1].visual.kind == 'image'
     assert lesson.slides[1].asset_id == 'existing-photo'
-    assert len(ai.structured.call_args.kwargs['images']) == len(lesson.slides)
+    assert ai.structured.await_count == (len(lesson.slides) + 3) // 4
+    assert all(len(call.kwargs['images']) <= 4 for call in ai.structured.call_args_list)
     assert repair.await_count == 1
 
 

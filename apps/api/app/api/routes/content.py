@@ -176,6 +176,71 @@ async def delete_upload(file_id: uuid.UUID, user: CurrentUser, db: DB):
     return {"ok": True}
 
 
+# --------------------------------------------------------------------------- reusable textbook library
+
+class BookImport(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+    title: str = Field(min_length=1, max_length=200)
+    grade: str = Field(default="", max_length=30)
+    subject: str = Field(default="", max_length=100)
+    curriculum: str = Field(default="", max_length=100)
+    edition: str = Field(default="", max_length=100)
+    language: str = Field(default="en", max_length=20)
+    rights_confirmed: bool = False
+
+
+@router.get("/books")
+async def list_books(user: CurrentUser, db: DB):
+    from app.services.book_library import book_out
+    rows = (await db.execute(select(UploadedFile).where(UploadedFile.owner_id == user.id,
+        UploadedFile.kind == "source").order_by(UploadedFile.created_at.desc()))).scalars().all()
+    return {"items": [book_out(book) for book in rows]}
+
+
+@router.post("/books/import", dependencies=[Depends(rate_limit("book_import", 10, 3600))])
+async def import_book(body: BookImport, user: CurrentUser, db: DB):
+    from app.core.remote_images import validate_public_image_url
+    if not body.rights_confirmed:
+        raise AppError("rights_required", "Confirm that you may use this PDF for teaching.", 400)
+    try:
+        await validate_public_image_url(body.url)
+    except ValueError as exc:
+        raise AppError("invalid_book_url", str(exc), 400) from exc
+    await usage.check_storage(db, user, 0)
+    job = await enqueue(db, "book_import", body.model_dump(), owner_id=user.id, dedupe=True, max_attempts=1)
+    await db.commit()
+    return {"job_id": str(job.id)}
+
+
+class BookDiscovery(BaseModel):
+    query: str = Field(min_length=5, max_length=500)
+
+
+@router.post("/books/discover", dependencies=[Depends(rate_limit("book_search", 10, 3600))])
+async def discover_books(body: BookDiscovery, user: CurrentUser, db: DB):
+    from app.services.book_library import discover
+    return await discover(db, user, body.query)
+
+
+class BookPages(BaseModel):
+    start: int = Field(ge=1)
+    end: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/books/{file_id}/chapters")
+async def add_book_chapter(file_id: uuid.UUID, body: BookPages, user: CurrentUser, db: DB):
+    from app.services.book_library import book_out, owned_book
+    book = await owned_book(db, user, file_id)
+    if body.end < body.start or body.end - body.start >= 80 or body.end > (book.page_count or 0):
+        raise AppError("invalid_pages", "Choose a valid chapter range of up to 80 PDF pages.", 400)
+    chapters = (book.meta or {}).get("chapters", [])
+    entry = body.model_dump()
+    book.meta = {**(book.meta or {}), "chapters": [c for c in chapters if c.get("title") != body.title] + [entry]}
+    await db.commit()
+    return {"book": book_out(book)}
+
+
 # --------------------------------------------------------------------------- templates
 
 
@@ -369,6 +434,9 @@ class CourseIn(BaseModel):
     outcomes: list[dict[str, Any]] = []
     instructions: str | None = Field(None, max_length=2000)
     source_file_ids: list[uuid.UUID] = Field(default_factory=list, max_length=10)
+    source_page_ranges: dict[str, list[int]] = Field(default_factory=dict, max_length=10)
+    flexible_slides: bool = True
+    research_enabled: bool = True
     teacher_images: list[TeacherImageIn] = Field(default_factory=list, max_length=5)
     chapter_mode: Literal["complete", "parts", "daily"] = "complete"
     previous_taught: str | None = Field(None, max_length=2000)

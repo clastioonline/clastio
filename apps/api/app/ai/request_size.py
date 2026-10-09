@@ -9,7 +9,7 @@ from PIL import Image, ImageOps
 from app.ai.base import AIRequest, ImageInput
 from app.ai.budget import BudgetError, BudgetPolicy
 
-PPT_TASKS = {'course_plan', 'lesson_outline', 'lesson_deck', 'slide_rewrite', 'lesson_page_review'}
+PPT_TASKS = {'course_plan', 'lesson_outline', 'lesson_deck', 'slide_rewrite', 'lesson_page_review', 'lesson_teaching', 'lesson_deck_batch', 'chapter_knowledge'}
 
 
 def fit_ppt_request(req: AIRequest, policy: BudgetPolicy, text_bytes: int) -> AIRequest:

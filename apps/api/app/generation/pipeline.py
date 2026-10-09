@@ -57,6 +57,9 @@ def clip_words(text: str, n: int) -> str:
 async def plan_course(ai: AIService, req: dict[str, Any], context_text: str, *, owner_id: uuid.UUID | None = None,
                       job_id: uuid.UUID | None = None, reference_images: list[ImageInput] | None = None) -> CoursePlan:
     prompt = prompts.course_prompt(req, context_text)
+    if req.get("chapter_topics"):
+        prompt += "\nAssign every supplied chapter topic title verbatim to exactly one lecture key_concepts entry. " \
+                  "Distribute all topics in prerequisite order, without dropping any from the sequence."
     plan = await ai.structured(task="course_plan", tier="planning", system=prompts.COURSE_SYSTEM, prompt=prompt,
                                schema=CoursePlan, effort="medium", owner_id=owner_id, job_id=job_id,
                                offline_context=req, prompt_version=prompts.PROMPT_VERSION, images=reference_images, cache=True)
@@ -85,6 +88,10 @@ def course_structure_issues(plan: CoursePlan, req: dict[str, Any]) -> list[str]:
     for lecture in plan.lectures:
         if not lecture.title.strip() or not any(value.strip() for value in lecture.objectives) or not any(value.strip() for value in lecture.success_criteria):
             issues.append(f"Lecture {lecture.number} needs a title, assessable objectives and success criteria.")
+    covered = {concept.strip().casefold() for lecture in plan.lectures for concept in lecture.key_concepts}
+    for topic in req.get("chapter_topics", []):
+        if topic.strip().casefold() not in covered:
+            issues.append(f"Assign the chapter topic {topic!r} to a lecture key_concepts entry.")
     return issues
 
 
@@ -169,6 +176,11 @@ async def generate_deck(ai: AIService, *, req: dict[str, Any], context_text: str
                         lecture_number: int, budgets: dict[str, Any], carry_over: str | None = None,
                         homework: bool = True, owner_id: uuid.UUID | None = None,
                         job_id: uuid.UUID | None = None, reference_images: list[ImageInput] | None = None) -> LessonDeck:
+    if ai.mode == "live" and req.get("workflow_version", 1) >= 2:
+        from app.generation.lesson_workflow import generate
+        return await generate(ai, req=req, context_text=context_text, course=course,
+            lecture_number=lecture_number, budgets=budgets, carry_over=carry_over,
+            homework=homework, owner_id=owner_id, job_id=job_id, reference_images=reference_images)
     lecture = course.lectures[lecture_number - 1]
     previous = [lec.model_dump() for lec in course.lectures[: lecture_number - 1]]
     prompt = prompts.deck_prompt(req=req, context_text=context_text, course=course.model_dump(),
@@ -385,7 +397,9 @@ def assert_publishable(deck: LessonDeck) -> None:
 
 
 def enforce_budgets(slide: SlideSpec, budgets: dict[str, Any], strict: bool = False) -> SlideSpec:
-    """Deterministic last-resort trimming so the slide fits. `strict` trims harder (after overflow)."""
+    """Preserve teaching content normally; trimming is a last resort after failed overflow repair."""
+    if not strict:
+        return slide
     f = 0.75 if strict else 1.0
     bw = max(5, int(budgets["bullet_max_words"] * f))
     maxb = budgets["bullets_max"] - (1 if strict else 0)
@@ -454,7 +468,7 @@ async def pre_render_qc(ai: AIService, deck: LessonDeck, budgets: dict[str, Any]
         by_slide.setdefault(i.number, []).append(i)
     for num, its in by_slide.items():
         slide = deck.slides[num - 1]
-        needs_ai = any(i.code in ("duplicate_title", "style", "bad_quiz", "missing_steps", "missing_columns",
+        needs_ai = any(i.code in ("duplicate_title", "style", "bad_quiz", "missing_steps", "missing_columns", "long_title", "long_bullet", "too_many_bullets",
                                   "missing_table", "empty_title", "empty_content", "empty_vocabulary", "missing_chart", "counting_groups", "sparse_explanation") for i in its)
         if needs_ai and ai.mode == "live":
             try:

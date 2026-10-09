@@ -14,7 +14,7 @@ from app.services import courses, styles
 def env(monkeypatch):
     user = SimpleNamespace(id=uuid.uuid4())
     course = SimpleNamespace(id=uuid.uuid4(), plan={"lectures": [1]}, slides_per_lecture=10,
-                             project_id=uuid.uuid4(), status="planned")
+                             project_id=uuid.uuid4(), status="planned", options={})
     lessons = [SimpleNamespace(id=uuid.uuid4(), number=n, status="planned", pptx_key=None,
                                version=0, qc_report={}, error=None) for n in range(1, 7)]
     db = AsyncMock()
