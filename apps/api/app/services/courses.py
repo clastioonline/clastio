@@ -466,6 +466,9 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         for entry in teacher_catalog.values():
             image_data = await storage.get(entry["storage_key"])
             reference_images.append(ImageInput(data=image_data, media_type="image/png" if image_data.startswith(b"\x89PNG") else "image/jpeg"))
+        if spec.get('preserve_slots'):
+            req['instructions'] = (req.get('instructions') or '') + '\nUse concise complete content for these fixed template slots; text sizes and shapes cannot change: '+__import__('json').dumps(spec['template_slots'])
+            req['template_slots'] = spec['template_slots']
         budgets = compute_budgets(spec)
         if prefs.get("words_per_bullet"):
             try:
@@ -478,10 +481,16 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
         ai_image_allowance = int(plan_limits.limits.get("ai_images", 0) or 0)
 
     await ctx.progress(15, f"Writing lesson {lesson.number}: plan and slides")
-    deck = await pipeline.generate_deck(ai, req=req, context_text=context_text, course=plan,
-                                        lecture_number=lesson.number, budgets=budgets, carry_over=carry,
-                                        homework=homework, owner_id=user.id, job_id=ctx.job_id,
-                                        reference_images=reference_images)
+    from app.ai.service import template_content_model
+    from app.core.config import get_settings
+    token = template_content_model.set(get_settings().model_template_content if spec.get('preserve_slots') else None)
+    try:
+        deck = await pipeline.generate_deck(ai, req=req, context_text=context_text, course=plan,
+                                            lecture_number=lesson.number, budgets=budgets, carry_over=carry,
+                                            homework=homework, owner_id=user.id, job_id=ctx.job_id,
+                                            reference_images=reference_images)
+    finally:
+        template_content_model.reset(token)
     if meta.get("sources") and req.get("workflow_version", 1) < 2:
         for s in deck.slides:
             if s.layout not in ("cover", "section"):
@@ -489,6 +498,17 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
     await ctx.progress(45, "Checking content quality")
     content_fixes = await pipeline.pre_render_qc(ai, deck, budgets, context_text=context_text, grade=course.grade,
                                                  owner_id=user.id, job_id=ctx.job_id)
+    if spec.get('preserve_slots'):
+        from app.engine.render.vendor.presenton import repeated_child_source_index
+        pages = spec['template_slots']
+        body_pages = [page for page in pages if any(slot['role'] == 'body' for slot in page['slots'])]
+        for index, slide in enumerate(deck.slides):
+            page = pages[0] if index == 0 else body_pages[repeated_child_source_index(index-1,
+                template_count=len(body_pages),content_count=len(deck.slides)-1,center_when_reduced=False)]
+            slide.template_image_slot = any(slot['role'] == 'image' for slot in page['slots'])
+            if slide.template_image_slot and slide.visual.kind == 'none':
+                slide.visual.kind = 'image'
+                slide.visual.image_query = slide.title+' '+course.subject
     await ctx.progress(55, "Finding images")
     async with get_sessionmaker()() as db:
         used_images = await usage.used(db, user.id, "ai_images", usage.period_start(None))

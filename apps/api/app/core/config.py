@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     # Model routing: "<provider>:<model>". Admins can override at runtime (app_settings table).
     model_planning: str = "anthropic:claude-sonnet-4-6"
     model_content: str = "openai:gpt-4o-mini"
+    model_template_content: str = "openrouter:openai/gpt-4o-mini"
     model_fast: str = "groq:llama-3.3-70b-versatile"
     model_vision: str = "gemini:gemini-3.5-flash"
     model_qc: str = "anthropic:claude-haiku-4-5"

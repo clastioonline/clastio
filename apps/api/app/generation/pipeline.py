@@ -510,6 +510,8 @@ async def render_with_qc(ai: AIService, *, base_pptx: bytes, template_spec: dict
         reports = [r.to_dict() for r in renderer.reports]
         failing = [r["number"] for r in reports if r["overflow"]]
         if not failing or round_no == max_rounds:
+            if failing and template_spec.get("preserve_slots"):
+                raise ContentQualityError("Content does not fit the original template at its original font sizes. Use shorter content or larger template placeholders.")
             if failing:  # final deterministic squeeze
                 for n in failing:
                     deck.slides[n - 1] = enforce_budgets(deck.slides[n - 1], budgets, strict=True)

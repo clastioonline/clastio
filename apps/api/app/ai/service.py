@@ -10,6 +10,7 @@ import time
 import uuid
 from collections import OrderedDict
 from collections.abc import AsyncIterator
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -39,6 +40,8 @@ from app.ai.pricing import cost_usd
 from app.core.config import get_settings
 from app.core.db import get_sessionmaker
 from app.core.logging import log
+
+template_content_model: ContextVar[str | None] = ContextVar("template_content_model", default=None)
 
 logger = logging.getLogger("ai")
 
@@ -185,6 +188,8 @@ class AIService:
                     self.breaker.open_until[row.provider] = row.open_until.timestamp()
 
     def _configured(self, tier: Tier, overrides: dict[str, Any]) -> str:
+        if tier == "content" and template_content_model.get():
+            return template_content_model.get()
         routing = overrides.get("model_routing") or {}
         if tier in routing:
             return routing[tier]

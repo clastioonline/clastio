@@ -261,6 +261,7 @@ class SlideSpec(BaseModel):
     language: str = "en"
     # Filled by the pipeline (not by the model)
     asset_id: str | None = None
+    template_image_slot: bool = False
     sources: list[dict] = Field(default_factory=list)
     manual_objects: dict[str, ManualObjectEdit] = Field(default_factory=dict, max_length=150)
 

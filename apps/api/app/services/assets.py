@@ -194,7 +194,7 @@ async def resolve_images(db: AsyncSession, *, owner_id: uuid.UUID, slides: list[
                     slide.asset_id = None
     counters = {"reused": 0, "openverse": 0, "ai": 0, "placeholder": 0}
     ai_attempts = 0
-    wanted = [s for s in slides if s.visual.kind in ("image", "diagram") and s.layout in ("image_text", "concept")
+    wanted = [s for s in slides if s.visual.kind in ("image", "diagram") and (s.layout in ("image_text", "concept") or s.template_image_slot)
               and not s.asset_id and not s.visual.counting_groups]
     async with httpx.AsyncClient(headers={"User-Agent": "AI-Teacher-Assistant/1.0"}) as client:
         for s in wanted:

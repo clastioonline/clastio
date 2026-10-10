@@ -17,7 +17,7 @@ from app.core.config import get_settings
 
 OPENROUTER_MODELS = {
     "planning": "anthropic/claude-sonnet-4.6",
-    "content": "openai/gpt-5.4-mini",
+    "content": "openai/gpt-4o-mini",
     "fast": "google/gemini-3.5-flash-lite",
     "qc": "openai/gpt-5.4-mini",
     "vision": "google/gemini-3.5-flash",

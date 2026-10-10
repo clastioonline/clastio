@@ -562,6 +562,63 @@ async def create_course(data: CourseIn, user: CurrentUser, db: DB):
     return {"course": course_out(course), "job_id": str(job_id)}
 
 
+@router.post('/courses/from-template', dependencies=[Depends(rate_limit('create_course', 30, 3600))])
+async def create_course_from_template(user: CurrentUser, db: DB, file: UploadFile = File(...),
+                                      payload: str = Form(...)):
+    """Accept the original PPTX and teaching brief together; reuse the normal queued course flow."""
+    import tempfile
+    from pathlib import Path
+
+    from pydantic import ValidationError
+
+    from app.engine.render.template_injection import manifest
+    from app.engine.style.pptx_analyzer import analyze_pptx
+    from app.engine.template.builder import build_native
+    from app.services.uploads import PPTX_MIME, detect
+
+    try:
+        data = CourseIn.model_validate_json(payload)
+    except ValidationError as exc:
+        raise AppError('invalid_course', 'Check the chapter, grade, subject and lesson settings.', 422) from exc
+    if not (file.filename or '').lower().endswith('.pptx'):
+        raise AppError('invalid_template', 'Upload a .pptx template.', 400)
+    original = await read_limited(file, await upload_limit_mb(db, user))
+    if detect(file.filename, original).mime != PPTX_MIME:
+        raise AppError('invalid_template', 'The file must be a valid PowerPoint PPTX.', 400)
+    try:
+        slots = await asyncio.to_thread(manifest, original)
+    except ValueError as exc:
+        raise AppError('invalid_template', str(exc), 400) from exc
+    import hashlib
+    uploaded = (await db.execute(select(UploadedFile).where(UploadedFile.owner_id == user.id,
+        UploadedFile.kind == 'style', UploadedFile.sha256 == hashlib.sha256(original).hexdigest()))).scalars().first()
+    template = (await db.execute(select(Template).where(Template.owner_id == user.id,
+        Template.base_storage_key == uploaded.storage_key, Template.mode == 'preserved'))).scalars().first() if uploaded else None
+    if not template:
+        await usage.check_count_limit(db, user, 'style_profiles')
+        await usage.check_storage(db, user, 0 if uploaded else len(original))
+        uploaded, _ = await store_upload(db, owner_id=user.id, filename=file.filename, data=original, kind='style')
+        def analyze():
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory)/'template.pptx'
+                path.write_bytes(original)
+                analysis = analyze_pptx(path)
+                _, spec = build_native(path,analysis)
+                return analysis, spec
+        analysis, spec = await asyncio.to_thread(analyze)
+        spec.update(preserve_slots=True, template_slots=slots, source_content=[])
+        profile = StyleProfile(owner_id=user.id,source_file_id=uploaded.id,name=file.filename,profile=analysis)
+        db.add(profile)
+        await db.flush()
+        template = Template(owner_id=user.id,style_profile_id=profile.id,name=file.filename,
+            mode='preserved',status='ready',base_storage_key=uploaded.storage_key,spec=spec,preview_keys=[])
+        db.add(template)
+        uploaded.status, uploaded.stage = 'ready', 'Template slots ready'
+        await db.flush()
+    data.template_id = template.id
+    return await create_course(data,user,db)
+
+
 @router.get("/projects")
 async def list_projects(user: CurrentUser, db: DB, q: str | None = None, limit: int = 50):
     query = select(Project, Course).join(Course, Course.project_id == Project.id).where(Project.owner_id == user.id)

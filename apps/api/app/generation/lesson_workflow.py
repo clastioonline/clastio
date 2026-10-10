@@ -109,7 +109,7 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
             'layout_plan': [item.model_dump() for item in planned], 'budgets': budgets,
             'image_mode': req.get('image_mode','auto'), 'outcomes': req.get('outcomes', []),
             'previous_slides': [{'number': s.number,'title':s.title} for s in slides],
-            'teacher_instructions':req.get('instructions')})
+            'teacher_instructions':req.get('instructions'), 'fixed_template_slots': req.get('template_slots')})
         for attempt in range(2):
             batch = await ai.structured(task='lesson_deck_batch', tier='content', system=prompts.DECK_SYSTEM+"\nFor this stage return SlideBatch containing only the requested slides.",
                 prompt=batch_prompt+'\nReturn only these slide numbers: '+str(expected)+

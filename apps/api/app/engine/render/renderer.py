@@ -147,7 +147,7 @@ class DeckRenderer:
         self.language = language
         self.min_pt = float(min_font_pt or self.t.get("min_pt", 16))
         self.rounded = spec.get("corner_radius", "rounded") == "rounded"
-        self.donor_count = spec.get("donor_count", 0)
+        self.donor_count = len(self.prs.slides) if spec.get("preserve_slots") else spec.get("donor_count", 0)
         self.donors = [self.prs.slides[i] for i in range(self.donor_count)]
         self.gap = int(self.W * 0.018)
         self.reports: list[SlideReport] = []
@@ -1042,6 +1042,10 @@ class DeckRenderer:
     def render(self, slides: list[SlideSpec], images: dict[str, bytes] | None = None,
                core_props: dict[str, str] | None = None) -> bytes:
         images = images or {}
+        if self.spec.get('preserve_slots'):
+            from app.engine.render.template_injection import inject
+            result, self.reports = inject(self.prs,self.spec['template_slots'],slides,images,self.spec,core_props or {})
+            return result
         for i, spec in enumerate(slides, start=1):
             self.render_slide(spec, images.get(spec.asset_id) if spec.asset_id else None, i)
         # Remove donor slides (they sit at the start of the template base).

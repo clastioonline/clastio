@@ -74,6 +74,7 @@ function NewCourse() {
   const [selected, setSelected] = useState<any[]>([]);
   const [sourcesBlocked, setSourcesBlocked] = useState(false);
   const [imagesBlocked, setImagesBlocked] = useState(false);
+  const [baseTemplate, setBaseTemplate] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,18 +115,21 @@ function NewCourse() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api<any>("/courses", {
-        idempotent: true,
-        body: {
-          ...form,
-          class_section_id: form.class_section_id || null,
-          template_id: form.template_id || null,
-          instructions: form.instructions || null,
-          previous_taught: form.previous_taught || null,
-          revision_needed: form.revision_needed || null,
-          outcomes: selected.map((o) => ({ code: o.code, text: o.text })),
-        },
-      });
+      const payload = {
+        ...form, class_section_id: form.class_section_id || null, template_id: form.template_id || null,
+        instructions: form.instructions || null, previous_taught: form.previous_taught || null,
+        revision_needed: form.revision_needed || null,
+        outcomes: selected.map((o) => ({code:o.code,text:o.text})),
+      };
+      let r;
+      if (baseTemplate) {
+        const upload = new FormData();
+        upload.append("file",baseTemplate);
+        upload.append("payload",JSON.stringify(payload));
+        r = await api<any>("/courses/from-template",{form:upload});
+      } else {
+        r = await api<any>("/courses",{idempotent:true,body:payload});
+      }
       notify({ tone: "success", title: "Planning your lessons", body: form.auto_generate ? "We will build the first PPT. Review it before preparing the next class." : "Review the plan, then generate slides." });
       router.push(`/projects/${r.course.project_id}`);
     } catch (e: any) {
@@ -143,6 +147,12 @@ function NewCourse() {
         <div className="min-w-0 space-y-6">
           <ChapterSources value={form.source_file_ids} pageRanges={form.source_page_ranges} onPagesChange={(ranges) => set("source_page_ranges", ranges)} onChange={(ids) => { setForm((current) => ({...current, source_file_ids: ids, source_page_ranges: Object.fromEntries(Object.entries(current.source_page_ranges).filter(([id]) => ids.includes(id)))})); }} onBlocked={setSourcesBlocked} />
           <Card className="space-y-3 p-5"><Toggle checked={form.flexible_slides} onChange={(value) => set("flexible_slides", value)} label="Allow up to 3 more or fewer slides" description="Fit the teaching content to the lesson. Credits are reserved for the maximum and charged for the actual slides." /><Toggle checked={form.research_enabled} onChange={(value) => set("research_enabled", value)} label="Research when no book material is available" description="Research is saved with the chapter and reused across its lessons." /></Card>
+          <Card className="space-y-3 p-5">
+            <h2 className="font-semibold">Use your original PowerPoint template</h2>
+            <p className="text-sm text-muted">Upload a PPTX with title/body placeholders. Fonts, colours and decorative shapes stay in the original design. Text boxes may also be named clastio:title, clastio:body or clastio:subtitle; name a replaceable picture clastio:image.</p>
+            <input type="file" accept=".pptx" aria-label="Base PowerPoint template" onChange={event => setBaseTemplate(event.target.files?.[0] || null)} className="block w-full min-w-0 text-sm"/>
+            {baseTemplate && <div className="flex flex-wrap items-center gap-2"><span className="break-all text-sm">{baseTemplate.name}</span><Button size="sm" variant="outline" onClick={() => setBaseTemplate(null)}>Remove uploaded template</Button></div>}
+          </Card>
           <TeacherImages value={form.teacher_images} onChange={(images) => set("teacher_images", images)} onBlocked={setImagesBlocked} />
           <Card className="p-5 sm:p-6">
             <div className="space-y-5">

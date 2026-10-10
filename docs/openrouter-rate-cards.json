@@ -54,5 +54,13 @@
     "output": 1,
     "cached": 0,
     "cache_write": 0
+  },
+  "openrouter:openai/gpt-4o-mini": {
+    "input": 0.15,
+    "output": 0.6,
+    "cached": 0.075,
+    "cache_write": 0,
+    "ceiling_usd": 0.1,
+    "source": "https://openrouter.ai/openai/gpt-4o-mini (verified 2026-10-10)"
   }
 }
