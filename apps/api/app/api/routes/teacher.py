@@ -12,6 +12,7 @@ from sqlalchemy import delete, select
 
 from app.core.deps import DB, CurrentUser
 from app.core.errors import AppError, NotFound
+from app.generation.educator_specs import EducationStage, Framework, TeacherPlanningPreferences
 from app.models import (
     AIUsage,
     CalendarEvent,
@@ -49,6 +50,9 @@ class ProfileIn(BaseModel):
     timezone: str | None = None
     preferences: dict[str, Any] | None = None
     metadata_policy: dict[str, Any] | None = None
+    regulatory_authority: Framework | None = None
+    education_stages: list[EducationStage] | None = Field(default=None, max_length=4)
+    planning_preferences: TeacherPlanningPreferences | None = None
 
 
 def profile_out(u: User, tp: TeacherProfile | None) -> dict[str, Any]:
@@ -60,6 +64,9 @@ def profile_out(u: User, tp: TeacherProfile | None) -> dict[str, Any]:
             "class_duration_minutes": tp.class_duration_minutes if tp else 45,
             "classes_per_day": tp.classes_per_day if tp else 5, "working_days": tp.working_days if tp else [0, 1, 2, 3, 4],
             "teaching_style": tp.teaching_style if tp else None,
+            "regulatory_authority": getattr(tp, "regulatory_authority", "not_specified"),
+            "education_stages": getattr(tp, "education_stages", []) or [],
+            "planning_preferences": getattr(tp, "planning_preferences", {}) or {},
             "onboarding_completed": tp.onboarding_completed if tp else False,
             "default_template_id": str(tp.default_template_id) if tp and tp.default_template_id else None,
             "metadata_policy": (tp.metadata_policy if tp else {}) or {"include_author": True, "ai_disclosure": False}}
@@ -86,9 +93,12 @@ async def update_profile(data: ProfileIn, user: CurrentUser, db: DB):
         if (v := getattr(data, field)) is not None:
             setattr(user, field, v)
     for field in ("country", "region", "school_name", "curriculum", "subjects", "grades", "teaching_languages",
-                  "class_duration_minutes", "classes_per_day", "working_days", "teaching_style", "metadata_policy"):
+                  "class_duration_minutes", "classes_per_day", "working_days", "teaching_style", "metadata_policy",
+                  "regulatory_authority", "education_stages"):
         if (v := getattr(data, field)) is not None:
             setattr(tp, field, v)
+    if data.planning_preferences is not None:
+        tp.planning_preferences = data.planning_preferences.model_dump(mode="json")
     for key, value in (data.preferences or {}).items():
         await memory_svc.set_preference(db, user.id, key, value, source="stated")
     await db.commit()

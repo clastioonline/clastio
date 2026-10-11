@@ -1,0 +1,1862 @@
+{
+  "$defs": {
+    "Bullet": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "level": {
+          "default": 0,
+          "title": "Level",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "Bullet",
+      "type": "object"
+    },
+    "ChartData": {
+      "properties": {
+        "kind": {
+          "default": "bar",
+          "enum": [
+            "bar",
+            "line",
+            "pie"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "categories": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Categories",
+          "type": "array"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/ChartSeries"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Series",
+          "type": "array"
+        },
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "source": {
+          "description": "Source of the data; label classroom/example data explicitly",
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "categories",
+        "series",
+        "source"
+      ],
+      "title": "ChartData",
+      "type": "object"
+    },
+    "ChartSeries": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "title": "ChartSeries",
+      "type": "object"
+    },
+    "Column": {
+      "properties": {
+        "heading": {
+          "title": "Heading",
+          "type": "string"
+        },
+        "bullets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Bullets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "heading",
+        "bullets"
+      ],
+      "title": "Column",
+      "type": "object"
+    },
+    "ContextConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "relevant": {
+          "title": "Relevant",
+          "type": "boolean"
+        },
+        "connection_or_reason": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Connection Or Reason",
+          "type": "string"
+        },
+        "classroom_application": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Classroom Application",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relevant",
+        "connection_or_reason",
+        "classroom_application"
+      ],
+      "title": "ContextConnection",
+      "type": "object"
+    },
+    "CountingGroup": {
+      "properties": {
+        "count": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "color": {
+          "enum": [
+            "red",
+            "green",
+            "blue",
+            "black",
+            "white"
+          ],
+          "title": "Color",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "label",
+        "color"
+      ],
+      "title": "CountingGroup",
+      "type": "object"
+    },
+    "CrossCurricularLink": {
+      "additionalProperties": false,
+      "properties": {
+        "subject": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "activity": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Activity",
+          "type": "string"
+        },
+        "evidence_of_learning": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Evidence Of Learning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "activity",
+        "evidence_of_learning"
+      ],
+      "title": "CrossCurricularLink",
+      "type": "object"
+    },
+    "DemoHook": {
+      "additionalProperties": false,
+      "properties": {
+        "teacher_says": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teacher Says",
+          "type": "string"
+        },
+        "learner_interaction": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Learner Interaction",
+          "type": "string"
+        },
+        "materials": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Materials",
+          "type": "array"
+        }
+      },
+      "required": [
+        "teacher_says",
+        "learner_interaction",
+        "materials"
+      ],
+      "title": "DemoHook",
+      "type": "object"
+    },
+    "DemoScriptStep": {
+      "additionalProperties": false,
+      "properties": {
+        "order": {
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Order",
+          "type": "integer"
+        },
+        "start_seconds": {
+          "exclusiveMaximum": 900,
+          "minimum": 0,
+          "title": "Start Seconds",
+          "type": "integer"
+        },
+        "end_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 900,
+          "title": "End Seconds",
+          "type": "integer"
+        },
+        "slide_numbers": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Slide Numbers",
+          "type": "array"
+        },
+        "teacher_says": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teacher Says",
+          "type": "string"
+        },
+        "teacher_does": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teacher Does",
+          "type": "string"
+        },
+        "expected_student_response": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Expected Student Response",
+          "type": "string"
+        },
+        "formative_check": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Formative Check",
+          "type": "string"
+        },
+        "transition": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Transition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "order",
+        "start_seconds",
+        "end_seconds",
+        "slide_numbers",
+        "teacher_says",
+        "teacher_does",
+        "expected_student_response",
+        "formative_check",
+        "transition"
+      ],
+      "title": "DemoScriptStep",
+      "type": "object"
+    },
+    "Differentiation": {
+      "properties": {
+        "support": {
+          "title": "Support",
+          "type": "string"
+        },
+        "core": {
+          "title": "Core",
+          "type": "string"
+        },
+        "extension": {
+          "title": "Extension",
+          "type": "string"
+        },
+        "eal": {
+          "description": "English-as-additional-language scaffolds",
+          "title": "Eal",
+          "type": "string"
+        },
+        "send": {
+          "description": "Adaptations for students of determination",
+          "title": "Send",
+          "type": "string"
+        }
+      },
+      "required": [
+        "support",
+        "core",
+        "extension",
+        "eal",
+        "send"
+      ],
+      "title": "Differentiation",
+      "type": "object"
+    },
+    "FormativeAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "tool": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Tool",
+          "type": "string"
+        },
+        "question_or_task": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Question Or Task",
+          "type": "string"
+        },
+        "expected_response": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Expected Response",
+          "type": "string"
+        },
+        "evidence_to_record": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Evidence To Record",
+          "type": "string"
+        },
+        "teaching_response": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teaching Response",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "objective_ids",
+        "tool",
+        "question_or_task",
+        "expected_response",
+        "evidence_to_record",
+        "teaching_response"
+      ],
+      "title": "FormativeAssessment",
+      "type": "object"
+    },
+    "Homework": {
+      "properties": {
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "estimated_minutes": {
+          "title": "Estimated Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "task",
+        "estimated_minutes"
+      ],
+      "title": "Homework",
+      "type": "object"
+    },
+    "InclusionStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "learning_barrier": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Learning Barrier",
+          "type": "string"
+        },
+        "scaffold": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Scaffold",
+          "type": "string"
+        },
+        "assessment_accommodation": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Assessment Accommodation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "learning_barrier",
+        "scaffold",
+        "assessment_accommodation"
+      ],
+      "title": "InclusionStrategy",
+      "type": "object"
+    },
+    "LearningObjective": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "observable_action": {
+          "enum": [
+            "identify",
+            "describe",
+            "explain",
+            "compare",
+            "classify",
+            "calculate",
+            "construct",
+            "justify",
+            "evaluate",
+            "design",
+            "demonstrate",
+            "analyse",
+            "apply",
+            "solve",
+            "create",
+            "observe",
+            "predict",
+            "present",
+            "model",
+            "write",
+            "summarise",
+            "investigate"
+          ],
+          "title": "Observable Action",
+          "type": "string"
+        },
+        "success_measure": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Success Measure",
+          "type": "string"
+        },
+        "bloom_level": {
+          "enum": [
+            "remember",
+            "understand",
+            "apply",
+            "analyse",
+            "evaluate",
+            "create"
+          ],
+          "title": "Bloom Level",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "observable_action",
+        "success_measure",
+        "bloom_level"
+      ],
+      "title": "LearningObjective",
+      "type": "object"
+    },
+    "LessonDeck": {
+      "description": "One AI call per lecture returns the lesson plan and its slides together (cheaper, coherent).",
+      "properties": {
+        "lesson_plan": {
+          "$ref": "#/$defs/LessonPlan"
+        },
+        "slides": {
+          "items": {
+            "$ref": "#/$defs/SlideSpec"
+          },
+          "title": "Slides",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lesson_plan",
+        "slides"
+      ],
+      "title": "LessonDeck",
+      "type": "object"
+    },
+    "LessonPhase": {
+      "properties": {
+        "name": {
+          "enum": [
+            "starter",
+            "main",
+            "activity",
+            "plenary"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "minutes": {
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "teacher_actions": {
+          "title": "Teacher Actions",
+          "type": "string"
+        },
+        "student_actions": {
+          "title": "Student Actions",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "minutes",
+        "description",
+        "teacher_actions",
+        "student_actions"
+      ],
+      "title": "LessonPhase",
+      "type": "object"
+    },
+    "LessonPlan": {
+      "properties": {
+        "lecture_number": {
+          "title": "Lecture Number",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "title": "Duration Minutes",
+          "type": "integer"
+        },
+        "objectives": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Objectives",
+          "type": "array"
+        },
+        "success_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "phases": {
+          "items": {
+            "$ref": "#/$defs/LessonPhase"
+          },
+          "title": "Phases",
+          "type": "array"
+        },
+        "questions_to_ask": {
+          "items": {
+            "$ref": "#/$defs/QuestionToAsk"
+          },
+          "title": "Questions To Ask",
+          "type": "array"
+        },
+        "misconceptions": {
+          "items": {
+            "$ref": "#/$defs/Misconception"
+          },
+          "title": "Misconceptions",
+          "type": "array"
+        },
+        "differentiation": {
+          "$ref": "#/$defs/Differentiation"
+        },
+        "resources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resources",
+          "type": "array"
+        },
+        "safety_notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safety Notes"
+        },
+        "homework": {
+          "$ref": "#/$defs/Homework"
+        },
+        "exit_ticket": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Exit Ticket",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lecture_number",
+        "title",
+        "duration_minutes",
+        "objectives",
+        "success_criteria",
+        "phases",
+        "questions_to_ask",
+        "misconceptions",
+        "differentiation",
+        "resources",
+        "homework",
+        "exit_ticket"
+      ],
+      "title": "LessonPlan",
+      "type": "object"
+    },
+    "ManualObjectEdit": {
+      "properties": {
+        "object_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "text",
+                "rectangle",
+                "ellipse"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Type"
+        },
+        "fill": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fill"
+        },
+        "hidden": {
+          "default": false,
+          "title": "Hidden",
+          "type": "boolean"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rotation"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "enum": [
+                "front",
+                "back"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layer"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "X"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Y"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "maxLength": 10000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Color"
+        },
+        "font_size": {
+          "anyOf": [
+            {
+              "maximum": 120,
+              "minimum": 8,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "bold": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bold"
+        }
+      },
+      "title": "ManualObjectEdit",
+      "type": "object"
+    },
+    "Misconception": {
+      "properties": {
+        "misconception": {
+          "title": "Misconception",
+          "type": "string"
+        },
+        "correction": {
+          "title": "Correction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "misconception",
+        "correction"
+      ],
+      "title": "Misconception",
+      "type": "object"
+    },
+    "PlannerReview": {
+      "additionalProperties": false,
+      "properties": {
+        "alignment_status": {
+          "const": "teacher_review_required",
+          "title": "Alignment Status",
+          "type": "string"
+        },
+        "framework_references": {
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "maxItems": 20,
+          "title": "Framework References",
+          "type": "array"
+        },
+        "evidence_gaps": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Evidence Gaps",
+          "type": "array"
+        },
+        "teacher_checks": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Teacher Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "alignment_status",
+        "framework_references",
+        "evidence_gaps",
+        "teacher_checks"
+      ],
+      "title": "PlannerReview",
+      "type": "object"
+    },
+    "PlanningDifferentiation": {
+      "additionalProperties": false,
+      "properties": {
+        "sen": {
+          "description": "Strategies for additional learning needs/students of determination; no individual diagnoses or names.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Sen",
+          "type": "array"
+        },
+        "ell": {
+          "description": "Concrete ELL/EAL language scaffolds such as vocabulary, sentence frames and visual support.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Ell",
+          "type": "array"
+        },
+        "core": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Core",
+          "type": "string"
+        },
+        "extension": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Extension",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sen",
+        "ell",
+        "core",
+        "extension"
+      ],
+      "title": "PlanningDifferentiation",
+      "type": "object"
+    },
+    "PlanningPhase": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "exclusiveMinimum": 0,
+          "maximum": 180,
+          "title": "Duration Minutes",
+          "type": "number"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "teacher_actions": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teacher Actions",
+          "type": "string"
+        },
+        "student_actions": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Student Actions",
+          "type": "string"
+        },
+        "assessment_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Assessment Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "duration_minutes",
+        "objective_ids",
+        "teacher_actions",
+        "student_actions",
+        "assessment_ids"
+      ],
+      "title": "PlanningPhase",
+      "type": "object"
+    },
+    "QuestionToAsk": {
+      "properties": {
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "bloom_level": {
+          "enum": [
+            "remember",
+            "understand",
+            "apply",
+            "analyse",
+            "evaluate",
+            "create"
+          ],
+          "title": "Bloom Level",
+          "type": "string"
+        },
+        "expected_response": {
+          "title": "Expected Response",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "bloom_level",
+        "expected_response"
+      ],
+      "title": "QuestionToAsk",
+      "type": "object"
+    },
+    "QuizItem": {
+      "properties": {
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "answer_index": {
+          "title": "Answer Index",
+          "type": "integer"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "options",
+        "answer_index",
+        "explanation"
+      ],
+      "title": "QuizItem",
+      "type": "object"
+    },
+    "SlideDifferentiation": {
+      "properties": {
+        "support": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Support"
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extension"
+        }
+      },
+      "title": "SlideDifferentiation",
+      "type": "object"
+    },
+    "SlideSpec": {
+      "properties": {
+        "number": {
+          "title": "Number",
+          "type": "integer"
+        },
+        "layout": {
+          "enum": [
+            "cover",
+            "section",
+            "objectives",
+            "concept",
+            "image_text",
+            "two_column",
+            "comparison",
+            "process",
+            "cycle",
+            "timeline",
+            "table",
+            "chart",
+            "key_vocabulary",
+            "quiz",
+            "discussion",
+            "activity",
+            "worked_example",
+            "summary",
+            "exit_ticket",
+            "homework"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "purpose": {
+          "title": "Purpose",
+          "type": "string"
+        },
+        "title": {
+          "description": "Student-facing slide text must total at most 120 words; explanations belong in speaker notes.",
+          "title": "Title",
+          "type": "string"
+        },
+        "teaching_stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "topic",
+                "engage",
+                "objective",
+                "explore",
+                "explain",
+                "elaborate",
+                "evaluate",
+                "self_reflect"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Teaching Stage"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "bullets": {
+          "items": {
+            "$ref": "#/$defs/Bullet"
+          },
+          "title": "Bullets",
+          "type": "array"
+        },
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/Column"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TableData"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chart": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChartData"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/Term"
+          },
+          "title": "Terms",
+          "type": "array"
+        },
+        "quiz": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuizItem"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "question": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question"
+        },
+        "visual": {
+          "$ref": "#/$defs/Visual"
+        },
+        "speaker_notes": {
+          "default": "",
+          "title": "Speaker Notes",
+          "type": "string"
+        },
+        "teacher_instruction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Teacher Instruction"
+        },
+        "question_to_ask": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Question To Ask"
+        },
+        "timing_minutes": {
+          "default": 3,
+          "title": "Timing Minutes",
+          "type": "number"
+        },
+        "outcome_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outcome Codes",
+          "type": "array"
+        },
+        "differentiation": {
+          "$ref": "#/$defs/SlideDifferentiation"
+        },
+        "language": {
+          "default": "en",
+          "title": "Language",
+          "type": "string"
+        },
+        "asset_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "template_image_slot": {
+          "default": false,
+          "title": "Template Image Slot",
+          "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "manual_objects": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ManualObjectEdit"
+          },
+          "maxProperties": 150,
+          "title": "Manual Objects",
+          "type": "object"
+        }
+      },
+      "required": [
+        "number",
+        "layout",
+        "purpose",
+        "title"
+      ],
+      "title": "SlideSpec",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url_or_file_id": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Url Or File Id",
+          "type": "string"
+        },
+        "page_or_section": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Page Or Section",
+          "type": "string"
+        },
+        "relevance": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Relevance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url_or_file_id",
+        "page_or_section",
+        "relevance"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "Step": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "detail"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "SuccessCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "observable_evidence": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Observable Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "objective_ids",
+        "description",
+        "observable_evidence"
+      ],
+      "title": "SuccessCriterion",
+      "type": "object"
+    },
+    "TableData": {
+      "properties": {
+        "headers": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Headers",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "headers",
+        "rows"
+      ],
+      "title": "TableData",
+      "type": "object"
+    },
+    "Term": {
+      "properties": {
+        "term": {
+          "title": "Term",
+          "type": "string"
+        },
+        "meaning": {
+          "title": "Meaning",
+          "type": "string"
+        },
+        "translation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translation"
+        }
+      },
+      "required": [
+        "term",
+        "meaning"
+      ],
+      "title": "Term",
+      "type": "object"
+    },
+    "UAEContext": {
+      "additionalProperties": false,
+      "properties": {
+        "national_identity": {
+          "$ref": "#/$defs/ContextConnection"
+        },
+        "moral_education": {
+          "$ref": "#/$defs/ContextConnection"
+        },
+        "arabic_culture": {
+          "$ref": "#/$defs/ContextConnection"
+        }
+      },
+      "required": [
+        "national_identity",
+        "moral_education",
+        "arabic_culture"
+      ],
+      "title": "UAEContext",
+      "type": "object"
+    },
+    "UAEPlanContent": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "topic": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        },
+        "subject": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "grade": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Grade",
+          "type": "string"
+        },
+        "curriculum": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Curriculum",
+          "type": "string"
+        },
+        "language": {
+          "maxLength": 10,
+          "minLength": 1,
+          "title": "Language",
+          "type": "string"
+        },
+        "education_stage": {
+          "enum": [
+            "early_years",
+            "primary",
+            "secondary",
+            "university"
+          ],
+          "title": "Education Stage",
+          "type": "string"
+        },
+        "framework": {
+          "enum": [
+            "khda",
+            "adek",
+            "moe",
+            "other",
+            "not_specified"
+          ],
+          "title": "Framework",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "maximum": 180,
+          "minimum": 5,
+          "title": "Duration Minutes",
+          "type": "integer"
+        },
+        "learning_objectives": {
+          "items": {
+            "$ref": "#/$defs/LearningObjective"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Learning Objectives",
+          "type": "array"
+        },
+        "success_criteria": {
+          "items": {
+            "$ref": "#/$defs/SuccessCriterion"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Success Criteria",
+          "type": "array"
+        },
+        "cross_curricular_links": {
+          "items": {
+            "$ref": "#/$defs/CrossCurricularLink"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Cross Curricular Links",
+          "type": "array"
+        },
+        "uae_context": {
+          "$ref": "#/$defs/UAEContext"
+        },
+        "differentiation": {
+          "$ref": "#/$defs/PlanningDifferentiation"
+        },
+        "formative_assessment": {
+          "items": {
+            "$ref": "#/$defs/FormativeAssessment"
+          },
+          "maxItems": 24,
+          "minItems": 1,
+          "title": "Formative Assessment",
+          "type": "array"
+        },
+        "lesson_sequence": {
+          "items": {
+            "$ref": "#/$defs/PlanningPhase"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Lesson Sequence",
+          "type": "array"
+        },
+        "prerequisites": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Prerequisites",
+          "type": "array"
+        },
+        "homework": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Homework",
+          "type": "string"
+        },
+        "resources": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 24,
+          "title": "Resources",
+          "type": "array"
+        },
+        "source_references": {
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "maxItems": 24,
+          "title": "Source References",
+          "type": "array"
+        },
+        "review_checks": {
+          "$ref": "#/$defs/PlannerReview"
+        }
+      },
+      "required": [
+        "schema_version",
+        "title",
+        "topic",
+        "subject",
+        "grade",
+        "curriculum",
+        "language",
+        "education_stage",
+        "framework",
+        "duration_minutes",
+        "learning_objectives",
+        "success_criteria",
+        "cross_curricular_links",
+        "uae_context",
+        "differentiation",
+        "formative_assessment",
+        "lesson_sequence",
+        "prerequisites",
+        "homework",
+        "resources",
+        "source_references",
+        "review_checks"
+      ],
+      "title": "UAEPlanContent",
+      "type": "object"
+    },
+    "Visual": {
+      "properties": {
+        "kind": {
+          "default": "none",
+          "enum": [
+            "none",
+            "image",
+            "diagram"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "image_query": {
+          "default": "",
+          "description": "2-5 plain keywords for a stock photo search",
+          "title": "Image Query",
+          "type": "string"
+        },
+        "alt_text": {
+          "default": "",
+          "title": "Alt Text",
+          "type": "string"
+        },
+        "fit": {
+          "default": "contain",
+          "enum": [
+            "contain",
+            "cover"
+          ],
+          "title": "Fit",
+          "type": "string"
+        },
+        "source_image_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exact image_key from the template or teacher-supplied image catalog; null for a new visual",
+          "title": "Source Image Key"
+        },
+        "counting_groups": {
+          "description": "Two parts for an exact, editable counting diagram; use for early addition instead of a stock image",
+          "items": {
+            "$ref": "#/$defs/CountingGroup"
+          },
+          "title": "Counting Groups",
+          "type": "array"
+        },
+        "show_total": {
+          "default": true,
+          "title": "Show Total",
+          "type": "boolean"
+        }
+      },
+      "title": "Visual",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "lesson_plan": {
+      "$ref": "#/$defs/UAEPlanContent"
+    },
+    "hook": {
+      "$ref": "#/$defs/DemoHook"
+    },
+    "teacher_script": {
+      "items": {
+        "$ref": "#/$defs/DemoScriptStep"
+      },
+      "maxItems": 30,
+      "minItems": 3,
+      "title": "Teacher Script",
+      "type": "array"
+    },
+    "slide_payload": {
+      "$ref": "#/$defs/LessonDeck"
+    }
+  },
+  "required": [
+    "lesson_plan",
+    "hook",
+    "teacher_script",
+    "slide_payload"
+  ],
+  "title": "DemoClassContent",
+  "type": "object"
+}

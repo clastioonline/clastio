@@ -9,6 +9,7 @@ from typing import Any
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -155,6 +156,12 @@ def _now() -> datetime:
 
 class TeacherProfile(TimestampMixin, Base):
     __tablename__ = "teacher_profiles"
+    __table_args__ = (
+        CheckConstraint("regulatory_authority IN ('khda', 'adek', 'moe', 'other', 'not_specified')",
+                        name="regulatory_authority"),
+        CheckConstraint("education_stages <@ ARRAY['early_years', 'primary', 'secondary', 'university']::varchar[]",
+                        name="education_stages"),
+    )
     id: Mapped[uuid.UUID] = pk()
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True
@@ -173,6 +180,9 @@ class TeacherProfile(TimestampMixin, Base):
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
     default_template_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     metadata_policy: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    regulatory_authority: Mapped[str] = mapped_column(String(20), default="not_specified", server_default="not_specified")
+    education_stages: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
+    planning_preferences: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
     user: Mapped[User] = relationship(back_populates="profile")
 

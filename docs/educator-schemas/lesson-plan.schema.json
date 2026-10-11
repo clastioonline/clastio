@@ -1,0 +1,664 @@
+{
+  "$defs": {
+    "ContextConnection": {
+      "additionalProperties": false,
+      "properties": {
+        "relevant": {
+          "title": "Relevant",
+          "type": "boolean"
+        },
+        "connection_or_reason": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Connection Or Reason",
+          "type": "string"
+        },
+        "classroom_application": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Classroom Application",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relevant",
+        "connection_or_reason",
+        "classroom_application"
+      ],
+      "title": "ContextConnection",
+      "type": "object"
+    },
+    "CrossCurricularLink": {
+      "additionalProperties": false,
+      "properties": {
+        "subject": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "activity": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Activity",
+          "type": "string"
+        },
+        "evidence_of_learning": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Evidence Of Learning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "activity",
+        "evidence_of_learning"
+      ],
+      "title": "CrossCurricularLink",
+      "type": "object"
+    },
+    "FormativeAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "tool": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Tool",
+          "type": "string"
+        },
+        "question_or_task": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Question Or Task",
+          "type": "string"
+        },
+        "expected_response": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Expected Response",
+          "type": "string"
+        },
+        "evidence_to_record": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Evidence To Record",
+          "type": "string"
+        },
+        "teaching_response": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teaching Response",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "objective_ids",
+        "tool",
+        "question_or_task",
+        "expected_response",
+        "evidence_to_record",
+        "teaching_response"
+      ],
+      "title": "FormativeAssessment",
+      "type": "object"
+    },
+    "InclusionStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "learning_barrier": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Learning Barrier",
+          "type": "string"
+        },
+        "scaffold": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Scaffold",
+          "type": "string"
+        },
+        "assessment_accommodation": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Assessment Accommodation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "learning_barrier",
+        "scaffold",
+        "assessment_accommodation"
+      ],
+      "title": "InclusionStrategy",
+      "type": "object"
+    },
+    "LearningObjective": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "observable_action": {
+          "enum": [
+            "identify",
+            "describe",
+            "explain",
+            "compare",
+            "classify",
+            "calculate",
+            "construct",
+            "justify",
+            "evaluate",
+            "design",
+            "demonstrate",
+            "analyse",
+            "apply",
+            "solve",
+            "create",
+            "observe",
+            "predict",
+            "present",
+            "model",
+            "write",
+            "summarise",
+            "investigate"
+          ],
+          "title": "Observable Action",
+          "type": "string"
+        },
+        "success_measure": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Success Measure",
+          "type": "string"
+        },
+        "bloom_level": {
+          "enum": [
+            "remember",
+            "understand",
+            "apply",
+            "analyse",
+            "evaluate",
+            "create"
+          ],
+          "title": "Bloom Level",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "observable_action",
+        "success_measure",
+        "bloom_level"
+      ],
+      "title": "LearningObjective",
+      "type": "object"
+    },
+    "PlannerReview": {
+      "additionalProperties": false,
+      "properties": {
+        "alignment_status": {
+          "const": "teacher_review_required",
+          "title": "Alignment Status",
+          "type": "string"
+        },
+        "framework_references": {
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "maxItems": 20,
+          "title": "Framework References",
+          "type": "array"
+        },
+        "evidence_gaps": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Evidence Gaps",
+          "type": "array"
+        },
+        "teacher_checks": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Teacher Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "alignment_status",
+        "framework_references",
+        "evidence_gaps",
+        "teacher_checks"
+      ],
+      "title": "PlannerReview",
+      "type": "object"
+    },
+    "PlanningDifferentiation": {
+      "additionalProperties": false,
+      "properties": {
+        "sen": {
+          "description": "Strategies for additional learning needs/students of determination; no individual diagnoses or names.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Sen",
+          "type": "array"
+        },
+        "ell": {
+          "description": "Concrete ELL/EAL language scaffolds such as vocabulary, sentence frames and visual support.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Ell",
+          "type": "array"
+        },
+        "core": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Core",
+          "type": "string"
+        },
+        "extension": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Extension",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sen",
+        "ell",
+        "core",
+        "extension"
+      ],
+      "title": "PlanningDifferentiation",
+      "type": "object"
+    },
+    "PlanningPhase": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "duration_minutes": {
+          "exclusiveMinimum": 0,
+          "maximum": 180,
+          "title": "Duration Minutes",
+          "type": "number"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "teacher_actions": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Teacher Actions",
+          "type": "string"
+        },
+        "student_actions": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Student Actions",
+          "type": "string"
+        },
+        "assessment_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Assessment Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "duration_minutes",
+        "objective_ids",
+        "teacher_actions",
+        "student_actions",
+        "assessment_ids"
+      ],
+      "title": "PlanningPhase",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url_or_file_id": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Url Or File Id",
+          "type": "string"
+        },
+        "page_or_section": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Page Or Section",
+          "type": "string"
+        },
+        "relevance": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Relevance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url_or_file_id",
+        "page_or_section",
+        "relevance"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "SuccessCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "objective_ids": {
+          "items": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Objective Ids",
+          "type": "array"
+        },
+        "description": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "observable_evidence": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Observable Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "objective_ids",
+        "description",
+        "observable_evidence"
+      ],
+      "title": "SuccessCriterion",
+      "type": "object"
+    },
+    "UAEContext": {
+      "additionalProperties": false,
+      "properties": {
+        "national_identity": {
+          "$ref": "#/$defs/ContextConnection"
+        },
+        "moral_education": {
+          "$ref": "#/$defs/ContextConnection"
+        },
+        "arabic_culture": {
+          "$ref": "#/$defs/ContextConnection"
+        }
+      },
+      "required": [
+        "national_identity",
+        "moral_education",
+        "arabic_culture"
+      ],
+      "title": "UAEContext",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "title": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "topic": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Topic",
+      "type": "string"
+    },
+    "subject": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Subject",
+      "type": "string"
+    },
+    "grade": {
+      "maxLength": 30,
+      "minLength": 1,
+      "title": "Grade",
+      "type": "string"
+    },
+    "curriculum": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Curriculum",
+      "type": "string"
+    },
+    "language": {
+      "maxLength": 10,
+      "minLength": 1,
+      "title": "Language",
+      "type": "string"
+    },
+    "education_stage": {
+      "enum": [
+        "early_years",
+        "primary",
+        "secondary",
+        "university"
+      ],
+      "title": "Education Stage",
+      "type": "string"
+    },
+    "framework": {
+      "enum": [
+        "khda",
+        "adek",
+        "moe",
+        "other",
+        "not_specified"
+      ],
+      "title": "Framework",
+      "type": "string"
+    },
+    "duration_minutes": {
+      "maximum": 180,
+      "minimum": 5,
+      "title": "Duration Minutes",
+      "type": "integer"
+    },
+    "learning_objectives": {
+      "items": {
+        "$ref": "#/$defs/LearningObjective"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Learning Objectives",
+      "type": "array"
+    },
+    "success_criteria": {
+      "items": {
+        "$ref": "#/$defs/SuccessCriterion"
+      },
+      "maxItems": 24,
+      "minItems": 1,
+      "title": "Success Criteria",
+      "type": "array"
+    },
+    "cross_curricular_links": {
+      "items": {
+        "$ref": "#/$defs/CrossCurricularLink"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Cross Curricular Links",
+      "type": "array"
+    },
+    "uae_context": {
+      "$ref": "#/$defs/UAEContext"
+    },
+    "differentiation": {
+      "$ref": "#/$defs/PlanningDifferentiation"
+    },
+    "formative_assessment": {
+      "items": {
+        "$ref": "#/$defs/FormativeAssessment"
+      },
+      "maxItems": 24,
+      "minItems": 1,
+      "title": "Formative Assessment",
+      "type": "array"
+    },
+    "lesson_sequence": {
+      "items": {
+        "$ref": "#/$defs/PlanningPhase"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Lesson Sequence",
+      "type": "array"
+    },
+    "prerequisites": {
+      "items": {
+        "maxLength": 4000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 12,
+      "title": "Prerequisites",
+      "type": "array"
+    },
+    "homework": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Homework",
+      "type": "string"
+    },
+    "resources": {
+      "items": {
+        "maxLength": 4000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 24,
+      "title": "Resources",
+      "type": "array"
+    },
+    "source_references": {
+      "items": {
+        "$ref": "#/$defs/SourceReference"
+      },
+      "maxItems": 24,
+      "title": "Source References",
+      "type": "array"
+    },
+    "review_checks": {
+      "$ref": "#/$defs/PlannerReview"
+    }
+  },
+  "required": [
+    "schema_version",
+    "title",
+    "topic",
+    "subject",
+    "grade",
+    "curriculum",
+    "language",
+    "education_stage",
+    "framework",
+    "duration_minutes",
+    "learning_objectives",
+    "success_criteria",
+    "cross_curricular_links",
+    "uae_context",
+    "differentiation",
+    "formative_assessment",
+    "lesson_sequence",
+    "prerequisites",
+    "homework",
+    "resources",
+    "source_references",
+    "review_checks"
+  ],
+  "title": "UAEPlanContent",
+  "type": "object"
+}
