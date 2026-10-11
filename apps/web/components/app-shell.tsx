@@ -3,6 +3,7 @@
 import {
   Activity,
   Bell,
+  BookOpenCheck,
   Bot,
   Brain,
   CalendarDays,
@@ -28,6 +29,7 @@ import {
   MessageCircle,
   NotebookPen,
   Palette,
+  Presentation,
   Search,
   Settings,
   ShieldCheck,
@@ -57,8 +59,12 @@ type Item = { href: string; key: string; label: string; icon: any; badge?: strin
 
 const MENU: Item[] = [
   { href: "/dashboard", key: "nav.today", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/projects", key: "nav.projects", label: "Lessons & PPTs", icon: FolderKanban },
-  { href: "/assistant", key: "nav.assistant", label: "Assistant", icon: Bot },
+  { href: "/projects", key: "nav.presentations", label: "My presentations", icon: FolderKanban },
+  { href: "/lesson-planners", key: "nav.planners", label: "Lesson planners", icon: BookOpenCheck },
+  { href: "/demo-classes", key: "nav.demos", label: "Demo class generator", icon: Presentation },
+  { href: "/digital-library", key: "nav.digitalLibrary", label: "Digital library", icon: FileText },
+  { href: "/copilot", key: "nav.copilot", label: "AI copilot", icon: Bot },
+  { href: "/assistant", key: "nav.assistant", label: "Teaching chat", icon: MessageCircle },
   { href: "/lessons", key: "nav.lessons", label: "Library", icon: NotebookPen },
   { href: "/calendar", key: "nav.calendar", label: "Calendar", icon: CalendarDays },
   { href: "/curriculum", key: "nav.curriculum", label: "Classes", icon: GraduationCap },
@@ -414,7 +420,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </div>
       {!admin && <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-line bg-surface/95 px-2 pt-2 backdrop-blur lg:hidden" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
-        {[{ href: "/dashboard", label: "Home", icon: LayoutDashboard }, { href: "/projects", label: "Chapters", icon: FolderKanban }, { href: "/assistant", label: "Assistant", icon: Bot }, { href: "/activity", label: "Activity", icon: Activity }].map((item) => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={cn("focus-ring flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs", isActive(item.href) ? "bg-brand-50 font-semibold text-brand-700" : "text-muted")}><item.icon className="h-5 w-5" />{item.label}</Link>)}
+        {[{ href: "/dashboard", label: "Home", icon: LayoutDashboard }, { href: "/projects", label: "Presentations", icon: FolderKanban }, { href: "/copilot", label: "AI copilot", icon: Bot }, { href: "/activity", label: "Activity", icon: Activity }].map((item) => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? "page" : undefined} className={cn("focus-ring flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-xs", isActive(item.href) ? "bg-brand-50 font-semibold text-brand-700" : "text-muted")}><item.icon className="h-5 w-5" />{item.label}</Link>)}
       </nav>}
     </div>
   );

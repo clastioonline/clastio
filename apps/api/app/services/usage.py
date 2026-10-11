@@ -130,7 +130,8 @@ async def credit_cost(kind: str, quantity: int = 1) -> int:
 
 
 GENERATION_JOB_TYPES = ("course_plan", "lesson_generation", "slide_regeneration", "document_generation",
-                        "media_generation", "assistant_reply", "image_replacement")
+                        "media_generation", "assistant_reply", "image_replacement", "educator_plan",
+                        "educator_demo", "educator_resource", "copilot_resource")
 
 
 async def plan_limits(db: AsyncSession, user: User) -> dict[str, Any]:

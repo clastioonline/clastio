@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { EDUCATION_STAGES } from "@/components/educator-workspace";
 import { Alert, Button, Card, Field, Input, Select } from "@/components/ui";
 import { errorMessage, useToast } from "@/components/toast";
 import { api } from "@/lib/api";
@@ -36,7 +37,7 @@ export function BookLibraryCard({book, canPublish, onSaved}: {
   const [busy, setBusy] = useState("");
   const [metadata, setMetadata] = useState({title: book.metadata?.title || book.filename,
     curriculum: bookCurriculum(book) || "moe", subject: book.metadata?.subject || "",
-    grade: book.metadata?.grade || "", language: book.metadata?.language || "en", edition: book.metadata?.edition || ""});
+    grade: book.metadata?.grade || "", language: book.metadata?.language || "en", edition: book.metadata?.edition || "", education_stage: book.metadata?.education_stage || ""});
   const [chapter, setChapter] = useState({title: "", start: "", end: ""});
   const [publication, setPublication] = useState({sharing_rights_confirmed: false,
     license: book.catalogue?.license || "", license_url: book.catalogue?.license_url || ""});
@@ -63,12 +64,13 @@ export function BookLibraryCard({book, canPublish, onSaved}: {
         <Field label={`Book title for ${book.filename}`}><Input value={metadata.title} onChange={e => setMetadata({...metadata, title:e.target.value})}/></Field>
         <Field label={`Curriculum for ${book.filename}`}><Select aria-label={`Curriculum for ${book.filename}`} value={metadata.curriculum} onChange={e => setMetadata({...metadata,curriculum:e.target.value})}>{BOOK_CURRICULA.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</Select></Field>
         <Field label={`Subject for ${book.filename}`}><Select aria-label={`Subject for ${book.filename}`} value={metadata.subject} onChange={e => setMetadata({...metadata,subject:e.target.value})}><option value="">Choose subject</option>{SUBJECTS.map(item => <option key={item}>{item}</option>)}</Select></Field>
-        <Field label={`Grade for ${book.filename}`}><Select aria-label={`Grade for ${book.filename}`} value={metadata.grade} onChange={e => setMetadata({...metadata,grade:e.target.value})}><option value="">Choose grade / year</option>{[...GRADES,"13"].map(item => <option key={item}>{item}</option>)}</Select></Field>
+        <Field label={`Grade for ${book.filename}`}>{metadata.education_stage === "university" ? <Input value={metadata.grade} maxLength={30} placeholder="Undergraduate year 1" onChange={event => setMetadata({ ...metadata, grade: event.target.value })} /> : <Select aria-label={`Grade for ${book.filename}`} value={metadata.grade} onChange={e => setMetadata({...metadata,grade:e.target.value})}><option value="">Choose grade / year</option>{Array.from(new Set([...GRADES, "13", ...(metadata.grade ? [metadata.grade] : [])])).map(item => <option key={item}>{item}</option>)}</Select>}</Field>
+        <Field label={`Education stage for ${book.filename}`}><Select value={metadata.education_stage} onChange={event => setMetadata({ ...metadata, education_stage: event.target.value })}><option value="">Stage not classified</option>{EDUCATION_STAGES.map(stage => <option key={stage.value} value={stage.value}>{stage.label}</option>)}</Select></Field>
         <Field label={`Language for ${book.filename}`}><Input value={metadata.language} onChange={e => setMetadata({...metadata,language:e.target.value})}/></Field>
         <Field label={`Edition for ${book.filename}`}><Input placeholder="e.g. 2026–2027, Term 1" value={metadata.edition} onChange={e => setMetadata({...metadata,edition:e.target.value})}/></Field>
       </div>
       <Button loading={busy === "metadata"} disabled={!!busy || !metadata.title || !metadata.subject || !metadata.grade || !metadata.language}
-        onClick={() => action("metadata", () => api(`/books/${book.id}/metadata`, {method:"PUT",body:metadata}), "Book details saved")}>Save book details</Button>
+        onClick={() => action("metadata", () => api(`/books/${book.id}/metadata`, {method:"PUT",body:{ ...metadata, education_stage: metadata.education_stage || null }}), "Book details saved")}>Save book details</Button>
     </div>}
     {book.chapters?.map((item,index) => <p key={index} className="text-sm">{item.title} · PDF pages {item.start}–{item.end}</p>)}
     {book.status === "ready" && <>

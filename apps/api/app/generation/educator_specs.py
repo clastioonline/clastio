@@ -304,3 +304,32 @@ class GeneratedResourceContent(StrictContent):
         if self.education_stage != 'university' and not (self.grade or '').strip():
             raise ValueError('School resources need a grade or year.')
         return self
+
+
+class TaskVocabulary(StrictContent):
+    term: Identifier
+    meaning: Text
+
+
+class TaskQuestion(StrictContent):
+    question: Text
+    expected_answer: Text
+
+
+class CopilotTask(StrictContent):
+    title: TitleText
+    topic: TitleText
+    subject: SubjectText
+    grade: str | None = Field(default=None, max_length=30)
+    education_stage: EducationStage
+    curriculum: CurriculumText
+    language: LanguageText
+    instructions: Text
+    reading_text: Text
+    vocabulary: list[TaskVocabulary] = Field(min_length=1, max_length=12)
+    support: PlanningDifferentiation
+    questions: list[TaskQuestion] = Field(min_length=2, max_length=10)
+    assessment: Text
+    uae_link: Text
+    source_references: list[SourceReference] = Field(max_length=24)
+    review_checks: PlannerReview

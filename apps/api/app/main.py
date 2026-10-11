@@ -14,6 +14,8 @@ from app.api.routes import (
     assistant_memory,
     auth,
     content,
+    copilot_resources,
+    educator,
     media,
     platform,
     push,
@@ -65,7 +67,7 @@ def create_app() -> FastAPI:
     app.middleware("http")(platform_middleware)
 
     install_error_handlers(app)
-    for r in (auth.router, account.router, admin.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router, push.router, rewards.router):
+    for r in (auth.router, account.router, admin.router, teacher.router, content.router, assistant_memory.router, media.router, platform.router, push.router, rewards.router, educator.router, copilot_resources.router):
         app.include_router(r, prefix="/api/v1")
     return app
 

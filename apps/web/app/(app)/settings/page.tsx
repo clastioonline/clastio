@@ -3,6 +3,7 @@
 import { Check, Download, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConsentsCard, NotificationPrefsCard, SecurityCard } from "@/components/account-settings";
+import { EDUCATION_STAGES } from "@/components/educator-workspace";
 import { InstallAppCard } from "@/components/mobile-app";
 import { PushNotificationsCard } from "@/components/push-notifications";
 import { errorMessage, useToast } from "@/components/toast";
@@ -51,10 +52,11 @@ export default function Settings() {
   const { locale, setLocale } = useI18n();
   const { data, mutate } = useApi<any>("/me/profile");
   const [p, setP] = useState<any>(null);
+  const [supportText, setSupportText] = useState({ sen: "", ell: "" });
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState("");
-  useEffect(() => { if (data) setP(data); }, [data]);
+  useEffect(() => { if (data) { setP(data); setSupportText({ sen: (data.planning_preferences?.sen_scaffolds || []).join("\n"), ell: (data.planning_preferences?.ell_scaffolds || []).join("\n") }); } }, [data]);
   if (user?.role === "admin") {
     // Admins have no teaching profile, plan or classes: only how the app looks for them.
     return (
@@ -72,7 +74,7 @@ export default function Settings() {
   const save = async () => {
     setBusy(true);
     try {
-      await api("/me/profile", { method: "PUT", body: p });
+      await api("/me/profile", { method: "PUT", body: { ...p, planning_preferences: { ...(p.planning_preferences || {}), sen_scaffolds: supportText.sen.split("\n").map(line => line.trim()).filter(Boolean).slice(0, 12), ell_scaffolds: supportText.ell.split("\n").map(line => line.trim()).filter(Boolean).slice(0, 12) } } });
       notify({ tone: "success", title: "Settings saved" });
       mutate();
       refreshMe();
@@ -124,6 +126,16 @@ export default function Settings() {
           </div>
         </Card>
         <div className="space-y-6">
+          <Card>
+            <CardHeader title="Lesson planning defaults" subtitle="Used by lesson planners, demos and teacher copilot. Each draft stays editable for your class." />
+            <div className="space-y-4 p-5">
+              <Field label="School planning framework" hint="Choose the framework used by your school; generated plans do not establish regulatory approval."><Select value={p.regulatory_authority || "not_specified"} onChange={event => setP({ ...p, regulatory_authority: event.target.value })}><option value="not_specified">No school framework</option><option value="khda">Dubai · KHDA</option><option value="adek">Abu Dhabi · ADEK</option><option value="moe">UAE · MoE</option><option value="other">Other framework</option></Select></Field>
+              <Field label="Education stages"><Chips multiple options={EDUCATION_STAGES.map(stage => ({ value: stage.value, label: stage.label }))} value={p.education_stages || []} onChange={(value: string[]) => setP({ ...p, education_stages: value })} /></Field>
+              <Field label="Class support needs" hint="Describe aggregate learning barriers and language support without student names or individual diagnoses."><Textarea maxLength={2000} value={p.planning_preferences?.inclusion_notes || ""} onChange={event => setP({ ...p, planning_preferences: { ...(p.planning_preferences || {}), inclusion_notes: event.target.value } })} placeholder="Some learners need shorter reading sections and labelled diagrams; use ELL sentence frames." /></Field>
+              <Field label="Preferred SEN scaffolds" hint="One strategy per line, up to 12."><Textarea maxLength={6000} value={supportText.sen} onChange={event => setSupportText(previous => ({ ...previous, sen: event.target.value }))} placeholder="Chunk instructions into short steps" /></Field>
+              <Field label="Preferred ELL scaffolds" hint="One strategy per line, up to 12."><Textarea maxLength={6000} value={supportText.ell} onChange={event => setSupportText(previous => ({ ...previous, ell: event.target.value }))} placeholder="Pre-teach academic vocabulary" /></Field>
+            </div>
+          </Card>
           <SecurityCard />
           <NotificationPrefsCard />
           <InstallAppCard />

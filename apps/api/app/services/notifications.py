@@ -374,7 +374,7 @@ async def job_failure_watch() -> int:
 # --------------------------------------------------------------------------- job completion
 
 NOTIFY_JOBS = {"lesson_generation", "course_plan", "document_generation", "media_generation",
-               "style_analysis", "source_indexing", "book_import", "book_catalogue_copy", "slide_regeneration", "image_replacement", "lesson_render", "assistant_reply", "template_preview"}
+               "style_analysis", "source_indexing", "book_import", "book_catalogue_copy", "slide_regeneration", "image_replacement", "lesson_render", "assistant_reply", "template_preview", "educator_plan", "educator_demo", "educator_resource", "educator_export", "copilot_resource"}
 
 
 async def job_finished(job_type: str, job_id: uuid.UUID, owner_id: uuid.UUID | None, payload: dict[str, Any],

@@ -1,0 +1,44 @@
+# Run only with: docker compose -p clastio-educator-qa -f docker-compose.yml
+#   -f deploy/docker-compose.educator-qa.yml up -d --build --wait
+# This removes the normal .env and uses a separate database/storage project.
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: educator-qa
+  pgbouncer:
+    environment:
+      DB_PASSWORD: educator-qa
+  migrate:
+    image: ai-teacher-assistant-api:educator-qa
+    env_file: !reset []
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed --demo --skip-embeddings"]
+    environment: &qa_environment
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+asyncpg://postgres:educator-qa@db:5432/teacher_assistant
+      REDIS_URL: redis://redis:6379/0
+      GOTENBERG_URL: http://gotenberg:3000
+      AI_OFFLINE_MODE: "true"
+      OPENVERSE_ENABLED: "false"
+      STORAGE_BACKEND: local
+      STORAGE_LOCAL_DIR: /app/var/storage
+      COOKIE_SECURE: "false"
+      PUBLIC_WEB_URL: http://localhost:3004
+  api:
+    image: ai-teacher-assistant-api:educator-qa
+    env_file: !reset []
+    ports: !override
+      - "127.0.0.1:8004:8000"
+    environment: *qa_environment
+  worker:
+    image: ai-teacher-assistant-api:educator-qa
+    env_file: !reset []
+    command: ["python", "-m", "app.worker", "--concurrency", "2", "--no-scheduler"]
+    environment: *qa_environment
+  web:
+    image: ai-teacher-assistant-web:educator-qa
+    ports: !override
+      - "127.0.0.1:3004:3000"
+    build:
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
+        NEXT_PUBLIC_SITE_URL: http://localhost:3004

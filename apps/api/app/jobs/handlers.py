@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from app.jobs.queue import JobContext, handler, on_failure
-from app.services import courses, documents, sources, styles
+from app.services import copilot_resources, courses, documents, educator, sources, styles  # noqa: F401 (register educator jobs)
 
 
 @handler("assistant_reply", queue="ai")
@@ -186,7 +186,7 @@ async def book_import(ctx: JobContext) -> dict[str, Any]:
         cap = min(get_settings().max_upload_mb, await upload_limit_mb(db, user))*1024*1024
         body = ctx.payload
         book, _ = await import_pdf(db, user, url=body['url'], title=body['title'],
-            metadata={key:body[key] for key in ['grade','subject','curriculum','edition','language']},
+            metadata={key:body[key] for key in ['grade','subject','curriculum','edition','language','education_stage'] if body.get(key) is not None},
             rights_confirmed=body['rights_confirmed'], max_bytes=cap)
         return {'file_id':str(book.id), 'filename':book.filename}
 

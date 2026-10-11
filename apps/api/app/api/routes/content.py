@@ -19,6 +19,7 @@ from app.core.errors import AppError, NotFound
 from app.core.ratelimit import rate_limit
 from app.core.security import verify_signed_value
 from app.core.storage import LocalStorage, get_storage
+from app.generation.educator_specs import EducationStage
 from app.generation.specs import CoursePlan
 from app.jobs.queue import enqueue, run_inline_if_configured
 from app.models import (
@@ -187,6 +188,7 @@ class BookImport(BaseModel):
     edition: str = Field(default="", max_length=100)
     language: str = Field(default="en", max_length=20)
     rights_confirmed: bool = False
+    education_stage: EducationStage | None = None
 
 
 @router.get("/books")
@@ -250,6 +252,7 @@ class BookMetadata(BaseModel):
     grade: str = Field(min_length=1, max_length=30)
     language: str = Field(min_length=1, max_length=30)
     edition: str = Field(default='', max_length=100)
+    education_stage: EducationStage | None = None
 
 
 @router.put('/books/{file_id}/metadata')
@@ -259,7 +262,7 @@ async def update_book_metadata(file_id: uuid.UUID, body: BookMetadata, user: Cur
     from app.services.book_library import validate_book_identity
     validate_book_identity(body.title+" "+book.filename, (book.meta or {}).get("book", {}).get("source_url", ""), body.curriculum)
     # Ordinary teacher metadata edits cannot publish a private upload.
-    book.meta = {**(book.meta or {}), 'book': {**(book.meta or {}).get('book', {}), **body.model_dump()}}
+    book.meta = {**(book.meta or {}), 'book': {**(book.meta or {}).get('book', {}), **body.model_dump(exclude_unset=True)}}
     await db.commit()
     return {'book': book_out(book)}
 

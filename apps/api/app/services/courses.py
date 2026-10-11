@@ -498,17 +498,8 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
     await ctx.progress(45, "Checking content quality")
     content_fixes = await pipeline.pre_render_qc(ai, deck, budgets, context_text=context_text, grade=course.grade,
                                                  owner_id=user.id, job_id=ctx.job_id)
-    if spec.get('preserve_slots'):
-        from app.engine.render.vendor.presenton import repeated_child_source_index
-        pages = spec['template_slots']
-        body_pages = [page for page in pages if any(slot['role'] == 'body' for slot in page['slots'])]
-        for index, slide in enumerate(deck.slides):
-            page = pages[0] if index == 0 else body_pages[repeated_child_source_index(index-1,
-                template_count=len(body_pages),content_count=len(deck.slides)-1,center_when_reduced=False)]
-            slide.template_image_slot = any(slot['role'] == 'image' for slot in page['slots'])
-            if slide.template_image_slot and slide.visual.kind == 'none':
-                slide.visual.kind = 'image'
-                slide.visual.image_query = slide.title+' '+course.subject
+    from app.generation.template_slots import prepare_template_images
+    prepare_template_images(deck.slides, spec, subject=course.subject, topic=course.topic)
     await ctx.progress(55, "Finding images")
     async with get_sessionmaker()() as db:
         used_images = await usage.used(db, user.id, "ai_images", usage.period_start(None))
@@ -516,6 +507,7 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
             db, owner_id=user.id, slides=deck.slides, colors=spec["colors"], job_id=ctx.job_id,
             allow_ai_images=max(0, min(4, ai_image_allowance - used_images)),
             source_images=image_catalog, image_mode=course.options.get("image_mode", "auto"),
+            require_real_image=bool(spec.get("preserve_slots")),
             teaching_context=f"Grade {course.grade} {course.subject}; topic {course.topic}; slide {lesson.title}; preferred image style: {prefs.get('preferred_image_style', 'as requested in the visual description')}")
         if img_counts["ai"]:
             await usage.consume(db, user.id, img_counts["ai"], "ai_image", str(lesson_id), resource="ai_images")

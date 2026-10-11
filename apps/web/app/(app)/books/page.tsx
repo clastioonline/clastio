@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BOOK_CURRICULA, BookLibraryCard, bookCurriculum, bookLanguage, type LibraryBook } from "@/components/book-library-card";
 import { ChapterSources } from "@/components/chapter-sources";
+import { EDUCATION_STAGES } from "@/components/educator-workspace";
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi, useCan, useJob } from "@/lib/hooks";
@@ -34,7 +35,7 @@ export default function BooksPage() {
   const [cached,setCached] = useState(false);
   const [busy,setBusy] = useState("");
   const [jobId,setJobId] = useState<string|null>(null);
-  const [form,setForm] = useState({title:"",url:"",grade:"",subject:"",curriculum:"moe",edition:"",language:"en",rights_confirmed:false});
+  const [form,setForm] = useState({title:"",url:"",grade:"",subject:"",curriculum:"moe",edition:"",language:"en",education_stage:"",rights_confirmed:false});
   const [importOpen,setImportOpen] = useState(false);
   const refresh = async () => { await Promise.all([mutate(),refreshCatalog()]); };
   const job = useJob(jobId, async result => {
@@ -55,7 +56,7 @@ export default function BooksPage() {
   }
   async function save() {
     setBusy("import");
-    try { const result = await api<any>("/books/import",{body:form}); setJobId(result.job_id);
+    try { const result = await api<any>("/books/import",{body:{ ...form, education_stage: form.education_stage || undefined }}); setJobId(result.job_id);
       notify({tone:"info",title:"Saving your PDF",body:"The book will stay in your library for future lessons."});
     } catch(error) { notify({tone:"error",title:"Couldn't save book",body:errorMessage(error)}); }
     finally { setBusy(""); }
@@ -123,6 +124,7 @@ export default function BooksPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         {([["title","Book title"],["url","Direct PDF URL"],["grade","Grade"],["edition","Edition / academic year"],["language","Language"]] as const).map(([key,text]) => <Field key={key} label={text}><Input value={form[key]} onChange={e => setForm({...form,[key]:e.target.value})}/></Field>)}
         <Field label="PDF curriculum"><Select aria-label="PDF curriculum" value={form.curriculum} onChange={e => setForm({...form,curriculum:e.target.value})}>{BOOK_CURRICULA.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</Select></Field>
+        <Field label="PDF education stage"><Select value={form.education_stage} onChange={event => setForm({ ...form, education_stage: event.target.value })}><option value="">Stage not classified</option>{EDUCATION_STAGES.map(stage => <option key={stage.value} value={stage.value}>{stage.label}</option>)}</Select></Field>
         <Field label="PDF subject"><Select aria-label="PDF subject" value={form.subject} onChange={e => setForm({...form,subject:e.target.value})}><option value="">Choose subject</option>{SUBJECTS.map(item => <option key={item}>{item}</option>)}</Select></Field>
       </div>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={form.rights_confirmed} onChange={e => setForm({...form,rights_confirmed:e.target.checked})}/>I have permission to use this PDF for teaching.</label>

@@ -9,15 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     Conversation,
     Course,
+    DemoClass,
+    DigitalResource,
     Document,
     GenerationJob,
     Lesson,
+    LessonPlan,
     MediaItem,
     Template,
     UploadedFile,
 )
 
 LABELS = {
+    "educator_plan": "Prepare lesson plan", "educator_demo": "Prepare demo class",
+    "educator_resource": "Write study guide", "copilot_resource": "Prepare printable task",
+    "educator_export": "Prepare printable documents",
     "style_analysis": "Learn your presentation style", "source_indexing": "Read reference material", "book_import": "Save book PDF", "book_catalogue_copy": "Add catalogue book",
     "course_plan": "Plan your lessons", "lesson_generation": "Build lesson slides",
     "slide_regeneration": "Update a slide", "lesson_render": "Rebuild presentation",
@@ -29,6 +35,7 @@ LABELS = {
 async def summaries(db: AsyncSession, jobs: list[GenerationJob]) -> list[dict]:
     objects = {}
     for field, model in (("course_id", Course), ("lesson_id", Lesson), ("document_id", Document),
+                         ("lesson_plan_id", LessonPlan), ("demo_class_id", DemoClass), ("resource_id", DigitalResource),
                          ("template_id", Template), ("media_id", MediaItem), ("file_id", UploadedFile), ("conversation_id", Conversation)):
         ids = {uuid.UUID(j.payload[field]) for j in jobs if j.payload.get(field)}
         if ids:
@@ -42,7 +49,14 @@ async def summaries(db: AsyncSession, jobs: list[GenerationJob]) -> list[dict]:
             obj = group.get(j.payload.get(field))
             if not obj or obj.owner_id != j.owner_id:
                 continue
-            if field == "course_id":
+            if field == "lesson_plan_id":
+                title, href = obj.title, f"/lesson-planners?id={obj.id}"
+            elif field == "demo_class_id":
+                title, href = obj.title, f"/demo-classes?id={obj.id}"
+            elif field == "resource_id":
+                target = "/copilot" if (obj.content or {}).get("resource_type") == "copilot_task" else "/digital-library"
+                title, href = obj.title, f"{target}?id={obj.id}"
+            elif field == "course_id":
                 title, href = obj.topic, f"/projects/{obj.project_id}"
             elif field == "lesson_id":
                 title, href = obj.title, f"/lessons/{obj.id}"

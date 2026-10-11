@@ -1,0 +1,340 @@
+{
+  "$defs": {
+    "InclusionStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "learning_barrier": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Learning Barrier",
+          "type": "string"
+        },
+        "scaffold": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Scaffold",
+          "type": "string"
+        },
+        "assessment_accommodation": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Assessment Accommodation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "learning_barrier",
+        "scaffold",
+        "assessment_accommodation"
+      ],
+      "title": "InclusionStrategy",
+      "type": "object"
+    },
+    "PlannerReview": {
+      "additionalProperties": false,
+      "properties": {
+        "alignment_status": {
+          "const": "teacher_review_required",
+          "title": "Alignment Status",
+          "type": "string"
+        },
+        "framework_references": {
+          "items": {
+            "$ref": "#/$defs/SourceReference"
+          },
+          "maxItems": 20,
+          "title": "Framework References",
+          "type": "array"
+        },
+        "evidence_gaps": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Evidence Gaps",
+          "type": "array"
+        },
+        "teacher_checks": {
+          "items": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Teacher Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "alignment_status",
+        "framework_references",
+        "evidence_gaps",
+        "teacher_checks"
+      ],
+      "title": "PlannerReview",
+      "type": "object"
+    },
+    "PlanningDifferentiation": {
+      "additionalProperties": false,
+      "properties": {
+        "sen": {
+          "description": "Strategies for additional learning needs/students of determination; no individual diagnoses or names.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Sen",
+          "type": "array"
+        },
+        "ell": {
+          "description": "Concrete ELL/EAL language scaffolds such as vocabulary, sentence frames and visual support.",
+          "items": {
+            "$ref": "#/$defs/InclusionStrategy"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Ell",
+          "type": "array"
+        },
+        "core": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Core",
+          "type": "string"
+        },
+        "extension": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Extension",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sen",
+        "ell",
+        "core",
+        "extension"
+      ],
+      "title": "PlanningDifferentiation",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url_or_file_id": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Url Or File Id",
+          "type": "string"
+        },
+        "page_or_section": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Page Or Section",
+          "type": "string"
+        },
+        "relevance": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Relevance",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "url_or_file_id",
+        "page_or_section",
+        "relevance"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "TaskQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "expected_answer": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Expected Answer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "expected_answer"
+      ],
+      "title": "TaskQuestion",
+      "type": "object"
+    },
+    "TaskVocabulary": {
+      "additionalProperties": false,
+      "properties": {
+        "term": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Term",
+          "type": "string"
+        },
+        "meaning": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Meaning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "meaning"
+      ],
+      "title": "TaskVocabulary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "topic": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Topic",
+      "type": "string"
+    },
+    "subject": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Subject",
+      "type": "string"
+    },
+    "grade": {
+      "anyOf": [
+        {
+          "maxLength": 30,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Grade"
+    },
+    "education_stage": {
+      "enum": [
+        "early_years",
+        "primary",
+        "secondary",
+        "university"
+      ],
+      "title": "Education Stage",
+      "type": "string"
+    },
+    "curriculum": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Curriculum",
+      "type": "string"
+    },
+    "language": {
+      "maxLength": 10,
+      "minLength": 1,
+      "title": "Language",
+      "type": "string"
+    },
+    "instructions": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Instructions",
+      "type": "string"
+    },
+    "reading_text": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Reading Text",
+      "type": "string"
+    },
+    "vocabulary": {
+      "items": {
+        "$ref": "#/$defs/TaskVocabulary"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Vocabulary",
+      "type": "array"
+    },
+    "support": {
+      "$ref": "#/$defs/PlanningDifferentiation"
+    },
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/TaskQuestion"
+      },
+      "maxItems": 10,
+      "minItems": 2,
+      "title": "Questions",
+      "type": "array"
+    },
+    "assessment": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Assessment",
+      "type": "string"
+    },
+    "uae_link": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Uae Link",
+      "type": "string"
+    },
+    "source_references": {
+      "items": {
+        "$ref": "#/$defs/SourceReference"
+      },
+      "maxItems": 24,
+      "title": "Source References",
+      "type": "array"
+    },
+    "review_checks": {
+      "$ref": "#/$defs/PlannerReview"
+    }
+  },
+  "required": [
+    "title",
+    "topic",
+    "subject",
+    "education_stage",
+    "curriculum",
+    "language",
+    "instructions",
+    "reading_text",
+    "vocabulary",
+    "support",
+    "questions",
+    "assessment",
+    "uae_link",
+    "source_references",
+    "review_checks"
+  ],
+  "title": "CopilotTask",
+  "type": "object"
+}

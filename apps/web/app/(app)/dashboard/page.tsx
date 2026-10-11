@@ -420,6 +420,11 @@ export default function Dashboard() {
         </section>
         <div className="space-y-5 xl:col-span-5">
           <ReflectionPrompts />
+          <Panel title="Teacher workspace">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[["/lesson-planners", "Lesson planners"], ["/demo-classes", "Demo class generator"], ["/digital-library", "Digital library"], ["/copilot", "AI teacher copilot"]].map(([href, title]) => <Link key={href} href={href} className="focus-ring flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-3 text-sm font-medium hover:border-brand-300 hover:bg-brand-50"><span>{title}</span><ArrowRight className="h-4 w-4 shrink-0 text-brand-600 rtl:rotate-180" /></Link>)}
+            </div>
+          </Panel>
           <MemoryInsights />
           <Panel title="Quick create">
             <div className="grid grid-cols-2 gap-3">

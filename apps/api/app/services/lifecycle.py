@@ -83,7 +83,8 @@ def _user_fk_columns() -> list[tuple[Any, Any, bool]]:
 async def purge_account(db: AsyncSession, user: User) -> None:
     """Remove the teacher's content and personal data; keep anonymised records the business must retain."""
     from app.core.storage import get_storage
-    from app.models import RewardSubmission
+    from app.models import DemoClass, DigitalResource, LessonPlan, RewardSubmission
+    from app.services.educator import cleanup_export_files
 
     storage = get_storage()
     # Preserve hashed reward claims and approved totals for abuse/budget checks,
@@ -95,6 +96,9 @@ async def purge_account(db: AsyncSession, user: User) -> None:
             await storage.delete(f.storage_key)
         except Exception as e:  # noqa: BLE001 - a missing object must not block the purge
             log(logger, logging.WARNING, "purge_storage_error", error=str(e)[:200])
+    for model in (LessonPlan, DemoClass, DigitalResource):
+        for row in (await db.execute(select(model).where(model.owner_id == user.id))).scalars():
+            await cleanup_export_files(row)
     for table, col, owned in _user_fk_columns():
         if owned:
             await db.execute(delete(table).where(col == user.id))

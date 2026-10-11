@@ -122,6 +122,7 @@ function Assistant() {
           {imageJob && <Alert tone="brand" title={imageJob.status === "succeeded" ? "Image request completed" : imageJob.status === "failed" ? "Image request failed" : "Preparing your confirmed replacement"}>{imageJob.result?.message || imageJob.stage}<Link href={`/lessons/${latestImageAction?.lesson_id || params.get("lesson")}`} className="ms-2 underline">Review lesson</Link></Alert>}
           {playground && <Alert tone="brand" title="PPT playground">Discuss → refine → review draft → create. No presentations are generated during this conversation.</Alert>}
           {!playground && <Link href="/assistant?mode=playground" className="text-sm font-medium text-brand-700">Open PPT playground →</Link>}
+          {!imageEdit && !playground && <div className="flex flex-wrap gap-2"><Button href="/copilot" variant="outline" size="sm">Printable classroom tasks</Button><Button href="/lesson-planners" variant="outline" size="sm">Lesson planners</Button><Button href="/demo-classes" variant="outline" size="sm">Demo classes</Button></div>}
           {error && <Alert tone="warn" title="Couldn't load this conversation"><Button variant="outline" onClick={() => refreshConversation()}>Try again</Button></Alert>}
           {conversationId && !conversation && !error && <Spinner />}
           {conversation?.job?.status === "failed" && <Alert tone="warn" title="This reply couldn't finish">Your message is saved. You can send it again or try another question.</Alert>}
