@@ -1,0 +1,2454 @@
+{
+  "checked_at": "2026-10-12T06:30:59.789700+00:00",
+  "read_only_public_get": true,
+  "note": "Googlebot user-agent spoofing is not a verified Google crawl or URL Inspection test.",
+  "results": [
+    {
+      "requested_url": "https://clastio.online/",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/",
+      "status": 200,
+      "seconds": 1.560569,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ee46c1f1dbe-BOM"
+          }
+        }
+      ],
+      "bytes": 65947,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-browser.txt",
+      "sha256": "ef90c920a549e80cc62156b5e94cfc3eb83a7488e822489aadf777a2aee1ff93",
+      "title": [
+        "AI teaching assistant and PPT maker for UAE teachers"
+      ],
+      "h1": [
+        "Plan  Teachand Shine withClastioAI slides"
+      ],
+      "canonical": [
+        "https://clastio.online"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 1279,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Science 8A Maths 7C English 9B Physics 10 Arabic 6A Computing 8 Plan Teach and Shine with Clastio AI slides Connected lessons, editable PowerPoints in your own design, workshee",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status",
+        "/videos/clastio-doodle-vertical.mp4",
+        "/videos/clastio-doodle-web.mp4"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions",
+      "status": 200,
+      "seconds": 1.819561,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ee4a9b850c3-BOM"
+          }
+        }
+      ],
+      "bytes": 44720,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-browser.txt",
+      "sha256": "25f88699d4740697e2adb1b20203c72114fa7b1b32e2681172f88eaff4b05392",
+      "title": [
+        "Teaching resources and lesson planning guides for the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "Solve the planning problems that take time from teaching"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 515,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Clastio teacher guides Solve the planning problems that take time from teaching Find a practical workflow for your next lesson, presentation or classroom adaptation. Start with",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/differentiated-lesson-presentations",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/reuse-school-powerpoint-design",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/turn-teaching-notes-into-powerpoint",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae",
+      "status": 200,
+      "seconds": 1.862274,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ee46e8a46aa-BOM"
+          }
+        }
+      ],
+      "bytes": 46653,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-ai-ppt-maker-for-teachers-uae-browser.txt",
+      "sha256": "fc66eb7fd6482dba36ae5d1c6faac7240a8f7d5127c003f1227ad8fa34db7544",
+      "title": [
+        "AI PPT maker for teachers in the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "AI PPT maker for teachers in the UAE"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 540,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide AI PPT maker for teachers in the UAE Clastio helps teachers plan a lesson before generating an editable PowerPoint. Star",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/british-curriculum-lesson-planning",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/british-curriculum-lesson-planning",
+      "status": 200,
+      "seconds": 1.814153,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ee4a9de3f8a-BOM"
+          }
+        }
+      ],
+      "bytes": 46707,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-british-curriculum-lesson-planning-browser.txt",
+      "sha256": "27db47871c623118b68d0857bfc0ff33ff1c692fb3056bcc6ec3342b900dac70",
+      "title": [
+        "British curriculum lesson planning in the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "British curriculum lesson planning in the UAE"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/british-curriculum-lesson-planning"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 517,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide British curriculum lesson planning in the UAE Choose the British curriculum in your teaching profile, then supply the ac",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/turn-teaching-notes-into-powerpoint",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/turn-teaching-notes-into-powerpoint",
+      "status": 200,
+      "seconds": 1.862664,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ee49e0c3b46-BOM"
+          }
+        }
+      ],
+      "bytes": 44417,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-turn-teaching-notes-into-powerpoint-browser.txt",
+      "sha256": "a419684869dbf5cfbcc3b0894fe7b9508862e9e1e0a2d83d589e04e81637e696",
+      "title": [
+        "Turn teaching notes and textbook sources into PowerPoint \u00b7 Clastio"
+      ],
+      "h1": [
+        "Turn teaching notes and textbook sources into PowerPoint"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/turn-teaching-notes-into-powerpoint"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 471,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Turn teaching notes and textbook sources into PowerPoint Upload the relevant teaching source, select it for your chapter",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/how-to-choose-ai-presentation-maker-for-teachers",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/how-to-choose-ai-presentation-maker-for-teachers",
+      "status": 404,
+      "seconds": 0.470674,
+      "chain": [
+        {
+          "status_line": "HTTP/2 404 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940eedcb90492c-BOM"
+          }
+        }
+      ],
+      "bytes": 13192,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-how-to-choose-ai-presentation-maker-for-teachers-browser.txt",
+      "sha256": "041d7b5b987ea54a50e9c6deecd8a40fab95a6df94ae75786add34b122018294",
+      "title": [
+        "Clastio \u2014 lessons and slides in your own design"
+      ],
+      "h1": [
+        "Let\u2019s get you back to your lessons"
+      ],
+      "canonical": [],
+      "meta_robots": [
+        "noindex"
+      ],
+      "visible_words": 29,
+      "text_sample": "404 \u00b7 Page not found Let\u2019s get you back to your lessons This link may be out of date, or the page may have moved. Open dashboard Go home",
+      "internal_links": [
+        "/",
+        "/dashboard"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/gcse-igcse-lesson-presentations",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/gcse-igcse-lesson-presentations",
+      "status": 404,
+      "seconds": 0.463459,
+      "chain": [
+        {
+          "status_line": "HTTP/2 404 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940eef3fc974eb-BOM"
+          }
+        }
+      ],
+      "bytes": 13192,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-gcse-igcse-lesson-presentations-browser.txt",
+      "sha256": "041d7b5b987ea54a50e9c6deecd8a40fab95a6df94ae75786add34b122018294",
+      "title": [
+        "Clastio \u2014 lessons and slides in your own design"
+      ],
+      "h1": [
+        "Let\u2019s get you back to your lessons"
+      ],
+      "canonical": [],
+      "meta_robots": [
+        "noindex"
+      ],
+      "visible_words": 29,
+      "text_sample": "404 \u00b7 Page not found Let\u2019s get you back to your lessons This link may be out of date, or the page may have moved. Open dashboard Go home",
+      "internal_links": [
+        "/",
+        "/dashboard"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/ai-lesson-planning-costs-and-credits",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/ai-lesson-planning-costs-and-credits",
+      "status": 404,
+      "seconds": 0.841135,
+      "chain": [
+        {
+          "status_line": "HTTP/2 404 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940eef6ba426a7-BOM"
+          }
+        }
+      ],
+      "bytes": 13192,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-ai-lesson-planning-costs-and-credits-browser.txt",
+      "sha256": "041d7b5b987ea54a50e9c6deecd8a40fab95a6df94ae75786add34b122018294",
+      "title": [
+        "Clastio \u2014 lessons and slides in your own design"
+      ],
+      "h1": [
+        "Let\u2019s get you back to your lessons"
+      ],
+      "canonical": [],
+      "meta_robots": [
+        "noindex"
+      ],
+      "visible_words": 29,
+      "text_sample": "404 \u00b7 Page not found Let\u2019s get you back to your lessons This link may be out of date, or the page may have moved. Open dashboard Go home",
+      "internal_links": [
+        "/",
+        "/dashboard"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/pricing",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/pricing",
+      "status": 200,
+      "seconds": 0.475004,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940eef6d1a79fc-BOM"
+          }
+        }
+      ],
+      "bytes": 33070,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-pricing-browser.txt",
+      "sha256": "a4d9919df415ebb9bfe5efed972dedd613728c550de602761ea0ce406abcc0c2",
+      "title": [
+        "Clastio pricing and teacher subscription plans \u00b7 Clastio"
+      ],
+      "h1": [
+        "Simple plans for busy teachers"
+      ],
+      "canonical": [
+        "https://clastio.online/pricing"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 357,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Simple plans for busy teachers Start on Free, choose an available trial, or subscribe to the plan that fits how much you teach. Prices are in AED; checkout confirms taxes and d",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": true,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/faq",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/faq",
+      "status": 200,
+      "seconds": 0.948031,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940eef7bf63ed9-BOM"
+          }
+        }
+      ],
+      "bytes": 39362,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-faq-browser.txt",
+      "sha256": "b6f2e42a0617b5cdceebf60ce346e5fc75b276cda9247d851c748fdb5f333adb",
+      "title": [
+        "Clastio questions: trials, credits, images and teacher memory \u00b7 Clastio"
+      ],
+      "h1": [
+        "Clastio questions: trials, credits, images and teacher memory"
+      ],
+      "canonical": [
+        "https://clastio.online/faq"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 518,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Clastio home Clastio questions: trials, credits, images and teacher memory Find answers before you start, then check the pricing page and your usage screen for the current plan",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/how-it-works",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/how-it-works",
+      "status": 200,
+      "seconds": 1.559315,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef0ecaa84b6-BOM"
+          }
+        }
+      ],
+      "bytes": 35789,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-how-it-works-browser.txt",
+      "sha256": "4a4c3a52cd679db639a9e089dd453fc4128602d268344b22fe23bc7960c03977",
+      "title": [
+        "How Clastio turns your lesson idea into an editable PPT \u00b7 Clastio"
+      ],
+      "h1": [
+        "How Clastio turns your lesson idea into an editable PPT"
+      ],
+      "canonical": [
+        "https://clastio.online/how-it-works"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 368,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Clastio home How Clastio turns your lesson idea into an editable PPT Start with the learning goal. Your assistant helps clarify the lesson before you spend credits building a p",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/turn-teaching-notes-into-powerpoint",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/for-schools",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/for-schools",
+      "status": 200,
+      "seconds": 0.619567,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef32ace2da3-BOM"
+          }
+        }
+      ],
+      "bytes": 34392,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-for-schools-browser.txt",
+      "sha256": "83e0a1e0580eb95632a5149fc1db912854dd25116a004095a4ff2c2782836588",
+      "title": [
+        "Explore Clastio for your school or department \u00b7 Clastio"
+      ],
+      "h1": [
+        "Explore Clastio for your school or department"
+      ],
+      "canonical": [
+        "https://clastio.online/for-schools"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 317,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Clastio home Explore Clastio for your school or department Begin with a small pilot and the teaching work you want to improve. Evaluate lesson quality, preparation time and rev",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/reuse-school-powerpoint-design",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/robots.txt",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/robots.txt",
+      "status": 200,
+      "seconds": 0.391406,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/plain",
+            "cache-control": "public, max-age=0, must-revalidate",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-ray": "a4940ef31854481a-BOM"
+          }
+        }
+      ],
+      "bytes": 583,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-robots-txt-browser.txt",
+      "sha256": "1ce5b446b6c375804edacf733e156eb2e58ecba9a70c6d9e5fc75c27e6fd9786",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 56,
+      "text_sample": "User-Agent: * Allow: / Disallow: /api/ Disallow: /activity Disallow: /admin Disallow: /dashboard Disallow: /settings Disallow: /billing Disallow: /support Disallow: /notifications Disallow: /projects Disallow: /assistant Disallow: /lessons Disallow: /calendar Disallow: /curriculum Disallow: /templat",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/sitemap.xml",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/sitemap.xml",
+      "status": 200,
+      "seconds": 1.080681,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "application/xml",
+            "cache-control": "public, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef5bec1dc08-BOM"
+          }
+        }
+      ],
+      "bytes": 3392,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-sitemap-xml-browser.txt",
+      "sha256": "eaa3d6dff8416ce38f80d6b57db647edbab7b10479a1bc1265ee2e8f723ce69d",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 75,
+      "text_sample": "https://clastio.online weekly 1 https://clastio.online/pricing monthly 0.5 https://clastio.online/solutions monthly 0.8 https://clastio.online/how-it-works monthly 0.5 https://clastio.online/for-schools monthly 0.5 https://clastio.online/faq monthly 0.5 https://clastio.online/solutions/ai-ppt-maker-",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/llms.txt",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/llms.txt",
+      "status": 200,
+      "seconds": 0.400056,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "public, max-age=3600",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "cf-ray": "a4940ef61ce64664-BOM"
+          }
+        }
+      ],
+      "bytes": 4594,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-llms-txt-browser.txt",
+      "sha256": "91320ee718f260c90d118dacba8f250f8b34b90be1ee8a6afeacb5f6d4a15911",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 500,
+      "text_sample": "# Clastio > An AI teaching assistant for planning lessons and editable PPTs, with teacher-controlled memory and licensed, uploaded or AI images. ## Public resources - [Home](https://clastio.online/): Product overview - [Pricing](https://clastio.online/pricing): Current plans and allowances - [Teache",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/not-a-real-guide",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/not-a-real-guide",
+      "status": 404,
+      "seconds": 0.808395,
+      "chain": [
+        {
+          "status_line": "HTTP/2 404 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef67c483dfe-BOM"
+          }
+        }
+      ],
+      "bytes": 13192,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-not-a-real-guide-browser.txt",
+      "sha256": "041d7b5b987ea54a50e9c6deecd8a40fab95a6df94ae75786add34b122018294",
+      "title": [
+        "Clastio \u2014 lessons and slides in your own design"
+      ],
+      "h1": [
+        "Let\u2019s get you back to your lessons"
+      ],
+      "canonical": [],
+      "meta_robots": [
+        "noindex"
+      ],
+      "visible_words": 29,
+      "text_sample": "404 \u00b7 Page not found Let\u2019s get you back to your lessons This link may be out of date, or the page may have moved. Open dashboard Go home",
+      "internal_links": [
+        "/",
+        "/dashboard"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/api/v1/billing/plans",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/api/v1/billing/plans",
+      "status": 200,
+      "seconds": 2.305634,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "application/json",
+            "cache-control": "no-store",
+            "server": "cloudflare",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef72a643a15-BOM"
+          }
+        }
+      ],
+      "bytes": 1530,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-api-v1-billing-plans-browser.txt",
+      "sha256": "afb04d8ccb82704abe0edd4d833dce7cb8f99e4bde1c5fc7d8c1018d95555f1f",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 36,
+      "text_sample": "{\"items\":[{\"code\":\"free\",\"name\":\"Free\",\"price_monthly_aed\":0.0,\"price_annual_aed\":0.0,\"limits\":{\"classes\":2,\"credits\":60,\"ai_images\":0,\"storage_mb\":100,\"max_lectures\":3,\"style_profiles\":1,\"whatsapp_messages\":0},\"features\":[\"Limited lesson generation\",\"1 teacher style\",\"Worksheets & quizzes (limited)",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/legal/acceptable_use",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/legal/acceptable_use",
+      "status": 200,
+      "seconds": 2.557595,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940ef8aecc4199-BOM"
+          }
+        }
+      ],
+      "bytes": 19941,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-legal-acceptable_use-browser.txt",
+      "sha256": "a5a2339e5bd831be468c5fdf22f2d630f12e72ba8b8b9e3900e5727c438ff6c0",
+      "title": [
+        "Clastio Acceptable Use Policy \u00b7 Clastio"
+      ],
+      "h1": [],
+      "canonical": [
+        "https://clastio.online/legal/acceptable_use"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 93,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Terms Privacy Acceptable use Cookies Refunds System status Made for teachers in the UAE, India and beyond. Product Pricing Features Schools How it works Questions Legal & trust",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/legal/cookie",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/legal/cookie",
+      "status": 200,
+      "seconds": 2.231815,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940efacbe21651-BOM"
+          }
+        }
+      ],
+      "bytes": 19789,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-legal-cookie-browser.txt",
+      "sha256": "76f03b7ed0f1b1b57e00f835811b24ae66659093eee1514eb66513bfc628ac2a",
+      "title": [
+        "Clastio Cookie Policy \u00b7 Clastio"
+      ],
+      "h1": [],
+      "canonical": [
+        "https://clastio.online/legal/cookie"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 93,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Terms Privacy Acceptable use Cookies Refunds System status Made for teachers in the UAE, India and beyond. Product Pricing Features Schools How it works Questions Legal & trust",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/cbse-lesson-planning-uae",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/cbse-lesson-planning-uae",
+      "status": 200,
+      "seconds": 2.391596,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940efc1b1f2e89-BOM"
+          }
+        }
+      ],
+      "bytes": 46455,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-cbse-lesson-planning-uae-browser.txt",
+      "sha256": "44864f475ee903684499b03a33fd150a53ec020ce6bb09c68e9ef2a84c04501a",
+      "title": [
+        "CBSE lesson planning for teachers in the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "CBSE lesson planning for teachers in the UAE"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/cbse-lesson-planning-uae"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 520,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide CBSE lesson planning for teachers in the UAE Set CBSE in your teaching profile and attach the relevant textbook chapter ",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/differentiated-lesson-presentations",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/differentiated-lesson-presentations",
+      "status": 200,
+      "seconds": 2.069891,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940efcbfaa5b2f-BOM"
+          }
+        }
+      ],
+      "bytes": 43983,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-differentiated-lesson-presentations-browser.txt",
+      "sha256": "eead7d1d85ccb8cf6693d3517a26a4a923427b4e963fa4a451249081b47f55cf",
+      "title": [
+        "Differentiate lesson presentations without starting again \u00b7 Clastio"
+      ],
+      "h1": [
+        "Differentiate lesson presentations without starting again"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/differentiated-lesson-presentations"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 453,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Differentiate lesson presentations without starting again Start with a shared lesson objective, then describe the suppor",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/eal-lessons-uae",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/eal-lessons-uae",
+      "status": 200,
+      "seconds": 0.921653,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f05dc382b14-BOM"
+          }
+        }
+      ],
+      "bytes": 46447,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-eal-lessons-uae-browser.txt",
+      "sha256": "f1767ad769fa75247f555b02e1d7f90f37c258c31b7da60bb9957382b1f51005",
+      "title": [
+        "Plan EAL-friendly lessons for UAE classrooms \u00b7 Clastio"
+      ],
+      "h1": [
+        "Plan EAL-friendly lessons for UAE classrooms"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/eal-lessons-uae"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 521,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Plan EAL-friendly lessons for UAE classrooms For an EAL-friendly presentation, keep the subject goal clear while reducin",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/edit-ppt-without-regenerating",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/edit-ppt-without-regenerating",
+      "status": 200,
+      "seconds": 0.368385,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f08f826419f-BOM"
+          }
+        }
+      ],
+      "bytes": 46771,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-edit-ppt-without-regenerating-browser.txt",
+      "sha256": "f8c339b4b29b84dc7c3cf0267302af2bcaf6c3b9e8206493707eedfdd1344bef",
+      "title": [
+        "Edit a teaching PPT without regenerating every slide \u00b7 Clastio"
+      ],
+      "h1": [
+        "Edit a teaching PPT without regenerating every slide"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/edit-ppt-without-regenerating"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 546,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Edit a teaching PPT without regenerating every slide For a small correction, use the slide editor. Manual content change",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/lesson-planning-for-uae-teachers",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/lesson-planning-for-uae-teachers",
+      "status": 200,
+      "seconds": 0.478704,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f09395284d1-BOM"
+          }
+        }
+      ],
+      "bytes": 46364,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-lesson-planning-for-uae-teachers-browser.txt",
+      "sha256": "1ffe9bb7d613d428a4abda557144b0139de000750a0d71bafed676a6ed177d09",
+      "title": [
+        "Lesson planning for UAE teachers \u00b7 Clastio"
+      ],
+      "h1": [
+        "Lesson planning for UAE teachers"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/lesson-planning-for-uae-teachers"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 519,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Lesson planning for UAE teachers Use Clastio to turn a chapter into a connected sequence of lessons, then adapt that seq",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/personal-ai-teaching-assistant",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/personal-ai-teaching-assistant",
+      "status": 200,
+      "seconds": 0.876213,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f096a6784d7-BOM"
+          }
+        }
+      ],
+      "bytes": 46828,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-personal-ai-teaching-assistant-browser.txt",
+      "sha256": "0c042e153ffc2e1ece895772f996adab61c79be44ec46566f518b3787021a4aa",
+      "title": [
+        "A personal AI teaching assistant with teacher memory \u00b7 Clastio"
+      ],
+      "h1": [
+        "A personal AI teaching assistant with teacher memory"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/personal-ai-teaching-assistant"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 508,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide A personal AI teaching assistant with teacher memory Clastio uses your teaching profile, confirmed preferences and relev",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/quiz-and-exit-ticket-maker",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/quiz-and-exit-ticket-maker",
+      "status": 200,
+      "seconds": 0.355038,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f0b49d3fdd4-BOM"
+          }
+        }
+      ],
+      "bytes": 44042,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-quiz-and-exit-ticket-maker-browser.txt",
+      "sha256": "09ead6a1a9021ccdecb9f90db8eabc220a223d4e93d958f1e954e9a4c2d4bacf",
+      "title": [
+        "Create quizzes and exit tickets for teaching lessons \u00b7 Clastio"
+      ],
+      "h1": [
+        "Create quizzes and exit tickets for teaching lessons"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/quiz-and-exit-ticket-maker"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 478,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Create quizzes and exit tickets for teaching lessons Use a quiz or exit ticket to find out what students understood, not",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/reuse-school-powerpoint-design",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/reuse-school-powerpoint-design",
+      "status": 200,
+      "seconds": 0.762741,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f0badedff63-BOM"
+          }
+        }
+      ],
+      "bytes": 43953,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-reuse-school-powerpoint-design-browser.txt",
+      "sha256": "73fe3775b8229b95281d8f4cf46f0004d5d3f11f48d0732f8944e671d9499a62",
+      "title": [
+        "Reuse your school PowerPoint design for teaching slides \u00b7 Clastio"
+      ],
+      "h1": [
+        "Reuse your school PowerPoint design for teaching slides"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/reuse-school-powerpoint-design"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 458,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Reuse your school PowerPoint design for teaching slides Upload an existing PowerPoint as a design reference, save the re",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/stock-images-for-teaching-presentations",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/stock-images-for-teaching-presentations",
+      "status": 200,
+      "seconds": 0.640044,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f0b9a28ff9b-BOM"
+          }
+        }
+      ],
+      "bytes": 44743,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-stock-images-for-teaching-presentations-browser.txt",
+      "sha256": "57d33be815ad59c747f00625c7024bdd9625a10cc81db9fcfddfbb0abb8bcec0",
+      "title": [
+        "Use uploaded and licensed stock images in teaching PPTs \u00b7 Clastio"
+      ],
+      "h1": [
+        "Use uploaded and licensed stock images in teaching PPTs"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/stock-images-for-teaching-presentations"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 483,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Use uploaded and licensed stock images in teaching PPTs Use stock-only when suitable licensed visuals are enough, Hybrid",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/worksheet-maker-for-uae-teachers",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/worksheet-maker-for-uae-teachers",
+      "status": 200,
+      "seconds": 0.672903,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f0c1ae0e83d-BOM"
+          }
+        }
+      ],
+      "bytes": 44285,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-worksheet-maker-for-uae-teachers-browser.txt",
+      "sha256": "1bde6e43047fc2f51e72755eea8464a8e39d9dd191f74d49fc0583141722bd58",
+      "title": [
+        "Worksheet maker for UAE teachers \u00b7 Clastio"
+      ],
+      "h1": [
+        "Worksheet maker for UAE teachers"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/worksheet-maker-for-uae-teachers"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 472,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide Worksheet maker for UAE teachers Create the lesson first, then use its document tools to draft a worksheet that practise",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/",
+      "status": 200,
+      "seconds": 0.400557,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f0dcc3abdd5-BOM"
+          }
+        }
+      ],
+      "bytes": 65947,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-googlebot.txt",
+      "sha256": "ef90c920a549e80cc62156b5e94cfc3eb83a7488e822489aadf777a2aee1ff93",
+      "title": [
+        "AI teaching assistant and PPT maker for UAE teachers"
+      ],
+      "h1": [
+        "Plan  Teachand Shine withClastioAI slides"
+      ],
+      "canonical": [
+        "https://clastio.online"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 1279,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Science 8A Maths 7C English 9B Physics 10 Arabic 6A Computing 8 Plan Teach and Shine with Clastio AI slides Connected lessons, editable PowerPoints in your own design, workshee",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status",
+        "/videos/clastio-doodle-vertical.mp4",
+        "/videos/clastio-doodle-web.mp4"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions",
+      "status": 200,
+      "seconds": 0.489406,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f105d4c3d3f-BOM"
+          }
+        }
+      ],
+      "bytes": 44720,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-googlebot.txt",
+      "sha256": "25f88699d4740697e2adb1b20203c72114fa7b1b32e2681172f88eaff4b05392",
+      "title": [
+        "Teaching resources and lesson planning guides for the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "Solve the planning problems that take time from teaching"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 515,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Clastio teacher guides Solve the planning problems that take time from teaching Find a practical workflow for your next lesson, presentation or classroom adaptation. Start with",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/differentiated-lesson-presentations",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/reuse-school-powerpoint-design",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/turn-teaching-notes-into-powerpoint",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae",
+      "status": 200,
+      "seconds": 1.056579,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f10adaf3b79-BOM"
+          }
+        }
+      ],
+      "bytes": 46653,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-solutions-ai-ppt-maker-for-teachers-uae-googlebot.txt",
+      "sha256": "fc66eb7fd6482dba36ae5d1c6faac7240a8f7d5127c003f1227ad8fa34db7544",
+      "title": [
+        "AI PPT maker for teachers in the UAE \u00b7 Clastio"
+      ],
+      "h1": [
+        "AI PPT maker for teachers in the UAE"
+      ],
+      "canonical": [
+        "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 540,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Home / Teacher guides Clastio \u00b7 Practical teacher guide AI PPT maker for teachers in the UAE Clastio helps teachers plan a lesson before generating an editable PowerPoint. Star",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/british-curriculum-lesson-planning",
+        "/solutions/cbse-lesson-planning-uae",
+        "/solutions/eal-lessons-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/pricing",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/pricing",
+      "status": 200,
+      "seconds": 0.437505,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f10fe7603ba-BOM"
+          }
+        }
+      ],
+      "bytes": 33070,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-pricing-googlebot.txt",
+      "sha256": "a4d9919df415ebb9bfe5efed972dedd613728c550de602761ea0ce406abcc0c2",
+      "title": [
+        "Clastio pricing and teacher subscription plans \u00b7 Clastio"
+      ],
+      "h1": [
+        "Simple plans for busy teachers"
+      ],
+      "canonical": [
+        "https://clastio.online/pricing"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 357,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Simple plans for busy teachers Start on Free, choose an available trial, or subscribe to the plan that fits how much you teach. Prices are in AED; checkout confirms taxes and d",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/personal-ai-teaching-assistant",
+        "/status"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": true,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/robots.txt",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/robots.txt",
+      "status": 200,
+      "seconds": 0.760016,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/plain",
+            "cache-control": "public, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f10ead03a41-BOM"
+          }
+        }
+      ],
+      "bytes": 583,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-robots-txt-googlebot.txt",
+      "sha256": "1ce5b446b6c375804edacf733e156eb2e58ecba9a70c6d9e5fc75c27e6fd9786",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 56,
+      "text_sample": "User-Agent: * Allow: / Disallow: /api/ Disallow: /activity Disallow: /admin Disallow: /dashboard Disallow: /settings Disallow: /billing Disallow: /support Disallow: /notifications Disallow: /projects Disallow: /assistant Disallow: /lessons Disallow: /calendar Disallow: /curriculum Disallow: /templat",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clastio.online/sitemap.xml",
+      "agent": "googlebot",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/sitemap.xml",
+      "status": 200,
+      "seconds": 0.355039,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "application/xml",
+            "cache-control": "public, max-age=0, must-revalidate",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f119ffba09b-BOM"
+          }
+        }
+      ],
+      "bytes": 3392,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-sitemap-xml-googlebot.txt",
+      "sha256": "eaa3d6dff8416ce38f80d6b57db647edbab7b10479a1bc1265ee2e8f723ce69d",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 75,
+      "text_sample": "https://clastio.online weekly 1 https://clastio.online/pricing monthly 0.5 https://clastio.online/solutions monthly 0.8 https://clastio.online/how-it-works monthly 0.5 https://clastio.online/for-schools monthly 0.5 https://clastio.online/faq monthly 0.5 https://clastio.online/solutions/ai-ppt-maker-",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "http://clastio.online/",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/",
+      "status": 200,
+      "seconds": 1.119176,
+      "chain": [
+        {
+          "status_line": "HTTP/1.1 301 Moved Permanently",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "location": "https://clastio.online/",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "cf-ray": "a4940f12cd93e09d-BOM"
+          }
+        },
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f166b3985d1-BOM"
+          }
+        }
+      ],
+      "bytes": 65947,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clastio-online-browser.txt",
+      "sha256": "ef90c920a549e80cc62156b5e94cfc3eb83a7488e822489aadf777a2aee1ff93",
+      "title": [
+        "AI teaching assistant and PPT maker for UAE teachers"
+      ],
+      "h1": [
+        "Plan  Teachand Shine withClastioAI slides"
+      ],
+      "canonical": [
+        "https://clastio.online"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 1279,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Science 8A Maths 7C English 9B Physics 10 Arabic 6A Computing 8 Plan Teach and Shine with Clastio AI slides Connected lessons, editable PowerPoints in your own design, workshee",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status",
+        "/videos/clastio-doodle-vertical.mp4",
+        "/videos/clastio-doodle-web.mp4"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://www.clastio.online/",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/",
+      "status": 200,
+      "seconds": 1.656648,
+      "chain": [
+        {
+          "status_line": "HTTP/2 301 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "location": "https://clastio.online/",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "cf-ray": "a4940f18ab53ad0d-BOM"
+          }
+        },
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f1aae2e3f60-BOM"
+          }
+        }
+      ],
+      "bytes": 65947,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/www-clastio-online-browser.txt",
+      "sha256": "ef90c920a549e80cc62156b5e94cfc3eb83a7488e822489aadf777a2aee1ff93",
+      "title": [
+        "AI teaching assistant and PPT maker for UAE teachers"
+      ],
+      "h1": [
+        "Plan  Teachand Shine withClastioAI slides"
+      ],
+      "canonical": [
+        "https://clastio.online"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 1279,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Science 8A Maths 7C English 9B Physics 10 Arabic 6A Computing 8 Plan Teach and Shine with Clastio AI slides Connected lessons, editable PowerPoints in your own design, workshee",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status",
+        "/videos/clastio-doodle-vertical.mp4",
+        "/videos/clastio-doodle-web.mp4"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "http://www.clastio.online/",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clastio.online/",
+      "status": 200,
+      "seconds": 2.050181,
+      "chain": [
+        {
+          "status_line": "HTTP/1.1 301 Moved Permanently",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "location": "https://www.clastio.online/",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "cf-ray": "a4940f189cef94dd-BOM"
+          }
+        },
+        {
+          "status_line": "HTTP/2 301 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "location": "https://clastio.online/",
+            "cf-cache-status": "DYNAMIC",
+            "server": "cloudflare",
+            "cf-ray": "a4940f1c1eed6cb3-BOM"
+          }
+        },
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "s-maxage=31536000",
+            "server": "cloudflare",
+            "x-nextjs-cache": "HIT",
+            "cf-cache-status": "DYNAMIC",
+            "cf-ray": "a4940f1e5ebe423c-BOM"
+          }
+        }
+      ],
+      "bytes": 65947,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/www-clastio-online-browser.txt",
+      "sha256": "ef90c920a549e80cc62156b5e94cfc3eb83a7488e822489aadf777a2aee1ff93",
+      "title": [
+        "AI teaching assistant and PPT maker for UAE teachers"
+      ],
+      "h1": [
+        "Plan  Teachand Shine withClastioAI slides"
+      ],
+      "canonical": [
+        "https://clastio.online"
+      ],
+      "meta_robots": [
+        "index, follow",
+        "index, follow, max-image-preview:large, max-snippet:-1"
+      ],
+      "visible_words": 1279,
+      "text_sample": "Features How it works Pricing Teacher guides For schools FAQ Sign in Start free Features Example Pricing Teacher guides FAQ Science 8A Maths 7C English 9B Physics 10 Arabic 6A Computing 8 Plan Teach and Shine with Clastio AI slides Connected lessons, editable PowerPoints in your own design, workshee",
+      "internal_links": [
+        "/",
+        "/#example",
+        "/#features",
+        "/faq",
+        "/for-schools",
+        "/how-it-works",
+        "/legal/acceptable_use",
+        "/legal/cookie",
+        "/legal/privacy",
+        "/legal/refund",
+        "/legal/terms",
+        "/login",
+        "/pricing",
+        "/signup",
+        "/solutions",
+        "/solutions/ai-ppt-maker-for-teachers-uae",
+        "/solutions/edit-ppt-without-regenerating",
+        "/solutions/lesson-planning-for-uae-teachers",
+        "/solutions/personal-ai-teaching-assistant",
+        "/solutions/quiz-and-exit-ticket-maker",
+        "/solutions/stock-images-for-teaching-presentations",
+        "/solutions/worksheet-maker-for-uae-teachers",
+        "/status",
+        "/videos/clastio-doodle-vertical.mp4",
+        "/videos/clastio-doodle-web.mp4"
+      ],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    },
+    {
+      "requested_url": "https://clerk.clastio.online/",
+      "agent": "browser",
+      "curl_exit": 0,
+      "error": null,
+      "effective_url": "https://clerk.clastio.online/",
+      "status": 200,
+      "seconds": 0.199187,
+      "chain": [
+        {
+          "status_line": "HTTP/2 200 ",
+          "headers": {
+            "content-type": "application/json",
+            "x-robots-tag": "noindex, nofollow",
+            "server": "cloudflare",
+            "cf-ray": "a4940f160f6e8171-DEL"
+          }
+        }
+      ],
+      "bytes": 0,
+      "body_file": "artifacts/seo-gsc-20261012/live-bodies/clerk-clastio-online-browser.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "title": [],
+      "h1": [],
+      "canonical": [],
+      "meta_robots": [],
+      "visible_words": 0,
+      "text_sample": "",
+      "internal_links": [],
+      "markers": {
+        "new_ppt_guide_section": false,
+        "price_loading_shell": false,
+        "rendered_teacher_card": false,
+        "challenge_page": false
+      }
+    }
+  ]
+}

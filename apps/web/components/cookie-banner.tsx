@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useSWRConfig } from "swr";
+import { COOKIE_PREFERENCES_EVENT, consumeCookiePreferencesRequest } from "@/lib/cookie-preferences";
 
 const KEY = "clastio:cookie-consent";
 
@@ -15,7 +16,19 @@ export function CookieBanner() {
   const [custom, setCustom] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   useEffect(() => {
-    try { setShow(!localStorage.getItem(KEY)); } catch { setShow(false); }
+    // Preserve an already queued open across development's repeated effect setup.
+    try { const missing = !localStorage.getItem(KEY); setShow(current => current || missing); } catch { /* optional storage can be unavailable */ }
+    const reopen = () => {
+      let previous = false;
+      try { previous = JSON.parse(localStorage.getItem(KEY) || "null")?.analytics === true; } catch { /* default optional cookies off */ }
+      setAnalytics(previous);
+      setCustom(true);
+      setShow(true);
+    };
+    const open = () => { consumeCookiePreferencesRequest(); reopen(); };
+    window.addEventListener(COOKIE_PREFERENCES_EVENT, open);
+    if (consumeCookiePreferencesRequest()) reopen();
+    return () => window.removeEventListener(COOKIE_PREFERENCES_EVENT, open);
   }, []);
   const save = (choice: { analytics: boolean; marketing: boolean }) => {
     try { localStorage.setItem(KEY, JSON.stringify({ ...choice, at: new Date().toISOString() })); } catch { /* ignore */ }

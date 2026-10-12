@@ -7,7 +7,7 @@ import { Suspense, useState } from "react";
 import { AuthLayout, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
 import { adminLandingPath, safeInternalPath } from "@/lib/navigation";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { useSWRConfig } from "swr";
 
 function LoginChoice() {
@@ -22,12 +22,14 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setRecovery(null);
     try {
       const res = await api<{ user: { onboarding_completed: boolean; role: string; permissions: string[] } }>("/auth/login", { body: { email, password } });
       await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
@@ -39,6 +41,7 @@ function LoginForm() {
       router.replace(res.user.role === "admin" ? adminLandingPath(res.user.permissions) : !res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next));
     } catch (err: any) {
       setError(err.message);
+      if (err instanceof ApiError) setRecovery(err.code === "account_suspended" ? "/account-suspended" : err.code === "account_banned" ? "/account-deactivated" : err.code === "account_pending_deletion" ? "/account-deleted" : null);
       setBusy(false);
     }
   };
@@ -48,7 +51,7 @@ function LoginForm() {
       footer={<>New here? <Link href="/signup" className="font-medium text-brand-600 hover:underline">Create a free account</Link></>}>
       <OAuthButtons />
       <form onSubmit={submit} className="space-y-4">
-        {error && <Alert tone="danger">{error}</Alert>}
+        {error && <Alert tone="danger">{error}{recovery && <Link href={recovery} className="mt-2 block font-semibold underline">Review account access and recovery</Link>}</Alert>}
         <Field label="Email">
           <Input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.ae" />
         </Field>

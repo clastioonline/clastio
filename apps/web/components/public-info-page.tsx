@@ -17,7 +17,7 @@ export function PublicInfoPage({ page }: { page: typeof publicPages[number] }) {
       </nav>
       {page.sections.map((section, i) => <section key={section.heading} id={`answer-${i}`} className="mt-10 scroll-mt-6"><h2 className="text-2xl font-semibold">{section.heading}</h2><p className="mt-3 text-lg leading-relaxed text-[var(--l-muted)]">{section.text}</p></section>)}
       <aside className="mt-12 border-t border-[var(--l-line)] pt-8"><h2 className="text-xl font-semibold">Explore next</h2><ul className="mt-4 space-y-3">{page.links.map((link) => <li key={link.href}><Link className="text-brand-700 hover:underline" href={link.href}>{link.label}</Link></li>)}</ul></aside>
-      <Link href="/signup" className="mt-8 inline-flex rounded-full bg-[#141414] px-6 py-3 font-semibold text-white">Start your seven-day trial</Link>
+      <div className="mt-8 flex flex-wrap items-center gap-5"><Link href="/signup" className="inline-flex rounded-full bg-[#141414] px-6 py-3 font-semibold text-white">Start free</Link><Link href="/pricing" className="font-semibold text-brand-700 underline">Check current plans and allowances</Link></div><p className="mt-3 text-sm text-[var(--l-muted)]">New accounts start on Free. An eligible trial is a separate choice.</p>
     </main>
     <LandingFooter />
   </div>;

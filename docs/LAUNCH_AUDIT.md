@@ -1,5 +1,7 @@
 # Clastio launch readiness — 12 October 2026
 
+Supporting pages and search follow-up: [system-page and indexing implementation](SYSTEM_PAGES_AND_INDEXING_20261012.md), [actual live GSC URL audit](GSC_FOLLOWUP_20261012.md) and [account/billing recovery pages](ACCOUNT_SYSTEM_PAGES_20261012.md). These add public contact/help, policy SSR and branded recovery states; they do not supersede the production gates below.
+
 **Release decision: complete the production checks below before opening public registration or paid marketing.** Local checks verify deterministic/offline workflows and mocked provider boundaries. Two bounded, synthetic live OpenRouter schema checks also passed. This review does not certify the public Render/Railway deployment or the complete production teacher workflow. Evidence is saved in [`artifacts/launch-audit-20261012`](../artifacts/launch-audit-20261012/).
 
 ### Current changes and defects found

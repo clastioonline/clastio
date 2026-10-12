@@ -1,13 +1,27 @@
 /* Clastio keeps signed-in pages, API calls and teacher files on the network. */
-const CACHE = "clastio-public-brand-v1";
+const CACHE = "clastio-public-brand-v2";
 const PUBLIC_ASSETS = ["/brand/favicon.png", "/brand/app-icon-512.png"];
+const OFFLINE_PAGE = "/offline";
+const PUBLIC_PAGES = ["/", "/pricing", "/solutions", "/how-it-works", "/for-schools", "/faq", "/help", "/contact", "/status", "/legal", "/offline", "/accessibility", "/security", "/copyright", "/data-privacy", "/data-processing", "/cancellation-policy"];
+
+function isPublicDocument(request, url) {
+  return request.mode === "navigate" && request.destination === "document" &&
+    (PUBLIC_PAGES.includes(url.pathname) || url.pathname.startsWith("/solutions/") || url.pathname.startsWith("/legal/"));
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    for (const path of PUBLIC_ASSETS) {
-      const response = await fetch(path, { credentials: "omit", cache: "reload" });
-      if (response.ok && response.type === "basic") await cache.put(path, response);
+    for (const path of [...PUBLIC_ASSETS, OFFLINE_PAGE]) {
+      try {
+        const response = await fetch(path, { credentials: "omit", cache: "reload" });
+        // Only this marked, self-contained public screen may be cached as HTML.
+        // A generic 503 response, login page or authenticated redirect is excluded.
+        const isOfflineScreen = path === OFFLINE_PAGE && response.status === 503 &&
+          response.headers.get("X-Clastio-System-Page") === "offline" &&
+          (response.headers.get("Content-Type") || "").startsWith("text/html");
+        if (response.type === "basic" && (isOfflineScreen || (PUBLIC_ASSETS.includes(path) && response.ok))) await cache.put(path, response);
+      } catch { /* A failed public preload must not cache an error response. */ }
     }
     await self.skipWaiting();
   })());
@@ -24,11 +38,24 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== self.location.origin || url.search || !PUBLIC_ASSETS.includes(url.pathname)) return;
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    return await cache.match(url.pathname) || fetch(event.request);
-  })());
+  if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (!url.search && PUBLIC_ASSETS.includes(url.pathname)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      return await cache.match(url.pathname) || fetch(event.request);
+    })());
+  } else if (isPublicDocument(event.request, url)) {
+    event.respondWith((async () => {
+      try {
+        // Preserve real HTTP errors. Never cache the requested page's response.
+        return await fetch(event.request);
+      } catch (error) {
+        const offline = await (await caches.open(CACHE)).match(OFFLINE_PAGE);
+        if (offline) return offline;
+        throw error;
+      }
+    })());
+  }
 });
 
 self.addEventListener("push", (event) => {

@@ -1,0 +1,7 @@
+{
+  "heldBannerChunks": 1,
+  "footerHydratedBeforeClick": true,
+  "opensAfterDelayedMount": false,
+  "secondClickOpens": true,
+  "apiWrites": 0
+}

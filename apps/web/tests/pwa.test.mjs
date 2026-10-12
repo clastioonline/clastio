@@ -15,9 +15,12 @@ function worker() {
     registration: { showNotification: async (title, options) => notices.push({ title, ...options }), getNotifications: async () => [] },
   };
   const cache = { put: async (path, value) => stored.set(path, value), match: async path => stored.get(path) };
-  const fetch = async (path, options) => { calls.push(['fetch', path, options]); return { ok: true, type: 'basic', image: true }; };
+  let fetcher = async path => path === '/offline'
+    ? { ok: false, status: 503, type: 'basic', headers: new Headers({ 'Content-Type': 'text/html; charset=utf-8', 'X-Clastio-System-Page': 'offline' }) }
+    : { ok: true, type: 'basic', image: true };
+  const fetch = async (path, options) => { calls.push(['fetch', path, options]); return fetcher(path, options); };
   vm.runInNewContext(source, { self, URL, fetch, caches: { open: async () => cache, keys: async () => ['clastio-public-brand-v0', 'unrelated-cache'], delete: async name => calls.push(['delete', name]) } });
-  return { self, handlers, calls, stored, notices };
+  return { self, handlers, calls, stored, notices, setFetcher: next => { fetcher = next; } };
 }
 
 async function run(handler, extra = {}) {
@@ -26,11 +29,11 @@ async function run(handler, extra = {}) {
   await work;
 }
 
-test('service worker preloads only public logo assets with no account cookies', async () => {
+test('service worker preloads only public logos and the marked offline screen with no account cookies', async () => {
   const state = worker();
   await run(state.handlers.install);
-  assert.deepEqual([...state.stored.keys()], ['/brand/favicon.png', '/brand/app-icon-512.png']);
-  assert.equal(state.calls.filter(call => call[0] === 'fetch').length, 2);
+  assert.deepEqual([...state.stored.keys()], ['/brand/favicon.png', '/brand/app-icon-512.png', '/offline']);
+  assert.equal(state.calls.filter(call => call[0] === 'fetch').length, 3);
   for (const call of state.calls) if (call[0] === 'fetch') assert.equal(call[2].credentials, 'omit');
   await run(state.handlers.activate);
   assert.deepEqual(state.calls.filter(call => call[0] === 'delete'), [['delete', 'clastio-public-brand-v0']]);
@@ -41,10 +44,64 @@ test('authenticated pages, API calls, teacher files and nonpublic requests alway
   for (const [method, path] of [
     ['GET', '/dashboard'], ['GET', '/api/v1/auth/me'], ['GET', '/api/v1/assets/private-ppt/download'],
     ['GET', '/lessons/private-lesson'], ['GET', '/brand/favicon.png?user=private'], ['POST', '/brand/favicon.png'],
+    ['GET', '/login'], ['GET', '/reset-password?token=private'], ['GET', '/session-expired'],
+    ['GET', '/checkout'], ['GET', '/payment-success?checkout_id=private'], ['GET', '/account-deleted'],
+    ['GET', '/not-a-public-page'], ['POST', '/help'],
     ['GET', 'https://other.example/brand/favicon.png'],
   ]) {
-    handlers.fetch({ request: { method, url: new URL(path, 'https://clastio.online').href }, respondWith: () => assert.fail(`Unexpected cache interception: ${path}`) });
+    handlers.fetch({ request: { method, mode: 'navigate', destination: 'document', url: new URL(path, 'https://clastio.online').href }, respondWith: () => assert.fail(`Unexpected cache interception: ${path}`) });
   }
+});
+
+test('a network failure on a known public document uses only the public offline screen', async () => {
+  const state = worker();
+  await run(state.handlers.install);
+  state.setFetcher(async () => { throw new TypeError('Failed to fetch'); });
+  for (const path of ['/', '/help', '/contact', '/solutions/ai-presentation-maker-for-teachers', '/legal/privacy']) {
+    let work;
+    state.handlers.fetch({ request: { method: 'GET', mode: 'navigate', destination: 'document', url: `https://clastio.online${path}` }, respondWith: promise => { work = promise; } });
+    const response = await work;
+    assert.equal(response, state.stored.get('/offline'));
+    assert.equal(response.status, 503);
+  }
+  assert.deepEqual([...state.stored.keys()], ['/brand/favicon.png', '/brand/app-icon-512.png', '/offline']);
+});
+
+test('public navigation preserves HTTP errors and does not cache requested page responses', async () => {
+  const state = worker();
+  await run(state.handlers.install);
+  for (const status of [200, 403, 404, 500, 503]) {
+    const networkResponse = { status, body: `Network response ${status}` };
+    state.setFetcher(async () => networkResponse);
+    let work;
+    state.handlers.fetch({ request: { method: 'GET', mode: 'navigate', destination: 'document', url: 'https://clastio.online/solutions/missing-guide' }, respondWith: promise => { work = promise; } });
+    assert.equal(await work, networkResponse);
+  }
+  assert.deepEqual([...state.stored.keys()], ['/brand/favicon.png', '/brand/app-icon-512.png', '/offline']);
+});
+
+test('unmarked HTML and redirected sign-in responses cannot become the offline page', async () => {
+  for (const response of [
+    { status: 503, type: 'basic', headers: new Headers({ 'Content-Type': 'text/html' }) },
+    { status: 200, type: 'basic', headers: new Headers({ 'Content-Type': 'text/html', 'X-Clastio-System-Page': 'offline' }) },
+    { status: 503, type: 'opaque', headers: new Headers({ 'Content-Type': 'text/html', 'X-Clastio-System-Page': 'offline' }) },
+  ]) {
+    const state = worker();
+    state.setFetcher(async path => path === '/offline' ? response : { ok: true, type: 'basic' });
+    await run(state.handlers.install);
+    assert.equal(state.stored.has('/offline'), false);
+  }
+});
+
+test('public non-document fetches stay network-only and an unavailable fallback keeps its network error', async () => {
+  const state = worker();
+  for (const request of [
+    { mode: 'cors', destination: '' }, { mode: 'navigate', destination: 'iframe' },
+  ]) state.handlers.fetch({ request: { ...request, method: 'GET', url: 'https://clastio.online/help' }, respondWith: () => assert.fail('A non-document request was intercepted') });
+  state.setFetcher(async () => { throw new TypeError('Failed to fetch'); });
+  let work;
+  state.handlers.fetch({ request: { method: 'GET', mode: 'navigate', destination: 'document', url: 'https://clastio.online/help' }, respondWith: promise => { work = promise; } });
+  await assert.rejects(work, /Failed to fetch/);
 });
 
 test('push always displays a visible fallback and uses a stable tag', async () => {

@@ -1,0 +1,144 @@
+{
+  "guideCount": 16,
+  "allSlugs": [
+    "ai-ppt-maker-for-teachers-uae",
+    "lesson-planning-for-uae-teachers",
+    "eal-lessons-uae",
+    "british-curriculum-lesson-planning",
+    "cbse-lesson-planning-uae",
+    "edit-ppt-without-regenerating",
+    "personal-ai-teaching-assistant",
+    "worksheet-maker-for-uae-teachers",
+    "quiz-and-exit-ticket-maker",
+    "differentiated-lesson-presentations",
+    "turn-teaching-notes-into-powerpoint",
+    "reuse-school-powerpoint-design",
+    "stock-images-for-teaching-presentations",
+    "how-to-choose-ai-presentation-maker-for-teachers",
+    "gcse-igcse-lesson-presentations",
+    "ai-lesson-planning-costs-and-credits"
+  ],
+  "reviewed": [
+    {
+      "slug": "ai-ppt-maker-for-teachers-uae",
+      "title": "AI PowerPoint maker for teachers in the UAE",
+      "description": "Create an editable lesson PPT from your objectives and teaching sources. Review the first lesson, reuse a school design, and check slides before class.",
+      "category": "Presentations",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "https://support.microsoft.com/en-us/powerpoint/file-formats-that-are-supported-in-powerpoint",
+        "https://africa.teachingenglish.org.uk/skills/tips/ai-safe-responsible-use"
+      ],
+      "tableCaptions": [
+        "Example review framework for a single science lesson"
+      ],
+      "relatedSlugs": [
+        "british-curriculum-lesson-planning",
+        "turn-teaching-notes-into-powerpoint",
+        "reuse-school-powerpoint-design",
+        "ai-lesson-planning-costs-and-credits"
+      ]
+    },
+    {
+      "slug": "british-curriculum-lesson-planning",
+      "title": "British curriculum lesson planning in the UAE",
+      "description": "Plan a British curriculum lesson in the UAE using the actual year group, scheme of work, supplied outcomes and source pages before building editable slides.",
+      "category": "British curriculum",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "https://www.gov.uk/government/collections/national-curriculum",
+        "https://www.gov.uk/government/collections/gcse-subject-content",
+        "https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-igcse/"
+      ],
+      "tableCaptions": [
+        "Choose the reference that answers the planning question"
+      ],
+      "relatedSlugs": [
+        "gcse-igcse-lesson-presentations",
+        "turn-teaching-notes-into-powerpoint",
+        "eal-lessons-uae",
+        "quiz-and-exit-ticket-maker"
+      ]
+    },
+    {
+      "slug": "turn-teaching-notes-into-powerpoint",
+      "title": "Turn a textbook PDF or teaching notes into an editable PowerPoint",
+      "description": "Choose chapter pages, check readable source material, then turn a textbook PDF or teaching notes into a reviewed lesson plan and editable PPTX.",
+      "category": "Teaching sources",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "https://support.microsoft.com/en-us/powerpoint/file-formats-that-are-supported-in-powerpoint",
+        "https://africa.teachingenglish.org.uk/skills/tips/ai-safe-responsible-use"
+      ],
+      "tableCaptions": [
+        "A quick source-readiness check before slide generation"
+      ],
+      "relatedSlugs": [
+        "british-curriculum-lesson-planning",
+        "ai-ppt-maker-for-teachers-uae",
+        "stock-images-for-teaching-presentations",
+        "edit-ppt-without-regenerating"
+      ]
+    },
+    {
+      "slug": "how-to-choose-ai-presentation-maker-for-teachers",
+      "title": "How to choose an AI presentation maker for teachers",
+      "description": "Compare lesson quality, source handling, editable PPTX exports and total preparation cost using the same classroom task and a practical download test.",
+      "category": "Choosing a tool",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "https://support.microsoft.com/en-us/powerpoint/file-formats-that-are-supported-in-powerpoint",
+        "https://africa.teachingenglish.org.uk/skills/tips/ai-safe-responsible-use"
+      ],
+      "tableCaptions": [
+        "Compare evidence from the same lesson task"
+      ],
+      "relatedSlugs": [
+        "ai-ppt-maker-for-teachers-uae",
+        "reuse-school-powerpoint-design",
+        "edit-ppt-without-regenerating",
+        "ai-lesson-planning-costs-and-credits"
+      ]
+    },
+    {
+      "slug": "gcse-igcse-lesson-presentations",
+      "title": "Plan GCSE and IGCSE lesson presentations from the right specification",
+      "description": "Identify the qualification, exam board, subject code and examination year before drafting a GCSE or IGCSE lesson PPT from supplied objectives and sources.",
+      "category": "British curriculum",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "https://www.gov.uk/government/collections/gcse-subject-content",
+        "https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-upper-secondary/cambridge-igcse/",
+        "https://www.cambridgeinternational.org/programmes-and-qualifications/cambridge-igcse-physics-0625/"
+      ],
+      "tableCaptions": [
+        "Teacher-supplied specification details"
+      ],
+      "relatedSlugs": [
+        "british-curriculum-lesson-planning",
+        "turn-teaching-notes-into-powerpoint",
+        "quiz-and-exit-ticket-maker",
+        "differentiated-lesson-presentations"
+      ]
+    },
+    {
+      "slug": "ai-lesson-planning-costs-and-credits",
+      "title": "Estimate AI lesson planning costs and presentation credits",
+      "description": "Estimate planning, slides, worksheets, quizzes, AI edits and image allowances using current rates, with a clearly labelled example calculation.",
+      "category": "Planning costs",
+      "reviewedAt": "2026-10-12",
+      "sourceUrls": [
+        "/pricing"
+      ],
+      "tableCaptions": [
+        "Illustrative estimate only: replace all rates with the current values"
+      ],
+      "relatedSlugs": [
+        "how-to-choose-ai-presentation-maker-for-teachers",
+        "edit-ppt-without-regenerating",
+        "stock-images-for-teaching-presentations",
+        "ai-ppt-maker-for-teachers-uae"
+      ]
+    }
+  ]
+}

@@ -7,10 +7,11 @@ import { errorMessage, useToast } from "@/components/toast";
 import { Field, Input, Tabs } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { safePaymentDestination } from "@/lib/account-state";
+import { parsePublicPricing, type PlansResponse } from "@/lib/public-pricing";
 import { cn } from "@/lib/utils";
 
-export type Plan = { code: string; name: string; price_monthly_aed: number; price_annual_aed: number; features: string[]; limits: Record<string, any> };
-type PlansResponse = { items: Plan[]; vat_rate: number; online_payments: boolean; payment_provider: string | null; trial: { enabled: boolean; plan: string; days: number; credits: number } };
+export type { Plan } from "@/lib/public-pricing";
 
 /* Starts checkout for a plan and sends the teacher to the payment page. */
 export function useCheckout() {
@@ -20,7 +21,9 @@ export function useCheckout() {
     setBusy(plan);
     try {
       const r = await api<{ url: string }>("/billing/checkout", { body: { plan, interval, coupon_code: couponCode?.trim() || undefined } });
-      window.location.href = r.url;
+      const destination = safePaymentDestination(r.url, window.location.origin);
+      if (!destination) throw new Error("The checkout destination could not be confirmed. Contact support.");
+      window.location.href = destination;
     } catch (e) {
       notify({ tone: "error", title: "Checkout isn't available right now", body: errorMessage(e) });
       setBusy(null);
@@ -33,10 +36,13 @@ export function useCheckout() {
  * Plan cards. `mode="public"` (pricing page) links to sign-up; `mode="app"` starts checkout for signed-in teachers.
  * `paidOnly` hides the Free plan (upgrade dialog).
  */
-export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidOnly = false, compact = false }: {
+export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidOnly = false, compact = false, initialPlans }: {
   mode?: "public" | "app"; currentPlan?: string; onTrial?: boolean; paidOnly?: boolean; compact?: boolean;
+  initialPlans?: PlansResponse | null;
 }) {
-  const { data, error, mutate } = useApi<PlansResponse>("/billing/plans");
+  const { data: response, error, mutate } = useApi<PlansResponse>("/billing/plans", mode === "public"
+    ? { fallbackData: initialPlans ?? undefined, revalidateOnMount: true } : undefined);
+  const data = mode === "public" && response ? parsePublicPricing(response) : response;
   const [interval, setInterval] = useState<"month" | "year">("month");
   const { choose, busy } = useCheckout();
   const [couponCode, setCouponCode] = useState("");
@@ -44,9 +50,11 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
   const trial = data?.trial;
   const canPay = mode === "public" || !!data?.online_payments;
 
-  if (!data) return <div role={error ? "alert" : "status"} className="rounded-2xl bg-surface p-8 text-center ring-1 ring-line">
-    <p>{error ? "We couldn't load current prices. Please retry before choosing a plan." : "Loading current plans…"}</p>
-    {error && <button className="mt-4 rounded-full bg-brand-800 px-5 py-3 font-semibold text-white" onClick={() => void mutate()}>Retry pricing</button>}
+  const unavailable = !!error || (mode === "public" &&
+    (initialPlans === null || (!!response && !data)));
+  if (!data || (mode === "public" && error)) return <div role={unavailable ? "alert" : "status"} className="rounded-2xl bg-surface p-8 text-center ring-1 ring-line">
+    <p>{unavailable ? "We couldn't load current prices. Please retry before choosing a plan." : "Loading current plans…"}</p>
+    {unavailable && <button className="mt-4 rounded-full bg-brand-800 px-5 py-3 font-semibold text-white" onClick={() => void mutate()}>Retry pricing</button>}
   </div>;
 
   return (
@@ -70,7 +78,7 @@ export function PricingTable({ mode = "app", currentPlan, onTrial = false, paidO
               {popular && <span className="absolute -top-3 start-6 rounded-full bg-accent-400 px-3 py-1 text-xs font-bold text-[#141414]">Recommended</span>}
               <h3 className={cn("text-lg font-semibold", popular ? "text-white" : "text-ink")}>{p.name}</h3>
               <div className="mt-3 flex items-baseline gap-1">
-                <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-ink")}>{p.price_monthly_aed ? `AED ${Math.round(monthly)}` : "Free"}</span>
+                <span className={cn("text-4xl font-bold tracking-tight", popular ? "text-white" : "text-ink")}>{p.price_monthly_aed ? `AED ${new Intl.NumberFormat("en-AE", { maximumFractionDigits: 2 }).format(monthly)}` : "Free"}</span>
                 {p.price_monthly_aed > 0 && <span className={cn("text-sm", popular ? "text-white/70" : "text-muted")}>/month</span>}
               </div>
               <p className={cn("mt-1 text-xs", popular ? "text-white/70" : "text-muted")}>

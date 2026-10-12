@@ -1,0 +1,311 @@
+{
+  "passed": true,
+  "isolatedSyntheticApi": true,
+  "realDatabaseRequests": 0,
+  "legalTypes": [
+    "terms",
+    "privacy",
+    "acceptable_use",
+    "cookie",
+    "refund"
+  ],
+  "supportPages": [
+    "/help",
+    "/security",
+    "/data-privacy",
+    "/data-processing",
+    "/accessibility",
+    "/copyright",
+    "/cancellation-policy"
+  ],
+  "checks": [
+    "five published legal documents render full headings/body in raw HTML and without JavaScript",
+    "archived version is noindex, renders its own body and canonicalises to current policy",
+    "missing/invalid version, missing/unpublished type and prototype-shaped type return HTTP404",
+    "unavailable/malformed legal API returns HTTP500 to blocking-metadata Googlebot",
+    "7 help/support pages, Contact, legal directory, 53 internal links and all policy aliases resolve",
+    "footer cookie button reopens a stored essential-only choice and saves optional analytics off",
+    "mocked JSON summary downloads only after explicit click; signed-out state offers no export action",
+    "synthetic incoming visitor Cookie/Authorization are not forwarded to server public API"
+  ],
+  "publicRequests": [
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/dmca",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/billing/plans",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/privacy",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/terms",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/cookie",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/refund",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    },
+    {
+      "path": "/api/v1/legal/acceptable_use",
+      "method": "GET",
+      "cookieForwarded": false,
+      "authorizationForwarded": false
+    }
+  ],
+  "clientRequests": [
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/me/export",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/auth/me",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    },
+    {
+      "path": "/api/v1/public/config",
+      "method": "GET"
+    }
+  ]
+}

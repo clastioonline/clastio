@@ -1,7 +1,7 @@
 "use client";
 import { LicensePanel } from "@/components/license-panel";
 
-import { CircleCheck, ExternalLink, ImagePlay, Sparkles, TriangleAlert } from "lucide-react";
+import { CircleCheck, ImagePlay, Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -14,6 +14,7 @@ import { Badge, Button, Skeleton } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { quotaAvailable } from "@/lib/usage";
+import { safePaymentDestination } from "@/lib/account-state";
 
 const fmt = (d?: string | null) => (d ? formatDate(d, { day: "numeric", month: "long", year: "numeric" }) : "");
 
@@ -68,18 +69,11 @@ function Billing() {
   const portal = async () => {
     try {
       const r = await api<{ url: string }>("/billing/portal", { method: "POST" });
-      window.location.href = r.url;
+      const destination = safePaymentDestination(r.url, window.location.origin);
+      if (!destination) throw new Error("The payment settings destination could not be confirmed. Contact support.");
+      window.location.href = destination;
     } catch (e) {
       notify({ tone: "error", title: "Couldn't open payment settings", body: errorMessage(e) });
-    }
-  };
-  const cancel = async () => {
-    if (!confirm("Cancel at the end of this billing period? You keep full access until then.")) return;
-    try {
-      await api("/billing/cancel", { method: "POST" });
-      mutate();
-    } catch (e) {
-      notify({ tone: "error", title: "Couldn't cancel", body: errorMessage(e) });
     }
   };
 
@@ -142,8 +136,8 @@ function Billing() {
           <div className="mt-auto flex flex-wrap gap-2 pt-6">
             {paid ? (
               <>
-                <button onClick={portal} className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-brand-800 hover:bg-white/90"><ExternalLink className="h-4 w-4" />Manage payment & invoices</button>
-                {!sub.cancel_at_period_end && <button onClick={cancel} className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white/85 hover:bg-white/10">Cancel plan</button>}
+                <Link href="/billing-portal" className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-brand-800 hover:bg-white/90">Manage payment & invoices</Link>
+                <Link href="/subscription-cancelled" className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white/85 hover:bg-white/10">{sub.cancel_at_period_end ? "Review cancellation" : "Cancel plan"}</Link>
               </>
             ) : (
               <a href="#plans" className="inline-flex h-11 items-center rounded-full bg-white px-5 text-sm font-semibold text-brand-800 hover:bg-white/90">{trial?.active ? "Choose a plan" : "See plans"}</a>
@@ -184,6 +178,13 @@ function Billing() {
 
       {!sub && !pending ? <LicensePanel /> : <p id="license" className="scroll-mt-6 text-sm text-muted">You can redeem a license after your current plan ends and any outstanding subscription or checkout is closed. This prevents overlapping access or recurring charges.</p>}
       <ReferralPanel />
+
+      <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+        <Link href="/payment-success" className="font-semibold text-brand-600 hover:underline">Check payment confirmation</Link>
+        <Link href="/payment-failed" className="font-semibold text-brand-600 hover:underline">Payment help</Link>
+        <Link href="/usage-limit" className="font-semibold text-brand-600 hover:underline">Review allowances</Link>
+        {trial?.ended && <Link href="/trial-expired" className="font-semibold text-brand-600 hover:underline">Review ended trial</Link>}
+      </div>
 
       <Panel title="Payments">
         {data.payments.length ? (

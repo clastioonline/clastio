@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand";
+import { CookiePreferencesButton } from "@/components/cookie-preferences-button";
 
 /* Floating rounded navigation bar used on the landing page. */
 export function LandingNav() {
@@ -12,6 +13,7 @@ export function LandingNav() {
           <Link href="/how-it-works" className="hover:text-[var(--l-ink)]">How it works</Link>
           <Link href="/pricing" className="hover:text-[var(--l-ink)]">Pricing</Link>
           <Link href="/solutions" className="hover:text-[var(--l-ink)]">Teacher guides</Link>
+          <Link href="/solutions/british-curriculum-lesson-planning" className="hover:text-[var(--l-ink)]">British curriculum</Link>
           <Link href="/for-schools" className="hover:text-[var(--l-ink)]">For schools</Link>
           <Link href="/faq" className="hover:text-[var(--l-ink)]">FAQ</Link>
         </nav>
@@ -21,7 +23,7 @@ export function LandingNav() {
         </div>
       </header>
       <nav className="mx-auto mt-2 flex max-w-6xl flex-wrap justify-center gap-x-5 gap-y-1 rounded-xl bg-[var(--l-card)] px-3 py-2 text-sm xl:hidden" aria-label="Explore Clastio">
-        <a href="/#features" className="focus-ring py-2">Features</a><a href="/#example" className="focus-ring py-2">Example</a><Link href="/pricing" className="focus-ring py-2">Pricing</Link><Link href="/solutions" className="focus-ring py-2">Teacher guides</Link><Link href="/faq" className="focus-ring py-2">FAQ</Link>
+        <a href="/#features" className="focus-ring py-2">Features</a><a href="/#example" className="focus-ring py-2">Example</a><Link href="/pricing" className="focus-ring py-2">Pricing</Link><Link href="/solutions" className="focus-ring py-2">Teacher guides</Link><Link href="/solutions/british-curriculum-lesson-planning" className="focus-ring py-2">British curriculum</Link><Link href="/faq" className="focus-ring py-2">FAQ</Link>
       </nav>
     </div>
   );
@@ -34,6 +36,8 @@ export function LandingFooter() {
         <div className="space-y-3">
           <Logo />
           <p>Made for teachers in the UAE, India and beyond.</p>
+          <Link href="/help" className="block underline">Help centre</Link>
+          <Link href="/contact" className="block underline">Contact Clastio</Link>
         </div>
         <div className="space-y-2">
           <div className="font-semibold text-[var(--l-ink)]">Product</div>
@@ -45,22 +49,29 @@ export function LandingFooter() {
         </div>
         <div className="space-y-2">
           <div className="font-semibold text-[var(--l-ink)]">Legal & trust</div>
+          <Link href="/legal" className="block hover:text-[var(--l-ink)]">All policies</Link>
           <Link href="/legal/terms" className="block hover:text-[var(--l-ink)]">Terms & Conditions</Link>
           <Link href="/legal/privacy" className="block hover:text-[var(--l-ink)]">Privacy Policy</Link>
           <Link href="/legal/acceptable_use" className="block hover:text-[var(--l-ink)]">Acceptable Use</Link>
           <Link href="/legal/cookie" className="block hover:text-[var(--l-ink)]">Cookie Policy</Link>
           <Link href="/legal/refund" className="block hover:text-[var(--l-ink)]">Refund Policy</Link>
           <Link href="/status" className="block hover:text-[var(--l-ink)]">System status</Link>
+          <Link href="/security" className="block hover:text-[var(--l-ink)]">Security guidance</Link>
+          <Link href="/accessibility" className="block hover:text-[var(--l-ink)]">Accessibility support</Link>
         </div>
         <div className="space-y-2">
           <div className="font-semibold text-[var(--l-ink)]">Teacher resources</div>
           <Link href="/solutions" className="block hover:text-[var(--l-ink)]">All teacher guides</Link>
-          <Link href="/solutions/personal-ai-teaching-assistant" className="block hover:text-[var(--l-ink)]">Personal teaching assistant</Link>
+          <Link href="/solutions/british-curriculum-lesson-planning" className="block hover:text-[var(--l-ink)]">British curriculum planning</Link>
+          <Link href="/solutions/gcse-igcse-lesson-presentations" className="block hover:text-[var(--l-ink)]">GCSE & IGCSE presentations</Link>
+          <Link href="/solutions/turn-teaching-notes-into-powerpoint" className="block hover:text-[var(--l-ink)]">Textbook PDF to PowerPoint</Link>
+          <Link href="/solutions/how-to-choose-ai-presentation-maker-for-teachers" className="block hover:text-[var(--l-ink)]">Choose a presentation maker</Link>
+          <Link href="/solutions/ai-lesson-planning-costs-and-credits" className="block hover:text-[var(--l-ink)]">Estimate generation credits</Link>
           <Link href="/solutions/edit-ppt-without-regenerating" className="block hover:text-[var(--l-ink)]">Edit PPTs with fewer credits</Link>
           <p>British · CBSE · ICSE · American · IB · UAE MoE · UAE AI curriculum</p>
         </div>
       </div>
-      <div className="border-t border-[var(--l-line)] py-4 text-center text-xs text-[var(--l-muted)]">© {new Date().getFullYear()} Clastio</div>
+      <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 border-t border-[var(--l-line)] px-4 py-4 text-center text-xs text-[var(--l-muted)]"><span>© {new Date().getFullYear()} Clastio</span><CookiePreferencesButton /><Link href="/data-privacy" className="underline">Privacy requests</Link><Link href="/copyright" className="underline">Copyright enquiries</Link></div>
     </footer>
   );
 }

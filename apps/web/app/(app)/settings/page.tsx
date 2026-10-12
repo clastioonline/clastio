@@ -7,7 +7,7 @@ import { EDUCATION_STAGES } from "@/components/educator-workspace";
 import { InstallAppCard } from "@/components/mobile-app";
 import { PushNotificationsCard } from "@/components/push-notifications";
 import { errorMessage, useToast } from "@/components/toast";
-import { Alert, Button, Card, CardHeader, Chips, Field, Input, Modal, PageHeader, Select, Skeleton, Textarea, Toggle } from "@/components/ui";
+import { Button, Card, CardHeader, Chips, Field, Input, PageHeader, Select, Skeleton, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { useI18n } from "@/lib/i18n";
@@ -54,8 +54,6 @@ export default function Settings() {
   const [p, setP] = useState<any>(null);
   const [supportText, setSupportText] = useState({ sen: "", ell: "" });
   const [busy, setBusy] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmEmail, setConfirmEmail] = useState("");
   useEffect(() => { if (data) { setP(data); setSupportText({ sen: (data.planning_preferences?.sen_scaffolds || []).join("\n"), ell: (data.planning_preferences?.ell_scaffolds || []).join("\n") }); } }, [data]);
   if (user?.role === "admin") {
     // Admins have no teaching profile, plan or classes: only how the app looks for them.
@@ -85,19 +83,17 @@ export default function Settings() {
     }
   };
   const exportData = async () => {
-    const data = await api("/me/export");
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "clastio-export.json";
-    a.click();
-  };
-  const deleteAccount = async () => {
     try {
-      await api("/me/delete", { body: { confirm_email: confirmEmail } });
-      window.location.href = "/?account=deleted";
+      const data = await api("/me/export");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = "clastio-account-summary.json";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
-      notify({ tone: "error", title: "Couldn't delete", body: errorMessage(e) });
+      notify({ tone: "error", title: "Couldn't export account summary", body: errorMessage(e) });
     }
   };
   const mp = p.metadata_policy || {};
@@ -157,19 +153,16 @@ export default function Settings() {
             <p className="px-5 pb-5 pt-2 text-xs text-muted">Your watermark is optional and remains editable in PowerPoint. Save changes, then rebuild an existing lesson to apply it.</p>
           </Card>
           <Card>
-            <CardHeader title="Your data" subtitle="UAE PDPL and India DPDP: export or delete everything we store about you." />
+            <CardHeader title="Your data" subtitle="Download an account summary or review an account deletion request. Contact support for a wider data request." />
             <div className="flex flex-wrap gap-2 p-5">
-              <Button variant="outline" onClick={exportData}><Download className="h-4 w-4" /> Export my data</Button>
-              <Button variant="danger" onClick={() => setDeleting(true)}><Trash className="h-4 w-4" /> Delete account</Button>
+              <Button variant="outline" onClick={exportData}><Download className="h-4 w-4" /> Export account summary</Button>
+              <Button variant="danger" href="/delete-account"><Trash className="h-4 w-4" /> Request account deletion</Button>
+              <Button variant="outline" href="/contact?topic=privacy">Data request help</Button>
             </div>
+            <p className="px-5 pb-5 text-xs text-muted">The JSON summary does not include every uploaded or generated file. Download presentations and documents from their workspace pages before closing access.</p>
           </Card>
         </div>
       </div>
-      <Modal open={deleting} onClose={() => setDeleting(false)} title="Delete your account"
-        footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button variant="danger" onClick={deleteAccount} disabled={confirmEmail.toLowerCase() !== p.email.toLowerCase()}>Delete my account</Button></>}>
-        <Alert tone="danger">Your account is locked and you're signed out everywhere straight away. After 30 days your lessons, templates, uploads and memory are permanently deleted. Contact support within 30 days if you change your mind. A paid plan is cancelled at the end of the period you've paid for. We keep payment records as the law requires.</Alert>
-        <Field label={`Type ${p.email} to confirm`} className="mt-4"><Input value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} /></Field>
-      </Modal>
     </div>
   );
 }

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f7faf8"/>
+  <rect y="608" width="1200" height="22" fill="#1b7446"/>
+  <g font-family="Arial, sans-serif">
+    <text x="64" y="100" fill="#163d2a" font-size="40" font-weight="700">Clastio</text>
+    <text x="66" y="137" fill="#47705a" font-size="17" letter-spacing="2">AI TEACHING ASSISTANT</text>
+    <text x="64" y="254" fill="#142d21" font-size="54" font-weight="700">Lesson planning &amp;</text>
+    <text x="64" y="321" fill="#142d21" font-size="54" font-weight="700">editable PowerPoints</text>
+    <text x="66" y="391" fill="#4e675b" font-size="25">For UAE teachers using their own</text>
+    <text x="66" y="430" fill="#4e675b" font-size="25">British curriculum materials.</text>
+    <rect x="64" y="492" width="156" height="45" rx="22" fill="#e5f0e9"/>
+    <text x="142" y="521" text-anchor="middle" fill="#1b7446" font-size="18">Your design</text>
+    <rect x="234" y="492" width="185" height="45" rx="22" fill="#e5f0e9"/>
+    <text x="326" y="521" text-anchor="middle" fill="#1b7446" font-size="18">Teacher review</text>
+  </g>
+  <rect x="779" y="178" width="339" height="258" rx="26" fill="#d5e4da" transform="rotate(5 950 307)"/>
+  <rect x="771" y="184" width="339" height="258" rx="26" fill="#e9e5fb" transform="rotate(-4 940 313)"/>
+  <rect x="790" y="186" width="330" height="260" rx="24" fill="#fff" stroke="#d8e4db" stroke-width="2"/>
+  <path d="M814 186h282a24 24 0 0 1 24 24v24H790v-24a24 24 0 0 1 24-24Z" fill="#1b7446"/>
+  <rect x="813" y="260" width="170" height="10" rx="5" fill="#c8dacf"/>
+  <rect x="813" y="281" width="130" height="8" rx="4" fill="#e1eae4"/>
+  <circle cx="890" cy="349" r="38" fill="#e6f1eb"/>
+  <path d="m869 349 14 14 28-30" fill="none" stroke="#1b7446" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="963" y="318" width="132" height="10" rx="5" fill="#cadccf"/>
+  <rect x="963" y="341" width="115" height="8" rx="4" fill="#e1eae4"/>
+  <rect x="963" y="363" width="123" height="8" rx="4" fill="#e1eae4"/>
+  <circle cx="1090" cy="416" r="10" fill="#e5f0e9"/>
+  <image href="favicon.png" x="1020" y="40" width="116" height="116"/>
+</svg>

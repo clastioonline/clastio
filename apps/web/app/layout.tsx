@@ -1,27 +1,30 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SITE_URL } from "@/lib/seo";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/seo";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: { default: "Clastio — lessons and slides in your own design", template: "%s · Clastio" },
+  title: { default: "Clastio — AI lesson planning and editable PowerPoints", template: "%s · Clastio" },
   description:
-    "Your personal AI teaching assistant: lessons, slides in your own design, worksheets, quizzes and daily plans on WhatsApp.",
+    "Plan lessons and create editable PowerPoints from your own teaching materials and school design. Built for UAE teachers, with British curriculum workflows and teacher review.",
   icons: {
     icon: [{ url: "/brand/favicon.png", type: "image/png", sizes: "192x192" }],
     apple: [{ url: "/brand/favicon.png", sizes: "192x192" }],
   },
   metadataBase: new URL(SITE_URL),
+  robots: { index: false, follow: false },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Clastio" },
   openGraph: {
     type: "website",
     siteName: "Clastio",
-    title: "Clastio — lessons and slides in your own design",
-    description: "Lessons, slides in your own design, worksheets, quizzes and daily plans for teachers.",
+    title: "Clastio — AI lesson planning and editable PowerPoints",
+    description: "Lesson planning and editable PowerPoints in your own design for UAE teachers.",
+    locale: "en_AE",
+    images: [SOCIAL_IMAGE],
   },
-  twitter: { card: "summary", title: "Clastio", description: "Lessons and slides in your own design." },
+  twitter: { card: "summary_large_image", title: "Clastio", description: "Lesson planning and editable PowerPoints in your own design.", images: [SOCIAL_IMAGE.url] },
 };
 
 export const viewport: Viewport = {

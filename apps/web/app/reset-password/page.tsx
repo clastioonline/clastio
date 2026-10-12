@@ -33,9 +33,9 @@ export default function ResetPassword() {
       footer={<Link href="/login" className="font-medium text-brand-600 hover:underline">Back to sign in</Link>}>
       {done ? (
         <div className="space-y-4"><Alert tone="success" title="Password changed">Sign in with your new password.</Alert><Button href="/login" className="w-full">Sign in</Button></div>
-      ) : !token ? <Alert tone="danger">This link is incomplete. Request a new one from “Forgot password”.</Alert> : (
+      ) : !token ? <div className="space-y-4"><Alert tone="danger">This link is incomplete. Request a fresh password-reset email.</Alert><Button href="/forgot-password" className="w-full">Request a reset email</Button></div> : (
         <form onSubmit={submit} className="space-y-4">
-          {error && <Alert tone="danger">{error}</Alert>}
+          {error && <Alert tone="danger">{error}<Link href="/link-expired?purpose=reset" className="mt-2 block font-semibold underline">Get help with this reset link</Link></Alert>}
           <Field label="New password" hint="At least 8 characters; avoid common passwords.">
             <Input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>

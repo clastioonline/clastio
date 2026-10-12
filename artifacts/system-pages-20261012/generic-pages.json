@@ -1,0 +1,110 @@
+{
+  "results": [
+    {
+      "path": "/400",
+      "status": 400,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/401",
+      "status": 401,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/403",
+      "status": 403,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/404",
+      "status": 404,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/409",
+      "status": 409,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/429",
+      "status": 429,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/500",
+      "status": 500,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/503",
+      "status": 503,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/maintenance",
+      "status": 503,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/offline",
+      "status": 503,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/browser-not-supported",
+      "status": 200,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/permission-required",
+      "status": 403,
+      "mobile": true,
+      "withoutJavaScript": true,
+      "noindex": true
+    },
+    {
+      "path": "/a-real-missing-url-20261012",
+      "status": 404,
+      "branded": true
+    },
+    {
+      "path": "/unknown/deep/path-20261012",
+      "status": 404,
+      "branded": true
+    },
+    {
+      "publicOfflineFallback": true,
+      "offlineStatus": 503,
+      "cachedPaths": [
+        "/brand/app-icon-512.png",
+        "/brand/favicon.png",
+        "/offline"
+      ],
+      "privatePathsUseNetwork": true,
+      "privateResponseCaching": false
+    }
+  ],
+  "apiWrites": 0
+}

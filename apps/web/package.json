@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "e2e": "node e2e/run.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "seo:queries": "node --experimental-strip-types scripts/search-query-report.mjs",
     "e2e:background": "node e2e/background.mjs",
     "e2e:templates": "node e2e/templates.mjs",
     "e2e:uae-templates": "node e2e/uae-templates.mjs",
@@ -23,6 +24,7 @@
     "e2e:walkthrough": "node e2e/walkthrough.mjs",
     "e2e:launch-readiness": "node e2e/launch-readiness.mjs",
     "e2e:smart-assistant-seo": "node e2e/smart-assistant-seo.mjs",
+    "e2e:search-discovery": "node --experimental-strip-types e2e/search-discovery.mjs",
     "e2e:free-rewards": "node e2e/free-rewards.mjs",
     "e2e:mobile-push": "node e2e/mobile-push.mjs"
   },

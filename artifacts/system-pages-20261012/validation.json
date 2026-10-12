@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-12",
+  "localBase": "http://localhost:3005",
+  "canonicalOrigin": "https://clastio.online",
+  "frontendUnitTests": { "passed": 68, "failed": 0 },
+  "typecheck": "passed",
+  "whitespaceCheck": "passed",
+  "productionFrontendBuild": { "result": "passed", "nextVersion": "16.3.8", "generatedPages": 106 },
+  "localServices": { "frontend": "healthy", "backend": "healthy", "backendRestartedForThisChange": false },
+  "publicHttpAudit": { "result": "passed", "publicSitemapUrls": 37, "stateRoutesNoindex": 32, "policyAliases": 5, "internalLinkedRoutes": 53, "evidence": "public-http.json" },
+  "genericSystemBrowser": { "result": "passed", "routes": 12, "trueHttpStatuses": true, "publicOfflineFallback": true, "privateNetworkOnly": true, "evidence": "generic-pages.json" },
+  "accountSystemBrowser": { "result": "passed", "routes": 19, "mockedScenarios": 16, "evidence": "account/evidence.json" },
+  "publicSupportSsrBrowser": { "result": "passed", "publishedDocumentTypes": 5, "supportPages": 7, "archiveAndMissingVersions": true, "publicAuthHeadersOmitted": true, "explicitSummaryDownload": true, "evidence": "public-support-ssr.json" },
+  "delayedCookieDialogBrowser": { "result": "passed", "firstClickPreserved": true, "evidence": "cookie-race-fixed.json" },
+  "discoveryBrowser": { "result": "passed", "guidesWithoutJavaScript": 16, "currentPricingWithoutJavaScript": true },
+  "existingSeoAssistantBrowser": { "result": "passed", "originalGuides": 13 },
+  "queryRegexFilters": 21,
+  "realAccountMutations": 0,
+  "paidAiCalls": 0,
+  "policyPublications": 0,
+  "externalDeploymentPerformed": false,
+  "searchConsoleChangesSubmitted": false
+}

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { PRIVATE_PATHS, PUBLIC_POLICY_ALIASES } from "./lib/seo";
 
 const API_URL = process.env.API_URL || "http://localhost:8000";
 const DEV = process.env.NODE_ENV !== "production";
@@ -24,10 +25,6 @@ const CSP = [
   "object-src 'none'",
 ].join("; ");
 
-// Signed-in areas are private: never indexed.
-const PRIVATE = ["activity", "dashboard", "projects", "assistant", "lessons", "calendar", "curriculum", "templates", "media", "teacher-memory",
-  "whatsapp", "tutorials", "billing", "settings", "notifications", "support", "admin", "onboarding", "auth", "verify-email", "reset-password"];
-
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -41,6 +38,9 @@ const nextConfig: NextConfig = {
   // and no API keys or backend URLs are exposed to the client.
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/api/:path*` }];
+  },
+  async redirects() {
+    return PUBLIC_POLICY_ALIASES.map((alias) => ({ ...alias, permanent: true }));
   },
   async headers() {
     return [
@@ -63,8 +63,8 @@ const nextConfig: NextConfig = {
           ...(DEV ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
         ],
       },
-      ...PRIVATE.map((p) => ({ source: `/${p}/:path*`, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
-      ...PRIVATE.map((p) => ({ source: `/${p}`, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
+      ...PRIVATE_PATHS.map((path) => ({ source: `${path}/:path*`, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
+      ...PRIVATE_PATHS.map((path) => ({ source: path, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] })),
     ];
   },
 };

@@ -1,5 +1,7 @@
 # Legal and policy page audit — 12 October 2026
 
+**Implementation follow-up:** the [supporting-page revision](SYSTEM_PAGES_AND_INDEXING_20261012.md) adds Contact, a legal directory, public cookie-preference reopening, copyright/accessibility/privacy information, and server-rendered version-aware policy reading. These resolve the corresponding route/navigation limitations observed below. The owner approved `Clastio` and `Support@clastio.online`. Existing published policy rows were not rewritten or replaced; the policy-content, provider, export/purge and launch findings below still require their own resolution. The observations that follow record the earlier audit state.
+
 **The five core policy pages work, but the published documents are still legacy templates and are not ready for public launch.** This is a local coverage and implementation review, not a jurisdiction-specific legal approval. No policies, accounts, consents or application configuration were changed.
 
 ## Pages that exist

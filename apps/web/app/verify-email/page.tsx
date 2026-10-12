@@ -5,20 +5,22 @@ import { Suspense, useEffect, useState } from "react";
 import { AuthLayout } from "@/components/auth-card";
 import { Alert, Button, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useSWRConfig } from "swr";
 
 function Verify() {
   const [state, setState] = useState<"working" | "done" | "error">("working");
   const [msg, setMsg] = useState("");
+  const { mutate } = useSWRConfig();
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("token");
     if (!token) { setState("error"); setMsg("This link is incomplete."); return; }
-    api("/auth/verify-email", { body: { token } }).then(() => setState("done")).catch((e) => { setState("error"); setMsg(e.message); });
-  }, []);
+    api("/auth/verify-email", { body: { token } }).then(() => { setState("done"); void mutate("/auth/me"); }).catch((e) => { setState("error"); setMsg(e.message); });
+  }, [mutate]);
   return (
     <AuthLayout title="Confirm your email" subtitle="One moment…" footer={<Link href="/login" className="text-brand-600 hover:underline">Go to sign in</Link>}>
       {state === "working" && <Spinner />}
-      {state === "done" && <div className="space-y-4"><Alert tone="success" title="Email confirmed">Thanks! Your account is fully set up.</Alert><Button href="/dashboard" className="w-full">Continue</Button></div>}
-      {state === "error" && <Alert tone="danger" title="We couldn't confirm your email">{msg || "The link may have expired."} Sign in and use “Resend link” to get a new one.</Alert>}
+      {state === "done" && <div className="space-y-4"><Alert tone="success" title="Email confirmed">The account service accepted your verification link.</Alert><Button href="/verification-success" className="w-full">Continue</Button></div>}
+      {state === "error" && <div className="space-y-4"><Alert tone="danger" title="We couldn't confirm your email">{msg || "The link may have expired."} Sign in and request a fresh verification email.</Alert><Button href="/verification-failed" variant="outline" className="w-full">Check verification and get help</Button></div>}
     </AuthLayout>
   );
 }

@@ -25,7 +25,6 @@ import { ProductVideo } from "@/components/product-video";
 import { LandingDetails } from "@/components/landing-details";
 import { LandingFooter, LandingNav } from "@/components/marketing";
 import { cn } from "@/lib/utils";
-import { teacherGuides } from "@/lib/teacher-guides";
 
 /* Landing page. Warm neutral canvas, one playful headline, bold colour tiles with scalloped edges.
    Every number on this page is a product fact, not a marketing claim. */
@@ -114,7 +113,9 @@ const STEPS = [
   { icon: CalendarCheck, title: "Teach and reflect", text: "One tap after class says how it went, and the next lesson adapts." },
 ];
 
-export default function Landing() {
+type FeaturedGuide = { slug: string; title: string; description: string };
+
+export default function Landing({ featuredGuides }: { featuredGuides: FeaturedGuide[] }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const start = (e: React.FormEvent) => {
@@ -133,8 +134,9 @@ export default function Landing() {
             <path d="M8 24 V52 H18 M8 56 V82 H18 M92 24 V52 H82 M92 56 V82 H82" fill="none" stroke="var(--l-muted)" strokeWidth="0.15" strokeDasharray="0.8 0.8" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 1.2 }} />
           </svg>
           <div className="relative mx-auto max-w-3xl text-center">
+            <p className="mb-4 text-sm font-semibold text-[var(--l-muted)]">AI lesson planning and editable PowerPoints for UAE teachers</p>
             <h1 className="text-[2.6rem] font-bold leading-[1.08] tracking-tight sm:text-6xl">
-              Plan <MousePointer2 className="inline h-9 w-9 -translate-y-1 fill-[#7ed321] text-[#5aa516] sm:h-12 sm:w-12" aria-hidden />{" "}
+              Plan lessons <MousePointer2 className="inline h-9 w-9 -translate-y-1 fill-[#7ed321] text-[#5aa516] sm:h-12 sm:w-12" aria-hidden />{" "}
               <span className="relative inline-block">
                 Teach
                 <svg className="absolute -bottom-2 start-0 w-full" viewBox="0 0 200 14" aria-hidden><path d="M3 9 C 50 2, 150 2, 197 7 M20 12 C 80 6, 140 7, 190 11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
@@ -148,7 +150,7 @@ export default function Landing() {
               </span>
             </h1>
             <p className="mx-auto mt-7 max-w-xl text-base leading-relaxed text-[var(--l-muted)] sm:text-lg">
-              Connected lessons, editable PowerPoints in your own design, worksheets and quizzes, prepared for every class you teach.
+              Turn teaching notes into editable PowerPoint lessons in your school design. Plan British curriculum lessons, worksheets and quizzes around the objectives you provide.
             </p>
             <form onSubmit={start} className="mx-auto mt-8 flex max-w-md items-center gap-2 rounded-full bg-[var(--l-card)] p-1.5 shadow-lg ring-1 ring-black/5">
               <label htmlFor="hero-email" className="sr-only">Your school email</label>
@@ -161,6 +163,11 @@ export default function Landing() {
             <div className="mt-4 flex items-center justify-center gap-2 text-sm text-[var(--l-muted)]">
               <ShieldCheck className="h-4 w-4 text-[#1b7446]" /> Free to start · No card needed · Your original files are never modified
             </div>
+            <nav aria-label="Before choosing a plan" className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
+              <Link href="/solutions/british-curriculum-lesson-planning" className="focus-ring text-brand-700 underline">British curriculum workflow</Link>
+              <Link href="/solutions/how-to-choose-ai-presentation-maker-for-teachers" className="focus-ring text-brand-700 underline">What to check before buying</Link>
+              <Link href="/pricing" className="focus-ring text-brand-700 underline">Compare plans in AED</Link>
+            </nav>
           </div>
         </div>
         {/* Scalloped lower edge */}
@@ -270,8 +277,8 @@ export default function Landing() {
       <LandingDetails />
       <section className="mx-auto max-w-6xl px-5 py-14" aria-labelledby="teacher-guides-heading">
         <h2 id="teacher-guides-heading" className="text-3xl font-semibold">Practical answers for your next lesson</h2>
-        <p className="mt-3 text-[var(--l-muted)]">Explore UAE lesson planning, EAL support, curriculum workflows and ways to edit a PPT without rebuilding everything.</p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{teacherGuides.filter((_, i) => [0, 1, 6, 7, 8, 12].includes(i)).map((guide) => <Link key={guide.slug} href={`/solutions/${guide.slug}`} className="focus-ring rounded-2xl bg-[var(--l-card)] p-5 ring-1 ring-black/10 hover:ring-brand-600"><h3 className="font-semibold">{guide.title}</h3><p className="mt-2 text-sm text-[var(--l-muted)]">{guide.description}</p></Link>)}</div>
+        <p className="mt-3 text-[var(--l-muted)]">Check editable PPT exports, British curriculum objectives, teaching sources and generation costs before choosing your workflow.</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{featuredGuides.map((guide) => <Link key={guide.slug} href={`/solutions/${guide.slug}`} className="focus-ring rounded-2xl bg-[var(--l-card)] p-5 ring-1 ring-black/10 hover:ring-brand-600"><h3 className="font-semibold">{guide.title}</h3><p className="mt-2 text-sm text-[var(--l-muted)]">{guide.description}</p></Link>)}</div>
         <Link href="/solutions" className="mt-6 inline-flex font-semibold text-brand-700">All teacher guides →</Link>
       </section>
 

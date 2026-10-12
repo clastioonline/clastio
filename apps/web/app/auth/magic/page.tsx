@@ -31,6 +31,7 @@ function Magic() {
         <div className="max-w-sm space-y-4 text-center">
           <Alert tone="danger">{error}</Alert>
           <Button href="/login">Sign in</Button>
+          <Button href="/link-expired?purpose=signin" variant="outline">Get help with this link</Button>
         </div>
       ) : (
         <div className="flex items-center gap-3 text-muted"><Spinner /> Opening your lesson…</div>

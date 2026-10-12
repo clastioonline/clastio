@@ -1,0 +1,17 @@
+{
+  "review_date": "2026-10-12",
+  "audience": "UAE teachers, especially British curriculum",
+  "research": { "sampled_queries": 22, "intent_groups": 8, "primary_sources": 26, "volume_or_ranking_data": false },
+  "frontend_unit_tests": { "passed": 32, "failed": 0 },
+  "typecheck": "passed",
+  "whitespace_check": "passed",
+  "production_web_build": { "passed": true, "next_version": "16.3.8", "guides": 16, "pricing": "request-time server rendering" },
+  "local_runtime": { "url": "http://localhost:3005", "web_healthy": true, "api_readiness": "ready", "migration": "i209educator01" },
+  "focused_browser": { "passed": true, "guides": 16, "javascript_disabled": true, "widths": [390, 1280], "checks": ["server text", "metadata and canonicals", "Article and Breadcrumb", "visible sources and review dates", "current public pricing", "OG PNG dimensions", "sitemap and public resource index", "OAI-SearchBot and private crawl rules", "private noindex headers", "unknown routes", "buyer links", "regex target routes"], "mutating_api_requests": 0 },
+  "existing_mocked_discovery_browser": { "passed": true, "guides": 13, "product_pages": 3, "pricing_retry": true, "image_clarify_confirm_remember": true },
+  "isolated_pricing_ssr_browser": { "passed": true, "checks": 7, "forwarded_authenticated_headers": false, "paid_calls": 0 },
+  "query_regex": { "segments": 18, "copyable_pattern_cli": "passed", "owner_query_export_analysed": false },
+  "public_deployment_performed": false,
+  "search_console_or_bing_property_accessed": false,
+  "ranking_traffic_citations_or_field_performance_measured": false
+}

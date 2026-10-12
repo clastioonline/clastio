@@ -1,0 +1,128 @@
+{
+  "base": "http://localhost:3005",
+  "scenarios": [
+    {
+      "name": "Session recovery preserves safe return and cannot imply deletion",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Account restrictions use actual service status",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Active accounts override restrictive URL labels",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Verification requires server state and explicit resend",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/auth/resend-verification",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Verified account status is confirmed by auth",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Payment URL cannot grant a paid plan or claim failed payment",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Pending checkout is resumed only from billing response",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Fresh checkout uses explicit current-plan choice and rejects unsafe redirect",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/billing/checkout",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Confirmed paid access and failed portal destination",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/billing/portal",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Payment issue and ended trial are server-confirmed",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Cancellation requires explicit acknowledgement and API confirmation",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/billing/cancel",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Available credits respect reservations and grants",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Deletion is an explicit request and never a URL-confirmed completion",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/me/delete",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Staff cannot enter teacher deletion or billing flows",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Email opt-out and notification preferences change only explicitly",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/me/consents",
+          "method": "PUT"
+        },
+        {
+          "endpoint": "/me/notification-preferences",
+          "method": "PUT"
+        }
+      ]
+    },
+    {
+      "name": "Existing verification and sign-in failures lead to recovery pages",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/auth/verify-email",
+          "method": "POST"
+        },
+        {
+          "endpoint": "/auth/login",
+          "method": "POST"
+        }
+      ]
+    }
+  ]
+}

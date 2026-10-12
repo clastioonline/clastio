@@ -1,0 +1,419 @@
+{
+  "base": "http://localhost:3005",
+  "canonicalOrigin": "https://clastio.online",
+  "publicResults": [
+    {
+      "path": "/",
+      "status": 200,
+      "h1": "Plan lessons Teach and Shine with Clastio AI slides",
+      "canonical": "https://clastio.online/"
+    },
+    {
+      "path": "/pricing",
+      "status": 200,
+      "h1": "Simple plans for busy teachers",
+      "canonical": "https://clastio.online/pricing"
+    },
+    {
+      "path": "/solutions",
+      "status": 200,
+      "h1": "Lesson planning and PowerPoint guides for UAE teachers",
+      "canonical": "https://clastio.online/solutions"
+    },
+    {
+      "path": "/how-it-works",
+      "status": 200,
+      "h1": "How Clastio turns your lesson idea into an editable PPT",
+      "canonical": "https://clastio.online/how-it-works"
+    },
+    {
+      "path": "/for-schools",
+      "status": 200,
+      "h1": "Explore Clastio for your school or department",
+      "canonical": "https://clastio.online/for-schools"
+    },
+    {
+      "path": "/faq",
+      "status": 200,
+      "h1": "Clastio questions: trials, credits, images and teacher memory",
+      "canonical": "https://clastio.online/faq"
+    },
+    {
+      "path": "/contact",
+      "status": 200,
+      "h1": "Contact Clastio",
+      "canonical": "https://clastio.online/contact"
+    },
+    {
+      "path": "/legal",
+      "status": 200,
+      "h1": "Policies and privacy information",
+      "canonical": "https://clastio.online/legal"
+    },
+    {
+      "path": "/help",
+      "status": 200,
+      "h1": "Clastio help centre",
+      "canonical": "https://clastio.online/help"
+    },
+    {
+      "path": "/security",
+      "status": 200,
+      "h1": "Security and account protection",
+      "canonical": "https://clastio.online/security"
+    },
+    {
+      "path": "/data-privacy",
+      "status": 200,
+      "h1": "Privacy and personal-data requests",
+      "canonical": "https://clastio.online/data-privacy"
+    },
+    {
+      "path": "/data-processing",
+      "status": 200,
+      "h1": "School data-processing requests",
+      "canonical": "https://clastio.online/data-processing"
+    },
+    {
+      "path": "/accessibility",
+      "status": 200,
+      "h1": "Accessibility support",
+      "canonical": "https://clastio.online/accessibility"
+    },
+    {
+      "path": "/copyright",
+      "status": 200,
+      "h1": "Copyright and teaching-material enquiries",
+      "canonical": "https://clastio.online/copyright"
+    },
+    {
+      "path": "/cancellation-policy",
+      "status": 200,
+      "h1": "Subscription cancellation and refund requests",
+      "canonical": "https://clastio.online/cancellation-policy"
+    },
+    {
+      "path": "/status",
+      "status": 200,
+      "h1": "Clastio status",
+      "canonical": "https://clastio.online/status"
+    },
+    {
+      "path": "/legal/terms",
+      "status": 200,
+      "h1": "Terms & Conditions",
+      "canonical": "https://clastio.online/legal/terms"
+    },
+    {
+      "path": "/legal/privacy",
+      "status": 200,
+      "h1": "Privacy Policy",
+      "canonical": "https://clastio.online/legal/privacy"
+    },
+    {
+      "path": "/legal/acceptable_use",
+      "status": 200,
+      "h1": "Acceptable Use Policy",
+      "canonical": "https://clastio.online/legal/acceptable_use"
+    },
+    {
+      "path": "/legal/cookie",
+      "status": 200,
+      "h1": "Cookie Policy",
+      "canonical": "https://clastio.online/legal/cookie"
+    },
+    {
+      "path": "/legal/refund",
+      "status": 200,
+      "h1": "Refund Policy",
+      "canonical": "https://clastio.online/legal/refund"
+    },
+    {
+      "path": "/solutions/ai-ppt-maker-for-teachers-uae",
+      "status": 200,
+      "h1": "AI PowerPoint maker for teachers in the UAE",
+      "canonical": "https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae"
+    },
+    {
+      "path": "/solutions/lesson-planning-for-uae-teachers",
+      "status": 200,
+      "h1": "Lesson planning for UAE teachers",
+      "canonical": "https://clastio.online/solutions/lesson-planning-for-uae-teachers"
+    },
+    {
+      "path": "/solutions/eal-lessons-uae",
+      "status": 200,
+      "h1": "Plan EAL-friendly lessons for UAE classrooms",
+      "canonical": "https://clastio.online/solutions/eal-lessons-uae"
+    },
+    {
+      "path": "/solutions/british-curriculum-lesson-planning",
+      "status": 200,
+      "h1": "British curriculum lesson planning in the UAE",
+      "canonical": "https://clastio.online/solutions/british-curriculum-lesson-planning"
+    },
+    {
+      "path": "/solutions/cbse-lesson-planning-uae",
+      "status": 200,
+      "h1": "CBSE lesson planning for teachers in the UAE",
+      "canonical": "https://clastio.online/solutions/cbse-lesson-planning-uae"
+    },
+    {
+      "path": "/solutions/edit-ppt-without-regenerating",
+      "status": 200,
+      "h1": "Edit a teaching PPT without regenerating every slide",
+      "canonical": "https://clastio.online/solutions/edit-ppt-without-regenerating"
+    },
+    {
+      "path": "/solutions/personal-ai-teaching-assistant",
+      "status": 200,
+      "h1": "A personal AI teaching assistant with teacher memory",
+      "canonical": "https://clastio.online/solutions/personal-ai-teaching-assistant"
+    },
+    {
+      "path": "/solutions/worksheet-maker-for-uae-teachers",
+      "status": 200,
+      "h1": "Worksheet maker for UAE teachers",
+      "canonical": "https://clastio.online/solutions/worksheet-maker-for-uae-teachers"
+    },
+    {
+      "path": "/solutions/quiz-and-exit-ticket-maker",
+      "status": 200,
+      "h1": "Create quizzes and exit tickets for teaching lessons",
+      "canonical": "https://clastio.online/solutions/quiz-and-exit-ticket-maker"
+    },
+    {
+      "path": "/solutions/differentiated-lesson-presentations",
+      "status": 200,
+      "h1": "Differentiate lesson presentations without starting again",
+      "canonical": "https://clastio.online/solutions/differentiated-lesson-presentations"
+    },
+    {
+      "path": "/solutions/turn-teaching-notes-into-powerpoint",
+      "status": 200,
+      "h1": "Turn a textbook PDF or teaching notes into an editable PowerPoint",
+      "canonical": "https://clastio.online/solutions/turn-teaching-notes-into-powerpoint"
+    },
+    {
+      "path": "/solutions/reuse-school-powerpoint-design",
+      "status": 200,
+      "h1": "Reuse your school PowerPoint design for teaching slides",
+      "canonical": "https://clastio.online/solutions/reuse-school-powerpoint-design"
+    },
+    {
+      "path": "/solutions/stock-images-for-teaching-presentations",
+      "status": 200,
+      "h1": "Use uploaded and licensed stock images in teaching PPTs",
+      "canonical": "https://clastio.online/solutions/stock-images-for-teaching-presentations"
+    },
+    {
+      "path": "/solutions/how-to-choose-ai-presentation-maker-for-teachers",
+      "status": 200,
+      "h1": "How to choose an AI presentation maker for teachers",
+      "canonical": "https://clastio.online/solutions/how-to-choose-ai-presentation-maker-for-teachers"
+    },
+    {
+      "path": "/solutions/gcse-igcse-lesson-presentations",
+      "status": 200,
+      "h1": "Plan GCSE and IGCSE lesson presentations from the right specification",
+      "canonical": "https://clastio.online/solutions/gcse-igcse-lesson-presentations"
+    },
+    {
+      "path": "/solutions/ai-lesson-planning-costs-and-credits",
+      "status": 200,
+      "h1": "Estimate AI lesson planning costs and presentation credits",
+      "canonical": "https://clastio.online/solutions/ai-lesson-planning-costs-and-credits"
+    }
+  ],
+  "stateResults": [
+    {
+      "path": "/400",
+      "status": 400,
+      "noindex": true
+    },
+    {
+      "path": "/401",
+      "status": 401,
+      "noindex": true
+    },
+    {
+      "path": "/403",
+      "status": 403,
+      "noindex": true
+    },
+    {
+      "path": "/404",
+      "status": 404,
+      "noindex": true
+    },
+    {
+      "path": "/409",
+      "status": 409,
+      "noindex": true
+    },
+    {
+      "path": "/429",
+      "status": 429,
+      "noindex": true
+    },
+    {
+      "path": "/500",
+      "status": 500,
+      "noindex": true
+    },
+    {
+      "path": "/503",
+      "status": 503,
+      "noindex": true
+    },
+    {
+      "path": "/maintenance",
+      "status": 503,
+      "noindex": true
+    },
+    {
+      "path": "/offline",
+      "status": 503,
+      "noindex": true
+    },
+    {
+      "path": "/browser-not-supported",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/permission-required",
+      "status": 403,
+      "noindex": true
+    },
+    {
+      "path": "/session-expired",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/account-suspended",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/account-deactivated",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/account-deleted",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/delete-account",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/verification-success",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/verification-failed",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/link-expired",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/email-unsubscribe",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/notification-preferences",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/payment-success",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/payment-failed",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/subscription-expired",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/trial-expired",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/usage-limit",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/upgrade-required",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/billing-portal",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/checkout",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/subscription-cancelled",
+      "status": 200,
+      "noindex": true
+    },
+    {
+      "path": "/data-export-request",
+      "status": 200,
+      "noindex": true
+    }
+  ],
+  "aliasResults": [
+    {
+      "source": "/privacy",
+      "destination": "/legal/privacy",
+      "status": 308
+    },
+    {
+      "source": "/terms",
+      "destination": "/legal/terms",
+      "status": 308
+    },
+    {
+      "source": "/cookies",
+      "destination": "/legal/cookie",
+      "status": 308
+    },
+    {
+      "source": "/refund-policy",
+      "destination": "/legal/refund",
+      "status": 308
+    },
+    {
+      "source": "/acceptable-use",
+      "destination": "/legal/acceptable_use",
+      "status": 308
+    }
+  ],
+  "linkedRoutesChecked": 53,
+  "apiWrites": 0
+}

@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
+import { legalDocumentTitles } from "@/lib/legal-documents";
 
-const titles: Record<string, string> = {
-  terms: "Terms and Conditions", privacy: "Privacy Policy", acceptable_use: "Acceptable Use Policy",
-  cookie: "Cookie Policy", refund: "Refund Policy",
-};
+const titles = legalDocumentTitles;
 type Props = { params: Promise<{ type: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

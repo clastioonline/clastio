@@ -1,0 +1,29 @@
+# Clastio
+
+> An AI teaching assistant for planning lessons and editable PPTs, with teacher-controlled memory and licensed, uploaded or AI images.
+
+## Public resources
+
+- [Home](https://clastio.online/): Product overview
+- [Pricing](https://clastio.online/pricing): Current plans and allowances
+- [Teacher guides](https://clastio.online/solutions): Practical planning workflows
+- [How Clastio turns your lesson idea into an editable PPT](https://clastio.online/how-it-works): Discuss the lesson, use your teaching sources, review a plan, generate selected slides and make targeted changes with Clastio.
+- [Explore Clastio for your school or department](https://clastio.online/for-schools): Plan a teacher-led pilot for reusable presentation designs, classroom resources and lesson planning with Clastio.
+- [Clastio questions: trials, credits, images and teacher memory](https://clastio.online/faq): Understand the seven-day trial, generation credits, uploaded images, editable PowerPoint exports and teacher-controlled memory.
+- [AI PPT maker for teachers in the UAE](https://clastio.online/solutions/ai-ppt-maker-for-teachers-uae): Create editable teaching presentations from your own materials, discuss the lesson first, and choose uploaded, licensed or AI images with Clastio.
+- [Lesson planning for UAE teachers](https://clastio.online/solutions/lesson-planning-for-uae-teachers): Plan connected lessons, classroom activities and checks for understanding using your curriculum, class context and uploaded teaching sources.
+- [Plan EAL-friendly lessons for UAE classrooms](https://clastio.online/solutions/eal-lessons-uae): Use vocabulary support, visual explanations and structured classroom tasks to make your teaching presentations clearer for EAL learners.
+- [British curriculum lesson planning in the UAE](https://clastio.online/solutions/british-curriculum-lesson-planning): Create a reviewable British curriculum lesson sequence from your teaching objectives and source material, with editable slides and assessment tasks.
+- [CBSE lesson planning for teachers in the UAE](https://clastio.online/solutions/cbse-lesson-planning-uae): Draft CBSE chapter lessons from your textbook and teaching notes, with worked examples, classroom activities and editable PowerPoint slides.
+- [Edit a teaching PPT without regenerating every slide](https://clastio.online/solutions/edit-ppt-without-regenerating): Make manual corrections, rewrite one slide or discuss an image replacement to reduce wasted generation credits on teaching presentations.
+- [A personal AI teaching assistant with teacher memory](https://clastio.online/solutions/personal-ai-teaching-assistant): Save confirmed teaching preferences, discuss missing lesson details and keep control of what Clastio remembers for future presentations.
+- [Worksheet maker for UAE teachers](https://clastio.online/solutions/worksheet-maker-for-uae-teachers): Create practice worksheets from your lesson and uploaded sources, with clear instructions, worked examples and a teacher-reviewed answer key.
+- [Create quizzes and exit tickets for teaching lessons](https://clastio.online/solutions/quiz-and-exit-ticket-maker): Draft short checks for understanding, useful distractors and answer explanations from your teaching sources with Clastio.
+- [Differentiate lesson presentations without starting again](https://clastio.online/solutions/differentiated-lesson-presentations): Adapt explanations, vocabulary, examples and practice for mixed-attainment classrooms while preserving the same learning goal.
+- [Turn teaching notes and textbook sources into PowerPoint](https://clastio.online/solutions/turn-teaching-notes-into-powerpoint): Ground an editable teaching PPT in the chapter, PDF or notes you actually use, with a reviewable plan before slide generation.
+- [Reuse your school PowerPoint design for teaching slides](https://clastio.online/solutions/reuse-school-powerpoint-design): Use an existing presentation as a design reference and keep a reusable teacher style for future editable lesson decks.
+- [Use uploaded and licensed stock images in teaching PPTs](https://clastio.online/solutions/stock-images-for-teaching-presentations): Choose stock-only or hybrid image sourcing, provide your own diagrams, and reduce paid AI-image calls in teaching presentations.
+
+## Product limits
+
+Teachers review generated material before class. Curriculum approval, factual accuracy, AI detector outcomes and search ranking are not guaranteed. Image changes require clarification and confirmation. Teacher memories and signed-in resources are private.
