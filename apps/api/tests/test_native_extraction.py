@@ -196,8 +196,11 @@ async def test_original_assets_are_reused_and_other_teachers_assets_are_rejected
         assert spec.get("source_reference_key")
         foreign_page = page.model_copy(deep=True)
         foreign_page.asset_id = None
-        _, counts = await resolve_images(db, owner_id=uuid.UUID(other_teacher["id"]),
-                                         slides=[foreign_page], colors={}, openverse=False,
-                                         source_images=spec["source_images"])
-        assert counts["reused"] == 0 and counts["placeholder"] == 1
+        foreign_images, counts = await resolve_images(db, owner_id=uuid.UUID(other_teacher["id"]),
+                                                      slides=[foreign_page], colors={}, openverse=False,
+                                                      source_images=spec["source_images"])
+        assert foreign_images == {} and counts["reused"] == 0 and counts["placeholder"] == 0
+        assert foreign_page.asset_id is None
         assert foreign_page.visual.source_image_key is None
+        assert foreign_page.visual.kind == "none" and foreign_page.layout == "concept"
+        assert "No suitable image was available" in foreign_page.speaker_notes

@@ -18,7 +18,8 @@ class PageText(BaseModel):
 
 def scan_pages(data: bytes, readable: set[int]) -> list[int]:
     with fitz.open(stream=data, filetype="pdf") as document:
-        return [i + 1 for i in range(len(document)) if i + 1 not in readable]
+        return [i + 1 for i, page in enumerate(document) if i + 1 not in readable
+                and (page.get_images() or page.get_drawings() or page.first_annot or page.first_widget)]
 
 
 def render_page(data: bytes, number: int) -> bytes:

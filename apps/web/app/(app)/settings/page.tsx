@@ -143,13 +143,18 @@ export default function Settings() {
           <ConsentsCard />
           <Appearance />
           <Card>
-            <CardHeader title="Presentation files" subtitle="Control the metadata in files you download" />
+            <CardHeader title="Presentation files" subtitle="Teacher attribution, page numbers and file properties" />
             <div className="divide-y divide-line px-5">
               <Toggle checked={mp.include_author !== false} onChange={(v) => setP({ ...p, metadata_policy: { ...mp, include_author: v } })} label="Put my name as the author" />
+              <Toggle checked={!!mp.teacher_footer_enabled} onChange={(v) => setP({ ...p, metadata_policy: { ...mp, teacher_footer_enabled: v } })} label="Show my name at the bottom right" description="An editable teacher-name section on every slide. Off by default." />
+              {mp.teacher_footer_enabled && <div className="py-3"><Field label="Teacher name on slides" hint="Leave blank to use your profile name."><Input maxLength={80} value={mp.teacher_footer_text || ""} placeholder={p.name} onChange={(e) => setP({ ...p, metadata_policy: { ...mp, teacher_footer_text: e.target.value } })} /></Field></div>}
+              <Toggle checked={!!mp.page_numbers_enabled} onChange={(v) => setP({ ...p, metadata_policy: { ...mp, page_numbers_enabled: v } })} label="Show PPT page numbers" description="Adds slide number / total at the bottom left. Applies to PPT and PDF when rebuilt." />
+              <Toggle checked={!!mp.watermark_enabled} onChange={(v) => setP({ ...p, metadata_policy: { ...mp, watermark_enabled: v } })} label="Add my teacher watermark" description="Shown on every slide in newly generated or rebuilt PPT and PDF files." />
+              {mp.watermark_enabled && <div className="space-y-3 py-3"><Field label="Watermark text" hint="Leave blank to use your name."><Input maxLength={120} value={mp.watermark_text || ""} onChange={(e) => setP({ ...p, metadata_policy: { ...mp, watermark_text: e.target.value } })} placeholder={p.name} /></Field><Field label="Watermark position"><Select value={mp.watermark_position || "footer"} onChange={(e) => setP({ ...p, metadata_policy: { ...mp, watermark_position: e.target.value } })}><option value="footer">Bottom right</option><option value="diagonal">Faint diagonal</option></Select></Field></div>}
               <Toggle checked={!!mp.ai_disclosure} onChange={(v) => setP({ ...p, metadata_policy: { ...mp, ai_disclosure: v } })} label="Add an AI-assistance note to file properties"
                 description="Some schools ask for this. Off by default; nothing is ever added to your slides." />
             </div>
-            <p className="px-5 pb-5 pt-2 text-xs text-muted">We never add watermarks or hidden product text to your files.</p>
+            <p className="px-5 pb-5 pt-2 text-xs text-muted">Your watermark is optional and remains editable in PowerPoint. Save changes, then rebuild an existing lesson to apply it.</p>
           </Card>
           <Card>
             <CardHeader title="Your data" subtitle="UAE PDPL and India DPDP: export or delete everything we store about you." />

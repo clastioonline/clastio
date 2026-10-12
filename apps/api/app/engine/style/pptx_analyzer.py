@@ -31,6 +31,7 @@ from app.engine.style.common import (
 )
 from app.engine.style.content import shape_image_bytes
 from app.engine.style.design_details import inspect_design
+from app.engine.style.footer_numbers import is_footer_number_text
 
 TITLE_TYPES = {PP_PLACEHOLDER.TITLE, PP_PLACEHOLDER.CENTER_TITLE, PP_PLACEHOLDER.VERTICAL_TITLE}
 BODY_TYPES = {PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT, PP_PLACEHOLDER.VERTICAL_BODY, PP_PLACEHOLDER.SUBTITLE}
@@ -69,7 +70,7 @@ class ShapeInfo:
             return ("autoshape", r, self.fill, self.autoshape)
         if self.text.strip():
             t = self.text.strip()
-            if t.isdigit():
+            if self.placeholder_type == PP_PLACEHOLDER.SLIDE_NUMBER or is_footer_number_text(t, self.bbox, self.max_font_pt):
                 return ("slide_number", r)
             if len(t) <= 60:
                 return ("text", r, t)
@@ -438,6 +439,8 @@ class PptxAnalyzer:
             decoration_ids = [sh.shape_id for sh in page.shapes
                               if sh is not title and (sh.signature() in decoration_sigs or
                                   (not sh.text.strip() and sh.kind == "autoshape"))]
+            slide_number_ids = [sh.shape_id for sh in page.shapes
+                                if sh.signature() in decoration_sigs and sh.signature()[0] == "slide_number"]
             title_chrome = [title.shape_id] if title and title.fill else []
             body_fonts = Counter()
             body_colors = Counter()
@@ -447,6 +450,7 @@ class PptxAnalyzer:
             page_designs.append({"number": page.index + 1, "donor_slide": page.index,
                 "layout": page.label, "layout_index": self.layouts.index(self.prs.slides[page.index].slide_layout),
                 "item_ids": decoration_ids + title_chrome, "clear_text_ids": title_chrome,
+                "slide_number_ids": slide_number_ids,
                 "background": page.background,
                 "title_zone": list(title.bbox) if title else None, "body_zone": body_box,
                 "title_color": title.text_colors.most_common(1)[0][0] if title and title.text_colors else None,

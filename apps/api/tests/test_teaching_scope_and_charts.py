@@ -102,6 +102,30 @@ def test_source_snippets_are_relevant_and_valid_json():
     pages = [{'number': n, 'text': ('Fractions ' if n == 15 else 'Other topic ') + 'x' * 2200,
               'notes': '', 'pictures': []} for n in range(1, 21)]
     context = source_context({'source_content': pages}, 'Fractions')
-    references = json.loads(context.split('\n')[-1])
+    material_section, design_section = context.split('\nDESIGN GUIDANCE', 1)
+    material_json = material_section.rsplit('\n', 1)[-1]
+    references = json.loads(material_json)
     assert any(page['slide'] == 15 for page in references)
-    assert len(context.split('\n')[-1]) <= 18000
+    assert len(material_json) <= 18000
+    assert json.loads(design_section.rsplit('\n', 1)[-1]) == []
+
+
+def test_long_design_guidance_keeps_complete_json_entries_within_prompt_budget():
+    import json
+
+    from app.services.styles import source_context
+
+    roles = [{'number': number, 'layout': 'concept', 'design_summary': 'Native layout "الكسور" ' * 40,
+              'content_structure': 'Worked example and check. ' * 40,
+              'engagement_guidance': 'Use original editable diagrams. ' * 40}
+             for number in range(1, 31)]
+    spec = {'source_content': [{'number': 1, 'text': 'Fractions', 'notes': '', 'pictures': []}],
+            'design_inspection': {'ai_page_roles': roles}}
+    context = source_context(spec, 'Fractions')
+    design_json = context.rsplit('\n', 1)[-1]
+    designs = json.loads(design_json)
+    assert len(design_json) <= 12000
+    assert 0 < len(designs) < len(roles)
+    assert designs[0]['slide'] == 1 and 'الكسور' in designs[0]['design']
+    assert all(set(design) == {'slide', 'layout', 'design', 'structure', 'engagement'} for design in designs)
+    assert [design['slide'] for design in designs] == list(range(1, len(designs) + 1))

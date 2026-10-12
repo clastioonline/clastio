@@ -215,6 +215,7 @@ def build_native(source: Path, analysis: dict[str, Any]) -> tuple[bytes, dict[st
             "number": page["number"], "layout": page["layout"],
             "layout_index": page["layout_index"], "donor_index": new_index[page["donor_slide"]],
             "item_ids": page["item_ids"], "clear_text_ids": page.get("clear_text_ids", []),
+            "slide_number_ids": page.get("slide_number_ids", []),
             "use_placeholders": False,
             "copy_background": page["background"].get("source") == "slide", "zones": zones,
             "colors": {**spec["colors"], "title": page.get("title_color") or spec["colors"]["title"],

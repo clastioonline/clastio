@@ -5,7 +5,57 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 
 from app.engine.render.manual import apply_manual, editable_objects
+from app.engine.render.watermark import apply_watermark
 from app.generation.specs import ManualObjectEdit
+
+
+@pytest.mark.parametrize('position', ['footer', 'diagonal'])
+def test_teacher_watermark_is_editable_and_applied_once_per_slide(position):
+    deck = Presentation()
+    for _ in range(2):
+        deck.slides.add_slide(deck.slide_layouts[6])
+    props = {'watermark_text': 'Ms Teacher · Science', 'watermark_position': position}
+    apply_watermark(deck, props)
+    apply_watermark(deck, props)
+    output = io.BytesIO()
+    deck.save(output)
+    restored = Presentation(io.BytesIO(output.getvalue()))
+    for slide in restored.slides:
+        marks = [shape for shape in slide.shapes if shape.name == 'Teacher watermark']
+        assert len(marks) == 1
+        assert marks[0].text == props['watermark_text']
+        assert marks[0].rotation == (330 if position == 'diagonal' else 0)
+
+
+def test_watermark_is_opt_in():
+    deck = Presentation()
+    slide = deck.slides.add_slide(deck.slide_layouts[6])
+    apply_watermark(deck, {})
+    assert len(slide.shapes) == 0
+
+
+def test_teacher_footer_and_numbering_roundtrip_without_duplicate_numbers():
+    deck = Presentation()
+    for _ in range(3):
+        slide = deck.slides.add_slide(deck.slide_layouts[6])
+        number = slide.shapes.add_textbox(0, 0, Inches(1), Inches(.2))
+        number.name = 'Template page number'
+        number.text = '99'
+    props = {'teacher_footer_text': 'Ms Sara', 'page_numbers': 'true', 'watermark_text': 'School'}
+    apply_watermark(deck, props)
+    apply_watermark(deck, props)
+    output = io.BytesIO()
+    deck.save(output)
+    restored = Presentation(io.BytesIO(output.getvalue()))
+    for index, slide in enumerate(restored.slides, start=1):
+        named = {shape.name: shape for shape in slide.shapes}
+        assert len(slide.shapes) == 3
+        assert 'Template page number' not in named
+        assert named['Teacher name footer'].text == 'Ms Sara'
+        assert named['Teacher page number'].text == f'{index} / 3'
+        assert named['Teacher name footer'].left > named['Teacher watermark'].left
+    apply_watermark(restored, {'page_numbers': 'false'})
+    assert all(not list(slide.shapes) for slide in restored.slides)
 
 
 def test_manual_text_and_geometry_survive_powerpoint_roundtrip():

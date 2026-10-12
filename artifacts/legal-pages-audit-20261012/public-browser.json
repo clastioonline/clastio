@@ -1,0 +1,383 @@
+{
+  "base": "http://localhost:3005",
+  "audited_at": "2026-10-12T04:39:55.130Z",
+  "legal": [
+    {
+      "type": "terms",
+      "http_status": 200,
+      "api_status": 200,
+      "title": "Terms & Conditions",
+      "version": "1.0",
+      "effective_from": "2026-09-26T05:26:38.109705+00:00",
+      "versions": [
+        "1.0"
+      ],
+      "earlier_versions_selector": 0,
+      "headings": [],
+      "email_addresses": [],
+      "placeholder_or_example": true,
+      "overflow_px": 0,
+      "doc_sidebar_links": [
+        {
+          "text": "Terms",
+          "href": "/legal/terms"
+        },
+        {
+          "text": "Privacy",
+          "href": "/legal/privacy"
+        },
+        {
+          "text": "Acceptable use",
+          "href": "/legal/acceptable_use"
+        },
+        {
+          "text": "Cookies",
+          "href": "/legal/cookie"
+        },
+        {
+          "text": "Refunds",
+          "href": "/legal/refund"
+        },
+        {
+          "text": "System status",
+          "href": "/status"
+        }
+      ]
+    },
+    {
+      "type": "privacy",
+      "http_status": 200,
+      "api_status": 200,
+      "title": "Privacy Policy",
+      "version": "1.0",
+      "effective_from": "2026-09-26T05:26:38.135802+00:00",
+      "versions": [
+        "1.0"
+      ],
+      "earlier_versions_selector": 0,
+      "headings": [],
+      "email_addresses": [
+        "privacy@pptgenie.example"
+      ],
+      "placeholder_or_example": true,
+      "overflow_px": 0,
+      "doc_sidebar_links": [
+        {
+          "text": "Terms",
+          "href": "/legal/terms"
+        },
+        {
+          "text": "Privacy",
+          "href": "/legal/privacy"
+        },
+        {
+          "text": "Acceptable use",
+          "href": "/legal/acceptable_use"
+        },
+        {
+          "text": "Cookies",
+          "href": "/legal/cookie"
+        },
+        {
+          "text": "Refunds",
+          "href": "/legal/refund"
+        },
+        {
+          "text": "System status",
+          "href": "/status"
+        }
+      ]
+    },
+    {
+      "type": "acceptable_use",
+      "http_status": 200,
+      "api_status": 200,
+      "title": "Acceptable Use Policy",
+      "version": "1.0",
+      "effective_from": "2026-09-26T05:26:38.149571+00:00",
+      "versions": [
+        "1.0"
+      ],
+      "earlier_versions_selector": 0,
+      "headings": [],
+      "email_addresses": [],
+      "placeholder_or_example": true,
+      "overflow_px": 0,
+      "doc_sidebar_links": [
+        {
+          "text": "Terms",
+          "href": "/legal/terms"
+        },
+        {
+          "text": "Privacy",
+          "href": "/legal/privacy"
+        },
+        {
+          "text": "Acceptable use",
+          "href": "/legal/acceptable_use"
+        },
+        {
+          "text": "Cookies",
+          "href": "/legal/cookie"
+        },
+        {
+          "text": "Refunds",
+          "href": "/legal/refund"
+        },
+        {
+          "text": "System status",
+          "href": "/status"
+        }
+      ]
+    },
+    {
+      "type": "cookie",
+      "http_status": 200,
+      "api_status": 200,
+      "title": "Cookie Policy",
+      "version": "1.0",
+      "effective_from": "2026-09-26T05:26:38.157570+00:00",
+      "versions": [
+        "1.0"
+      ],
+      "earlier_versions_selector": 0,
+      "headings": [],
+      "email_addresses": [],
+      "placeholder_or_example": true,
+      "overflow_px": 0,
+      "doc_sidebar_links": [
+        {
+          "text": "Terms",
+          "href": "/legal/terms"
+        },
+        {
+          "text": "Privacy",
+          "href": "/legal/privacy"
+        },
+        {
+          "text": "Acceptable use",
+          "href": "/legal/acceptable_use"
+        },
+        {
+          "text": "Cookies",
+          "href": "/legal/cookie"
+        },
+        {
+          "text": "Refunds",
+          "href": "/legal/refund"
+        },
+        {
+          "text": "System status",
+          "href": "/status"
+        }
+      ]
+    },
+    {
+      "type": "refund",
+      "http_status": 200,
+      "api_status": 200,
+      "title": "Refund Policy",
+      "version": "1.0",
+      "effective_from": "2026-09-26T05:26:38.168139+00:00",
+      "versions": [
+        "1.0"
+      ],
+      "earlier_versions_selector": 0,
+      "headings": [],
+      "email_addresses": [],
+      "placeholder_or_example": true,
+      "overflow_px": 0,
+      "doc_sidebar_links": [
+        {
+          "text": "Terms",
+          "href": "/legal/terms"
+        },
+        {
+          "text": "Privacy",
+          "href": "/legal/privacy"
+        },
+        {
+          "text": "Acceptable use",
+          "href": "/legal/acceptable_use"
+        },
+        {
+          "text": "Cookies",
+          "href": "/legal/cookie"
+        },
+        {
+          "text": "Refunds",
+          "href": "/legal/refund"
+        },
+        {
+          "text": "System status",
+          "href": "/status"
+        }
+      ]
+    }
+  ],
+  "navigation": {
+    "api_index": {
+      "status": 200,
+      "types": [
+        "terms",
+        "privacy",
+        "acceptable_use",
+        "cookie",
+        "refund"
+      ]
+    },
+    "footer_links": [
+      {
+        "text": "",
+        "href": "/"
+      },
+      {
+        "text": "Pricing",
+        "href": "/pricing"
+      },
+      {
+        "text": "Features",
+        "href": "/#features"
+      },
+      {
+        "text": "Schools",
+        "href": "/for-schools"
+      },
+      {
+        "text": "How it works",
+        "href": "/how-it-works"
+      },
+      {
+        "text": "Questions",
+        "href": "/faq"
+      },
+      {
+        "text": "Terms & Conditions",
+        "href": "/legal/terms"
+      },
+      {
+        "text": "Privacy Policy",
+        "href": "/legal/privacy"
+      },
+      {
+        "text": "Acceptable Use",
+        "href": "/legal/acceptable_use"
+      },
+      {
+        "text": "Cookie Policy",
+        "href": "/legal/cookie"
+      },
+      {
+        "text": "Refund Policy",
+        "href": "/legal/refund"
+      },
+      {
+        "text": "System status",
+        "href": "/status"
+      },
+      {
+        "text": "All teacher guides",
+        "href": "/solutions"
+      },
+      {
+        "text": "Personal teaching assistant",
+        "href": "/solutions/personal-ai-teaching-assistant"
+      },
+      {
+        "text": "Edit PPTs with fewer credits",
+        "href": "/solutions/edit-ppt-without-regenerating"
+      }
+    ],
+    "public_cookie_reopen_controls": 0,
+    "cookie_initial_buttons": [
+      "Customise",
+      "Essential only",
+      "Accept analytics"
+    ],
+    "analytics_checked_by_default": false,
+    "cookie_policy_href": "/legal/cookie",
+    "mobile_privacy_overflow_px": 0,
+    "anonymous_support_final_url": "http://localhost:3005/login?next=%2Fsupport"
+  },
+  "signup": {
+    "required_policy_checkbox_checked": false,
+    "marketing_checked_by_default": false,
+    "create_account_disabled_without_acceptance": true,
+    "links": [
+      {
+        "text": "Terms & Conditions",
+        "href": "/legal/terms"
+      },
+      {
+        "text": "Acceptable Use Policy",
+        "href": "/legal/acceptable_use"
+      },
+      {
+        "text": "Privacy Policy",
+        "href": "/legal/privacy"
+      }
+    ]
+  },
+  "invalid_routes": [
+    {
+      "path": "/legal",
+      "status": 404,
+      "title": "Clastio \u2014 lessons and slides in your own design",
+      "not_found_text": false
+    },
+    {
+      "path": "/legal/not_a_policy",
+      "status": 404,
+      "title": "",
+      "not_found_text": false
+    },
+    {
+      "path": "/legal/dmca",
+      "status": 404,
+      "title": "",
+      "not_found_text": false
+    },
+    {
+      "path": "/contact",
+      "status": 404,
+      "title": "Clastio \u2014 lessons and slides in your own design",
+      "not_found_text": false
+    },
+    {
+      "path": "/legal/accessibility",
+      "status": 404,
+      "title": "",
+      "not_found_text": false
+    },
+    {
+      "path": "/legal/ai_data",
+      "status": 404,
+      "title": "",
+      "not_found_text": false
+    },
+    {
+      "path": "/api/v1/legal/not_a_policy",
+      "status": 404
+    },
+    {
+      "path": "/api/v1/legal/dmca",
+      "status": 404
+    },
+    {
+      "path": "/api/v1/legal/terms?version=missing-audit-version",
+      "status": 404
+    }
+  ],
+  "browser_errors": [],
+  "blocked_non_get_requests": [],
+  "code_review": {
+    "version_selector": "Live documents each have only v1.0, so the earlier-versions selector is correctly hidden. Historical selection was not exercised against account data.",
+    "future_version_ordering": "Code treats versions[0] as current, but the API history includes all published/archived versions while default current() excludes future-effective versions. A future-effective published version can therefore be mislabeled as an earlier version and selecting it resets to the current document. This is a code-review finding, not an observed live multi-version failure.",
+    "version_deep_links": "The public page keeps selected version in component state and does not read URL query parameters; the API supports ?version=.",
+    "document_types": "Backend supports dmca but no DMCA document is published; frontend legal layout and sidebar whitelist only terms/privacy/acceptable_use/cookie/refund.",
+    "public_support": "No public contact route or footer contact/support link; existing support route requires sign-in.",
+    "cookie_reopen": "Public pages have no reopen control; signed-in Settings has Change cookie choices.",
+    "heading_hierarchy": "Shared Markdown renderer maps ## policy sections to h3 beneath the document h1.",
+    "unpublished_optional_types": "No dedicated accessibility or AI-data policy page exists. Their absence alone is not a determination that they are legally required."
+  }
+}

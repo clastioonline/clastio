@@ -1,0 +1,780 @@
+{
+  "source": "science_ms_sara.pptx",
+  "lessonId": "01a12ccc-0926-716e-9cc1-230405906661",
+  "qc": {
+    "render": [
+      {
+        "texts": [
+          {
+            "box": [
+              822960,
+              2194560,
+              8229600,
+              1280160
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 45
+          },
+          {
+            "box": [
+              822960,
+              3474720,
+              8229600,
+              731520
+            ],
+            "fits": true,
+            "role": "subtitle",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "cover",
+        "number": 1,
+        "overflow": false,
+        "min_font_pt": 22
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457200,
+              201168,
+              10515600,
+              731520
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              786380,
+              2799207,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515610,
+              2507742,
+              9493769,
+              1165860
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              786380,
+              4115943,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515610,
+              3824478,
+              9493769,
+              1165860
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "objectives",
+        "number": 2,
+        "overflow": false,
+        "min_font_pt": 22
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457200,
+              201168,
+              10515600,
+              731520
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640080,
+              1554480,
+              2980218,
+              4389120
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 20
+          },
+          {
+            "box": [
+              4059198,
+              1730044,
+              2341601,
+              4037990
+            ],
+            "fits": true,
+            "role": "visual",
+            "size_pt": 18
+          }
+        ],
+        "issues": [],
+        "layout": "image_text",
+        "number": 3,
+        "overflow": false,
+        "min_font_pt": 18
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457188,
+              200939,
+              10515336,
+              731748
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640063,
+              1810483,
+              2112212,
+              1449396
+            ],
+            "fits": true,
+            "role": "step",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              1490429,
+              1604743,
+              411480,
+              411480
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 16.2
+          },
+          {
+            "box": [
+              640063,
+              3397039,
+              2112212,
+              2420601
+            ],
+            "fits": true,
+            "role": "detail",
+            "size_pt": 18
+          },
+          {
+            "box": [
+              3532542,
+              1810483,
+              2112212,
+              1449396
+            ],
+            "fits": true,
+            "role": "step",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              4382908,
+              1604743,
+              411480,
+              411480
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 16.2
+          },
+          {
+            "box": [
+              3532542,
+              3397039,
+              2112212,
+              2420601
+            ],
+            "fits": true,
+            "role": "detail",
+            "size_pt": 18
+          },
+          {
+            "box": [
+              6425021,
+              1810483,
+              2112212,
+              1449396
+            ],
+            "fits": true,
+            "role": "step",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              7275387,
+              1604743,
+              411480,
+              411480
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 16.2
+          },
+          {
+            "box": [
+              6425021,
+              3397039,
+              2112212,
+              2420601
+            ],
+            "fits": true,
+            "role": "detail",
+            "size_pt": 18
+          },
+          {
+            "box": [
+              9317500,
+              1810483,
+              2112212,
+              1449396
+            ],
+            "fits": true,
+            "role": "step",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              10167866,
+              1604743,
+              411480,
+              411480
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 16.2
+          },
+          {
+            "box": [
+              9317500,
+              3397039,
+              2112212,
+              2420601
+            ],
+            "fits": true,
+            "role": "detail",
+            "size_pt": 18
+          }
+        ],
+        "issues": [],
+        "layout": "process",
+        "number": 4,
+        "overflow": false,
+        "min_font_pt": 16.2
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457188,
+              200939,
+              10515336,
+              731748
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640063,
+              1554708,
+              2794702,
+              2344612
+            ],
+            "fits": true,
+            "role": "activity-info",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              4019965,
+              1923439,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              4749195,
+              1554708,
+              6534217,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              4019965,
+              3394708,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              4749195,
+              3025977,
+              6534217,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              4019965,
+              4865977,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              4749195,
+              4497246,
+              6534217,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "activity",
+        "number": 5,
+        "overflow": false,
+        "min_font_pt": 22
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457200,
+              201168,
+              10515600,
+              731520
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640080,
+              1554480,
+              10607040,
+              1056132
+            ],
+            "fits": true,
+            "role": "question",
+            "size_pt": 26
+          },
+          {
+            "box": [
+              761996,
+              3022092,
+              548640,
+              548640
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 21.6
+          },
+          {
+            "box": [
+              1432553,
+              2747772,
+              4169680,
+              1097280
+            ],
+            "fits": true,
+            "role": "option",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              6284966,
+              3022092,
+              548640,
+              548640
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 21.6
+          },
+          {
+            "box": [
+              6955523,
+              2747772,
+              4169680,
+              1097280
+            ],
+            "fits": true,
+            "role": "option",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              761996,
+              4338822,
+              548640,
+              548640
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 21.6
+          },
+          {
+            "box": [
+              1432553,
+              4064502,
+              4169680,
+              1097280
+            ],
+            "fits": true,
+            "role": "option",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              6284966,
+              4338822,
+              548640,
+              548640
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 21.6
+          },
+          {
+            "box": [
+              6955523,
+              4064502,
+              4169680,
+              1097280
+            ],
+            "fits": true,
+            "role": "option",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "quiz",
+        "number": 6,
+        "overflow": false,
+        "min_font_pt": 21.6
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457200,
+              201168,
+              10515600,
+              731520
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640080,
+              1554480,
+              10515600,
+              1360627
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 25.3
+          },
+          {
+            "box": [
+              640080,
+              3068726,
+              10515600,
+              1360627
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 25.3
+          },
+          {
+            "box": [
+              640080,
+              4582972,
+              10515600,
+              1360627
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 25.3
+          }
+        ],
+        "issues": [],
+        "layout": "concept",
+        "number": 7,
+        "overflow": false,
+        "min_font_pt": 25.3
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457188,
+              200939,
+              10515336,
+              731748
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              640063,
+              1554708,
+              10789650,
+              4262932
+            ],
+            "fits": true,
+            "role": "table",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "key_vocabulary",
+        "number": 8,
+        "overflow": false,
+        "min_font_pt": 22
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457200,
+              201168,
+              10515600,
+              731520
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              786380,
+              1944243,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515610,
+              1554480,
+              9493769,
+              1362456
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              786380,
+              3457575,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515610,
+              3067812,
+              9493769,
+              1362456
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              786380,
+              4970907,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515610,
+              4581144,
+              9493769,
+              1362456
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "summary",
+        "number": 9,
+        "overflow": false,
+        "min_font_pt": 22
+      },
+      {
+        "texts": [
+          {
+            "box": [
+              457188,
+              200939,
+              10515336,
+              731748
+            ],
+            "fits": true,
+            "role": "title",
+            "size_pt": 32
+          },
+          {
+            "box": [
+              786363,
+              1923439,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515593,
+              1554708,
+              9767819,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              786363,
+              3394708,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515593,
+              3025977,
+              9767819,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          },
+          {
+            "box": [
+              786363,
+              4865977,
+              582930,
+              582930
+            ],
+            "fits": true,
+            "role": "badge",
+            "size_pt": 22.9
+          },
+          {
+            "box": [
+              1515593,
+              4497246,
+              9767819,
+              1320393
+            ],
+            "fits": true,
+            "role": "body",
+            "size_pt": 22
+          }
+        ],
+        "issues": [],
+        "layout": "homework",
+        "number": 10,
+        "overflow": false,
+        "min_font_pt": 22
+      }
+    ],
+    "visual": {},
+    "ai_mode": "offline",
+    "repairs": [],
+    "visual_error": null,
+    "visual_status": "checked",
+    "content_quality": {
+      "status": "structural_checks_passed",
+      "reference_count": 0,
+      "fact_check_status": "teacher_review_required"
+    }
+  },
+  "slideCount": 10
+}

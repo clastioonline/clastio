@@ -86,7 +86,10 @@ async def test_lesson_ready_notice(client):
         "auto_generate": True})
     assert r.status_code == 200
     titles = await _titles(u["id"])
-    assert "Unit planned: Volcanoes" in titles and any(t.startswith("Lesson ready:") for t in titles)
+    assert "Unit planned: Volcanoes" in titles and any(t.startswith("Review your PPT:") for t in titles)
+    project_id = r.json()["course"]["project_id"]
+    lessons = (await client.get(f"/api/v1/projects/{project_id}", headers=u["headers"])).json()["lessons"]
+    assert lessons[0]["has_pptx"] and not lessons[0]["review_approved"]
 
 
 async def test_payment_receipt_and_staff_alert_on_failure(client):

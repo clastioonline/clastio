@@ -393,13 +393,13 @@ async def approve_lesson(db: AsyncSession, user: User, lesson_id: uuid.UUID, ver
 
 
 async def _core_props(db: AsyncSession, user: User, course: Course, lesson: Lesson) -> dict[str, str]:
+    from app.services.presentation_files import presentation_properties
+
     tp = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
     policy = (tp.metadata_policy if tp else {}) or {}
     props = {"title": f"{course.topic} — Lesson {lesson.number}: {lesson.title}",
-             "author": user.name if policy.get("include_author", True) else "",
              "subject": f"Grade {course.grade} {course.subject}", "keywords": course.topic}
-    if policy.get("ai_disclosure"):
-        props["comments"] = "Prepared with AI assistance and reviewed by the teacher."
+    props.update(presentation_properties(user, policy))
     return props
 
 
@@ -448,6 +448,13 @@ async def handle_lesson_generation(ctx: JobContext) -> dict[str, Any]:
                 context_text += f" Outcome: {reflection.outcome}. Teacher notes: {reflection.note or 'none'}."
         base = await storage.get(template.base_storage_key)
         spec = template.spec
+        roles = {page['slide']: page for page in spec.get('design_inspection', {}).get('ai_page_roles', []) if 'slide' in page}
+        req['template_designs'] = [
+            {'number': page['number'], 'layout': page['layout'],
+             'design': roles.get(page['number'], {}).get('design_summary', '')[:500],
+             'structure': roles.get(page['number'], {}).get('content_structure', '')[:400],
+             'zones': page.get('zones', {})}
+            for page in spec.get('page_variants', [])]
         from app.services.styles import source_context
 
         context_text += source_context(spec, course.topic)

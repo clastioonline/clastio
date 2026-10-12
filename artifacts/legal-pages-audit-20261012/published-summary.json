@@ -1,0 +1,113 @@
+{
+  "scope": "Read-only local public API content audit; no published documents or user records changed",
+  "origin": "http://localhost:3005/api/v1/legal",
+  "current_published_count": 5,
+  "documents": [
+    {
+      "type": "terms",
+      "title": "Terms & Conditions",
+      "version": "1.0",
+      "status": "published",
+      "published_at": "2026-09-26T05:26:38.109705+00:00",
+      "effective_from": "2026-09-26T05:26:38.109705+00:00",
+      "requires_acceptance": true,
+      "http_status": 200,
+      "version_history_count": 1,
+      "word_count": 335,
+      "content_flags": {
+        "legacy_ppt_genie_brand": true,
+        "template_review_notice": true,
+        "placeholder_contact": false,
+        "mentions_openrouter": false,
+        "mentions_installation_cookie": false,
+        "mentions_optional_book_sharing": false,
+        "operator_legal_entity_details_present": false
+      }
+    },
+    {
+      "type": "privacy",
+      "title": "Privacy Policy",
+      "version": "1.0",
+      "status": "published",
+      "published_at": "2026-09-26T05:26:38.135802+00:00",
+      "effective_from": "2026-09-26T05:26:38.135802+00:00",
+      "requires_acceptance": true,
+      "http_status": 200,
+      "version_history_count": 1,
+      "word_count": 242,
+      "content_flags": {
+        "legacy_ppt_genie_brand": true,
+        "template_review_notice": true,
+        "placeholder_contact": true,
+        "mentions_openrouter": false,
+        "mentions_installation_cookie": false,
+        "mentions_optional_book_sharing": false,
+        "operator_legal_entity_details_present": false
+      }
+    },
+    {
+      "type": "acceptable_use",
+      "title": "Acceptable Use Policy",
+      "version": "1.0",
+      "status": "published",
+      "published_at": "2026-09-26T05:26:38.149571+00:00",
+      "effective_from": "2026-09-26T05:26:38.149571+00:00",
+      "requires_acceptance": true,
+      "http_status": 200,
+      "version_history_count": 1,
+      "word_count": 144,
+      "content_flags": {
+        "legacy_ppt_genie_brand": true,
+        "template_review_notice": true,
+        "placeholder_contact": false,
+        "mentions_openrouter": false,
+        "mentions_installation_cookie": false,
+        "mentions_optional_book_sharing": false,
+        "operator_legal_entity_details_present": false
+      }
+    },
+    {
+      "type": "cookie",
+      "title": "Cookie Policy",
+      "version": "1.0",
+      "status": "published",
+      "published_at": "2026-09-26T05:26:38.157570+00:00",
+      "effective_from": "2026-09-26T05:26:38.157570+00:00",
+      "requires_acceptance": false,
+      "http_status": 200,
+      "version_history_count": 1,
+      "word_count": 91,
+      "content_flags": {
+        "legacy_ppt_genie_brand": true,
+        "template_review_notice": true,
+        "placeholder_contact": false,
+        "mentions_openrouter": false,
+        "mentions_installation_cookie": false,
+        "mentions_optional_book_sharing": false,
+        "operator_legal_entity_details_present": false
+      }
+    },
+    {
+      "type": "refund",
+      "title": "Refund Policy",
+      "version": "1.0",
+      "status": "published",
+      "published_at": "2026-09-26T05:26:38.168139+00:00",
+      "effective_from": "2026-09-26T05:26:38.168139+00:00",
+      "requires_acceptance": false,
+      "http_status": 200,
+      "version_history_count": 1,
+      "word_count": 95,
+      "content_flags": {
+        "legacy_ppt_genie_brand": true,
+        "template_review_notice": true,
+        "placeholder_contact": false,
+        "mentions_openrouter": false,
+        "mentions_installation_cookie": false,
+        "mentions_optional_book_sharing": false,
+        "operator_legal_entity_details_present": false
+      }
+    }
+  ],
+  "copyright_document_http_status": 404
+}

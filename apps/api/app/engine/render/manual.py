@@ -12,7 +12,7 @@ def apply_manual(slide, edits, width, height):
     for key, edit in edits.items():
         shape = shapes.get(key)
         if shape is None and key.startswith("custom-") and edit.object_type:
-            left, top = int((edit.x or 0.1) * width), int((edit.y or 0.1) * height)
+            left, top = int((edit.x if edit.x is not None else 0.1) * width), int((edit.y if edit.y is not None else 0.1) * height)
             w, h = int((edit.width or 0.4) * width), int((edit.height or 0.15) * height)
             shape = (slide.shapes.add_textbox(left, top, w, h) if edit.object_type == "text" else
                      slide.shapes.add_shape(MSO_SHAPE.RECTANGLE if edit.object_type == "rectangle" else MSO_SHAPE.OVAL, left, top, w, h))

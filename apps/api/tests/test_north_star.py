@@ -57,6 +57,23 @@ async def test_north_star_photosynthesis_course(client, teacher):
     assert r.status_code == 200, r.text
     project_id = r.json()["course"]["project_id"]
     proj = (await client.get(f"/api/v1/projects/{project_id}", headers=h)).json()
+    assert [lesson['has_pptx'] for lesson in proj['lessons']] == [True, False, False, False, False]
+    course_id = proj['course']['id']
+    # Each completed version needs explicit teacher approval before continuing.
+    for number in range(2, 6):
+        prior = proj['lessons'][number - 2]
+        blocked = await client.post(f'/api/v1/courses/{course_id}/generate', headers=h,
+                                    json={'lessons': [number]})
+        assert blocked.status_code == 409 and blocked.json()['error']['code'] == 'review_required'
+        detail = (await client.get(f"/api/v1/lessons/{prior['id']}", headers=h)).json()
+        approved = await client.post(f"/api/v1/lessons/{prior['id']}/approve", headers=h,
+                                     json={'version': detail['lesson']['version'],
+                                           'feedback': 'Keep the practical examples and teacher design.'})
+        assert approved.status_code == 200, approved.text
+        generated = await client.post(f'/api/v1/courses/{course_id}/generate', headers=h,
+                                      json={'lessons': [number]})
+        assert generated.status_code == 202, generated.text
+        proj = (await client.get(f'/api/v1/projects/{project_id}', headers=h)).json()
     course = proj["course"]
     assert course["status"] == "ready", course
     plan = course["plan"]
@@ -162,12 +179,25 @@ async def test_free_plan_limits(client):
         "topic": "Photosynthesis", "grade": "8", "subject": "Science", "num_lectures": 5, "slides_per_lecture": 10})
     assert r.status_code == 402
     assert r.json()["error"]["code"] == "limit_exceeded"
-    # 3 lectures x 20 slides = 60 slide credits + plan cost exceeds the 60-credit free allowance
+    # Planning fits; individual lessons consume the allowance as the teacher approves each one.
     r = await client.post("/api/v1/courses", headers=u["headers"], json={
         "topic": "Photosynthesis", "grade": "8", "subject": "Science", "num_lectures": 3, "slides_per_lecture": 20})
     assert r.status_code == 200  # planning is allowed
     course_id = r.json()["course"]["id"]
-    r = await client.post(f"/api/v1/courses/{course_id}/generate", headers=u["headers"], json={})
+    project_id = r.json()["course"]["project_id"]
+    for number in (1, 2):
+        r = await client.post(f"/api/v1/courses/{course_id}/generate", headers=u["headers"],
+                              json={"lessons": [number]})
+        assert r.status_code == 202, r.text
+        lessons = (await client.get(f"/api/v1/projects/{project_id}", headers=u["headers"])).json()["lessons"]
+        lesson = next(item for item in lessons if item["number"] == number)
+        assert lesson["has_pptx"], lesson
+        approved = await client.post(f"/api/v1/lessons/{lesson['id']}/approve", headers=u["headers"],
+                                     json={"version": lesson["version"]})
+        assert approved.status_code == 200, approved.text
+    # A third 20-slide lesson plus the already consumed plan cost exceeds 60 credits.
+    r = await client.post(f"/api/v1/courses/{course_id}/generate", headers=u["headers"], json={"lessons": [3]})
     assert r.status_code == 402
+    assert r.json()["error"]["code"] == "limit_exceeded"
     usage = (await client.get("/api/v1/me/usage", headers=u["headers"])).json()
     assert usage["plan"]["code"] == "free" and usage["usage"]["credits"]["used"] > 0

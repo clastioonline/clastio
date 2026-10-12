@@ -96,9 +96,13 @@ def course_plan(ctx: dict[str, Any], schema: type[BaseModel]) -> CoursePlan:
     )
 
 
-def _deck_layouts(n: int, lecture_no: int, homework: bool) -> list[str]:
+def _deck_layouts(n: int, lecture_no: int, homework: bool, daily_teaching: bool = False) -> list[str]:
     middle = ["concept", "image_text", "process", "key_vocabulary", "comparison", "quiz", "activity", "discussion",
               "cycle", "timeline", "worked_example", "table", "two_column", "concept"]
+    if daily_teaching and n >= 8:
+        # Short classroom decks still need explanation, student practice and a check.
+        middle = ["concept", "process", "activity", "quiz", "image_text", "key_vocabulary", "comparison",
+                  "discussion", "cycle", "timeline", "worked_example", "table", "two_column", "concept"]
     first = "objectives" if lecture_no == 1 else "quiz"
     end = ["summary"] + (["homework"] if homework else ["exit_ticket"])
     k = max(0, n - 1 - len(end))
@@ -118,7 +122,7 @@ def lesson_deck(ctx: dict[str, Any], schema: type[BaseModel]) -> LessonDeck:
     title = lec.get("title") or f"{T}"
     kc = lec.get("key_concepts") or [f"meaning of {t}", f"examples of {t}"]
     vocab = lec.get("key_vocabulary") or [f"{T} term 1", f"{T} term 2", f"{T} term 3"]
-    layouts = _deck_layouts(n, no, bool(ctx.get("homework", True)))
+    layouts = _deck_layouts(n, no, bool(ctx.get("homework", True)), bool(ctx.get("daily_teaching")))
     per = round(minutes / max(1, n - 1), 1)
     slides: list[SlideSpec] = []
     for i, lay in enumerate(layouts, start=1):

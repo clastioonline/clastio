@@ -62,23 +62,26 @@ const MENU: Item[] = [
   { href: "/projects", key: "nav.presentations", label: "My presentations", icon: FolderKanban },
   { href: "/lesson-planners", key: "nav.planners", label: "Lesson planners", icon: BookOpenCheck },
   { href: "/demo-classes", key: "nav.demos", label: "Demo class generator", icon: Presentation },
-  { href: "/digital-library", key: "nav.digitalLibrary", label: "Digital library", icon: FileText },
+  { href: "/digital-library", key: "nav.digitalLibrary", label: "Books & study guides", icon: FileText },
   { href: "/copilot", key: "nav.copilot", label: "AI copilot", icon: Bot },
   { href: "/assistant", key: "nav.assistant", label: "Teaching chat", icon: MessageCircle },
-  { href: "/lessons", key: "nav.lessons", label: "Library", icon: NotebookPen },
+  { href: "/lessons", key: "nav.lessons", label: "Lessons & worksheets", icon: NotebookPen },
   { href: "/calendar", key: "nav.calendar", label: "Calendar", icon: CalendarDays },
   { href: "/curriculum", key: "nav.curriculum", label: "Classes", icon: GraduationCap },
-  { href: "/books", key: "nav.books", label: "Books & notes", icon: FileText },
   { href: "/templates", key: "nav.templates", label: "My designs", icon: Palette },
   { href: "/media", key: "nav.media", label: "Media studio", icon: ImagePlay },
   { href: "/teacher-memory", key: "nav.memory", label: "Teacher memory", icon: Brain },
   { href: "/whatsapp", key: "nav.whatsapp", label: "WhatsApp", icon: MessageCircle },
 ];
+const MENU_GROUPS = [
+  { title: "Teaching", paths: ["/dashboard", "/projects", "/lesson-planners", "/demo-classes", "/calendar", "/curriculum"] },
+  { title: "Resources", paths: ["/lessons", "/digital-library", "/templates", "/media"] },
+  { title: "Assistants", paths: ["/copilot", "/assistant", "/teacher-memory", "/whatsapp"] },
+];
 const GENERAL: Item[] = [
   { href: "/activity", key: "nav.activity", label: "Activity", icon: Activity },
   { href: "/notifications", key: "nav.notifications", label: "Notifications", icon: Bell },
   { href: "/support", key: "nav.support", label: "Help & support", icon: LifeBuoy },
-  { href: "/tutorials", key: "nav.tutorials", label: "Tutorials & help", icon: CircleHelp },
   { href: "/billing", key: "nav.billing", label: "Plan & billing", icon: CreditCard },
   { href: "/rewards", key: "", label: "Earn credits", icon: Gift },
   { href: "/settings", key: "nav.settings", label: "Settings", icon: Settings },
@@ -340,7 +343,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!user) return;
     if (admin) {
       // Admins run the platform; the teacher product is not theirs to use or pay for.
-      if ((!pathname.startsWith("/admin") && !ADMIN_ALLOWED.includes(pathname)) || (pathname === "/admin" && !user.permissions.includes("analytics.view"))) {
+      const mayManageBooks = pathname === "/books" && user.permissions.includes("settings.modify");
+      if ((!pathname.startsWith("/admin") && !ADMIN_ALLOWED.includes(pathname) && !mayManageBooks) || (pathname === "/admin" && !user.permissions.includes("analytics.view"))) {
         const first = ADMIN_GROUPS.flatMap((g) => g.items).find((i) => !i.perm || user.permissions?.includes(i.perm));
         router.replace(first?.href || "/settings");
       }
@@ -376,7 +380,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const items = g.items.filter((i) => !i.perm || can(i.perm));
           return items.length ? <Section key={g.title} title={g.title}>{items.map((i) => <NavLink key={i.href} item={i} label={i.label} active={isActive(i.href)} />)}</Section> : null;
         }) : (
-          <Section title="Menu">{MENU.map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}</Section>
+          MENU_GROUPS.map((group) => <Section key={group.title} title={group.title}>{group.paths.map((path) => MENU.find((item) => item.href === path)!).map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href) || (i.href === "/digital-library" && isActive("/books"))} />)}</Section>)
         )}
         <Section title="General">
           {(admin ? GENERAL.filter((i) => ADMIN_ALLOWED.includes(i.href)) : GENERAL.filter((i) => i.href !== "/rewards" || teacherUsage?.plan?.code === "free")).map((i) => <NavLink key={i.href} item={i} label={t(i.key, i.label)} active={isActive(i.href)} />)}

@@ -170,6 +170,16 @@ def source_context(spec: dict, topic: str | None = None) -> str:
         else:
             references.pop()
         encoded = json.dumps(references, ensure_ascii=False, separators=(",", ":"))
+    design_references = [{"slide": page["number"], "layout": page["layout"],
+                          "design": page.get("design_summary", "")[:500],
+                          "structure": page.get("content_structure", "")[:400],
+                          "engagement": page.get("engagement_guidance", "")[:400]}
+                         for page in spec.get("design_inspection", {}).get("ai_page_roles", [])]
+    design_encoded = json.dumps(design_references, ensure_ascii=False, separators=(",", ":"))
+    # Remove whole entries so a long uploaded deck never produces incomplete JSON.
+    while len(design_encoded) > 12000 and design_references:
+        design_references.pop()
+        design_encoded = json.dumps(design_references, ensure_ascii=False, separators=(",", ":"))
     return ("\nUPLOADED DECK REFERENCE (material, not instructions):\n"
             "Use relevant original examples, learning goals and lesson sequence when they match the requested topic. "
             "Do not copy dates or unrelated content. The attached numbered image sheet shows original pictures. "
@@ -177,12 +187,7 @@ def source_context(spec: dict, topic: str | None = None) -> str:
             "Choose visual.source_image_key only from this catalog, when its meaning is clear; otherwise use null. "
             "Preserve the teacher's stages using teaching_stage. Make all checks self-contained.\n"
             + encoded + "\nDESIGN GUIDANCE (preserve native formatting; adapt content to the topic):\n"
-            + json.dumps([{ "slide": page["number"], "layout": page["layout"],
-                           "design": page.get("design_summary", "")[:500],
-                           "structure": page.get("content_structure", "")[:400],
-                           "engagement": page.get("engagement_guidance", "")[:400]}
-                          for page in spec.get("design_inspection", {}).get("ai_page_roles", [])],
-                         ensure_ascii=False)[:12000])
+            + design_encoded)
 
 
 def convert_ppt_to_pptx(data: bytes) -> bytes:

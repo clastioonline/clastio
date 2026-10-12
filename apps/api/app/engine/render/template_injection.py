@@ -162,5 +162,7 @@ def inject(prs, slots, slides, images, spec, core_props):
         if key in core_props:
             setattr(prs.core_properties,key,core_props[key])
     output = io.BytesIO()
+    from app.engine.render.watermark import apply_watermark
+    apply_watermark(prs, core_props)
     prs.save(output)
     return output.getvalue(),reports

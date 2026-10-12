@@ -162,7 +162,7 @@ export function Chips({ options, value, onChange, multiple = false }: { options:
       {options.map((o) => {
         const on = selected.includes(o.value);
         return (
-          <button key={o.value} type="button"
+          <button key={o.value} type="button" aria-label={o.label} aria-pressed={on}
             onClick={() => multiple ? onChange(on ? selected.filter((v) => v !== o.value) : [...selected, o.value]) : onChange(o.value)}
             className={cn("focus-ring rounded-full border px-3 py-1.5 text-sm transition-colors",
               on ? "border-brand-600 bg-brand-600 text-white" : "border-line-strong bg-surface text-ink-2 hover:border-brand-300")}>

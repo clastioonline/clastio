@@ -102,11 +102,21 @@ try {
   await field("Number of lessons").selectOption("2");
   await field("Slides per lesson").selectOption("10");
   await shot("05-new-course");
-  await page.getByRole("button", { name: "Plan & build complete chapter", exact: true }).click();
-  await page.waitForURL("**/projects/*");
+  await page.getByRole("button", { name: "Plan chapter & build first lesson", exact: true }).click();
+  await page.waitForURL((url) => /^\/projects\/[^/]+$/.test(url.pathname) && !url.pathname.endsWith("/new"));
+  const projectUrl = page.url();
   ok("project created");
-  await page.getByText("2 / 2 ready").or(page.getByRole("link", { name: /Open/ }).nth(1)).first().waitFor({ timeout: 180_000 });
-  await page.waitForFunction(() => document.querySelectorAll('a[href^="/lessons/"]').length >= 2, null, { timeout: 180_000 });
+  await page.getByRole("link", { name: "Review PPT", exact: true }).first().waitFor({ timeout: 180_000 });
+  assert(await page.getByRole("button", { name: "Prepare next lesson", exact: true }).isDisabled(), "next lesson requires review of the first PPT");
+  await page.getByRole("link", { name: "Review PPT", exact: true }).first().click();
+  await page.getByRole("button", { name: "Approve this version", exact: true }).click();
+  await page.getByText("This version is approved.", { exact: false }).waitFor();
+  await page.goto(projectUrl);
+  await page.getByRole("button", { name: "Prepare next lesson", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Build these lessons", exact: true }).click();
+  await page.getByRole("link", { name: "Review PPT", exact: true }).waitFor({ timeout: 180_000 });
+  const prepared = await page.request.get(BASE + `/api/v1/projects/${new URL(projectUrl).pathname.split("/").pop()}`).then((response) => response.json());
+  assert(prepared.lessons.length === 2 && prepared.lessons.every((lesson) => lesson.has_pptx), "both approved-sequence lessons have editable PPT files");
   await page.waitForTimeout(1500);
   await shot("06-project");
   ok("both lessons generated");
@@ -115,6 +125,7 @@ try {
   await page.locator('a[href^="/lessons/"]').first().click();
   await page.waitForURL("**/lessons/*");
   await page.getByText("QC passed").or(page.getByText(/QC notes/)).first().waitFor();
+  await page.getByRole("tab", { name: "Edit PPT", exact: true }).click();
   const thumbs = await page.locator('button:has(img[alt^="Slide "])').count();
   assert(thumbs === 10, `lesson has 10 slide thumbnails (got ${thumbs})`);
   await shot("07-lesson-editor");
@@ -127,6 +138,7 @@ try {
 
   step("Edit a slide with a quick action");
   await page.locator('button:has(img[alt="Slide 3"])').click();
+  await page.getByText("AI assistant · optional", { exact: true }).click();
   await page.getByRole("button", { name: "Make simpler" }).click();
   await page.getByText("Slides updated").waitFor({ timeout: 90_000 });
   ok("slide regenerated and deck rebuilt");
@@ -172,7 +184,7 @@ try {
   step("Other pages render without errors");
   for (const [route, text, name] of [
     ["/dashboard", "Today's classes", "10-dashboard"],
-    ["/templates", "Your templates", "11-templates"],
+    ["/templates", "My designs", "11-templates"],
     ["/calendar", "Week plan", "12-calendar"],
     ["/curriculum", "Add class", "13-curriculum"],
     ["/teacher-memory", "Teacher memory", "14-memory"],
@@ -194,7 +206,7 @@ try {
   step("Notifications, support and account security");
   await page.goto(BASE + "/notifications");
   await page.getByRole("heading", { name: "Notifications" }).waitFor();
-  await page.getByText(/Lesson ready:|Unit planned:/).first().waitFor();
+  await page.getByText(/Review your PPT:|Unit planned:/).first().waitFor();
   ok("lesson-ready notices arrive in the notification list");
   const unread = await page.request.get(BASE + "/api/v1/me/notifications").then((r) => r.json());
   assert(unread.unread > 0, `bell shows unread count (${unread.unread})`);

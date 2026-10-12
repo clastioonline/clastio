@@ -4,6 +4,8 @@ import { launchBrowser } from './browser.mjs';
 
 const base = process.env.BASE_URL || 'http://localhost:3003';
 const user = { id: 'educator-teacher', name: 'Educator Teacher', email: 'educator@example.com', role: 'teacher', permissions: [], status: 'active', email_verified: true, locale: 'en', timezone: 'Asia/Dubai', onboarding_completed: true };
+let profile = { subjects: ['Science'], grades: ['6', '7'], curriculum: 'british', teaching_languages: ['en'], regulatory_authority: 'not_specified', education_stages: ['primary', 'secondary', 'university'] };
+const savedClasses = [{ id: 'class-6', name: '6A', subject: 'Science', grade: '6', curriculum: 'british' }, { id: 'class-8', name: '8B', subject: 'Biology', grade: '8', curriculum: 'british' }];
 const metadata = { topic: 'Ecosystems', subject: 'Science', grade: '6', curriculum: 'UAE MoE', language: 'en', education_stage: 'primary', framework: 'khda', status: 'ready', version: 1 };
 const planContent = {
  title: 'Mangroves and ecosystems', ...metadata, duration_minutes: 45,
@@ -31,7 +33,12 @@ try {
   let body = null; if (method !== 'GET') { try { body = request.postDataJSON(); } catch {} requests.push({ path, method, body }); }
   let data = { items: [], unread: 0 };
   if (path === '/auth/me') data = { user, pending_legal: [] };
-  else if (path === '/me/profile') data = { subjects: ['Science'], grades: ['6'], curriculum: 'british', teaching_languages: ['en'], regulatory_authority: 'not_specified', education_stages: ['primary'] };
+  else if (path === '/me/profile') { if (method === 'PUT') profile = { ...profile, ...body }; data = profile; }
+  else if (path === '/classes' && method === 'GET') data = { items: savedClasses };
+  else if (path === '/classes' && method === 'POST') data = { id: 'new-class', ...body };
+  else if (path === '/usage/estimates') data = { costs: { course_plan: 10, slide: 1 }, remaining: 200, reset_at: '2099-01-01' };
+  else if (path === '/billing/plans') data = { items: [], trial: { enabled: false, days: 7 } };
+  else if (path === '/billing/subscription') data = { plan: { code: 'free' }, trial: null, subscription: null };
   else if (path === '/me/usage') data = { plan: { code: 'pro', name: 'Pro' }, usage: { credits: { used: 0, limit: 200, reserved: 0, remaining: 200 } } };
   else if (path === '/books') data = { items: [] };
   else if (path === '/templates') data = { items: [{ id: 'template-1', name: 'Teacher design', status: 'ready' }] };
@@ -83,6 +90,9 @@ try {
  await page.getByRole('button', { name: 'Mark reviewed', exact: true }).click();
  await page.getByRole('button', { name: 'Reviewed by teacher', exact: true }).waitFor();
  await page.goto(base + '/demo-classes'); await page.getByLabel(/^Topic$/).fill('Ecosystems');
+ await page.getByLabel('Subject', { exact: true }).waitFor({ state: 'visible' });
+ assert.deepEqual(await page.getByLabel('Subject', { exact: true }).locator('option').evaluateAll(options => options.filter(option => option.value).map(option => option.value)), ['Science']);
+ assert.deepEqual(await page.getByLabel('Grade / year', { exact: true }).locator('option').evaluateAll(options => options.filter(option => option.value).map(option => option.value)), ['6', '7']);
  await page.getByLabel(/^Presentation design/).selectOption('template-1');
  await page.getByRole('button', { name: 'Generate demo class', exact: true }).click();
  await page.getByRole('heading', { name: demo.title, exact: true }).waitFor();
@@ -99,7 +109,7 @@ try {
  await page.getByRole('link', { name: 'Download PDF', exact: true }).waitFor();
  await page.goto(base + '/copilot');
  await page.getByRole('button', { name: 'Adjust context', exact: true }).click();
- await page.getByLabel(/^Grade \/ year/).fill('7');
+ await page.getByLabel(/^Grade \/ year/).selectOption('7');
  await page.getByRole('button', { name: 'Hide context', exact: true }).click();
  await page.getByLabel('Ask your teacher copilot', { exact: true }).fill('Generate a differentiated reading task for Grade 6 Science about ecosystems, linking it to UAE mangroves.');
  await page.getByRole('button', { name: 'Generate printable classroom task', exact: true }).click();
@@ -109,9 +119,9 @@ try {
  assert.equal(explicitTask.body.topic, 'ecosystems');
  await page.getByRole('link', { name: 'Download DOCX', exact: true }).waitFor();
  await page.getByRole('button', { name: 'Adjust context', exact: true }).click();
- await page.getByLabel(/^Grade \/ year/).fill('7');
+ await page.getByLabel(/^Grade \/ year/).selectOption('7');
  await page.getByRole('button', { name: conversation.title, exact: true }).click();
- await page.waitForFunction(() => [...document.querySelectorAll('input')].some(input => input.value === '6'));
+ await page.waitForFunction(() => [...document.querySelectorAll('select')].some(select => select.getAttribute('aria-label') === 'Grade / year' && select.value === '6'));
  assert.equal(await page.getByLabel(/^Grade \/ year/).inputValue(), '6', 'Resuming a saved conversation restores its classroom grade');
  await page.getByLabel('Ask your teacher copilot', { exact: true }).fill('Make this reading task easier.');
  await Promise.all([page.waitForResponse(response => response.url().endsWith('/copilot/resources') && response.request().method() === 'POST'), page.getByRole('button', { name: 'Generate printable classroom task', exact: true }).click()]);
@@ -126,6 +136,36 @@ try {
  assert.equal(await page.getByLabel(/^Planning framework/).inputValue(), 'not_specified');
  const universityOptions = await page.getByLabel(/^Planning framework/).locator('option').evaluateAll(options => options.map(option => option.value));
  assert.deepEqual(universityOptions.sort(), ['not_specified', 'other']);
+ await page.goto(base + '/projects/new?subject=Biology&grade=8&class=class-8');
+ await page.getByText('Showing the subjects and grades from your teaching profile.', { exact: false }).waitFor();
+ assert.deepEqual(await page.getByLabel('Subject', { exact: true }).locator('option').evaluateAll(options => options.map(option => option.value)), ['Science']);
+ assert.deepEqual(await page.getByLabel('Grade', { exact: true }).locator('option').evaluateAll(options => options.map(option => option.value)), ['6', '7']);
+ assert.deepEqual(await page.getByLabel('Class', { exact: true }).locator('option').evaluateAll(options => options.map(option => option.value)), ['', 'class-6']);
+ assert.equal(await page.getByLabel('Grade', { exact: true }).inputValue(), '6');
+ await page.getByLabel('Class', { exact: true }).selectOption('class-6');
+ await page.getByLabel('Grade', { exact: true }).selectOption('7');
+ assert.equal(await page.getByLabel('Class', { exact: true }).inputValue(), '', 'changing teaching grade clears a mismatched classroom');
+ user.onboarding_completed = false;
+ await page.goto(base + '/onboarding');
+ assert.equal(await page.getByRole('button', { name: 'Science', exact: true }).getAttribute('aria-pressed'), 'true');
+ await page.getByRole('button', { name: 'Science', exact: true }).click();
+ assert.equal(await page.getByRole('button', { name: 'Science', exact: true }).getAttribute('aria-pressed'), 'false');
+ await page.getByRole('button', { name: 'Physics', exact: true }).click();
+ assert.equal(await page.getByRole('button', { name: 'Physics', exact: true }).getAttribute('aria-pressed'), 'true');
+ await page.getByRole('button', { name: 'Grade 8', exact: true }).click();
+ await page.getByRole('button', { name: 'Grade 10', exact: true }).click();
+ await page.getByRole('button', { name: 'Continue', exact: true }).click();
+ await page.getByRole('button', { name: 'Skip for now', exact: true }).click();
+ await page.getByRole('button', { name: 'Continue', exact: true }).click();
+ await page.getByRole('heading', { name: 'Add your classes', exact: true }).waitFor();
+ assert.equal(await page.getByLabel('Class', { exact: true }).inputValue(), '', 'onboarding does not create an unintended default class');
+ assert.equal(await page.getByRole('combobox', { name: 'Grade', exact: true }).inputValue(), '10');
+ assert.equal(await page.getByRole('combobox', { name: 'Subject', exact: true }).inputValue(), 'Physics');
+ await page.getByLabel('Class', { exact: true }).fill('10A');
+ await page.getByRole('button', { name: 'Finish setup', exact: true }).click();
+ await page.getByRole('heading', { name: 'Choose your plan', exact: true }).waitFor();
+ const createdClass = requests.find(item => item.path === '/classes' && item.method === 'POST');
+ assert.equal(createdClass.body.subject, 'Physics'); assert.equal(createdClass.body.grade, '10');
  assert.deepEqual(errors, []);
- console.log('✓ Educator pages fit four viewport widths; planner edit/review, timed demo, stage filters, cached guides and printable copilot deep links work.');
+ console.log('✓ Educator pages fit four viewport widths; teacher-scoped PPT/demo choices, onboarding classes, planner edit/review, timed demo, stage filters, cached guides and printable copilot deep links work.');
 } finally { await browser.close(); }

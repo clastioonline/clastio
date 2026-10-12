@@ -148,6 +148,38 @@ async def test_invalid_batch_retries_once_then_prevents_publication():
     assert ai.structured.call_args.kwargs['cache'] is False
 
 
+@pytest.mark.parametrize('outcomes,expected', [([], []), ([{'code': 'approved', 'text': 'Addition'}], ['approved'])])
+async def test_generated_alignment_keeps_only_requested_codes(outcomes, expected):
+    req, course, material, outline, batches = generation_fixture()
+    req['outcomes'] = outcomes
+    for batch in batches:
+        for slide in batch.slides:
+            slide.outcome_codes = ['invented', 'approved']
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[material, outline, *batches]))
+    result = await pipeline.generate_deck(ai, req=req, context_text='', course=course,
+                                         lecture_number=1, budgets=budgets())
+    assert all(slide.outcome_codes == expected for slide in result.slides)
+
+
+async def test_design_choice_and_teaching_stage_follow_the_content_plan():
+    req, course, material, outline, batches = generation_fixture()
+    planned = outline.slides[1]
+    planned.teaching_stage = 'explore'
+    planned.design_page_number = 7
+    req['template_designs'] = [{'number': 7, 'layout': planned.layout}]
+    # An incompatible page choice must not be sent to the renderer.
+    outline.slides[2].design_page_number = 99
+    ai = SimpleNamespace(mode='live', structured=AsyncMock(side_effect=[material, outline, *batches]))
+    result = await pipeline.generate_deck(ai, req=req, context_text='', course=course,
+                                         lecture_number=1, budgets=budgets())
+    assert result.slides[1].design_page_number == 7
+    assert result.slides[1].teaching_stage == 'explore'
+    assert result.slides[2].design_page_number is None
+    planning = json.loads(ai.structured.call_args_list[1].kwargs['prompt'])
+    assert planning['lecture_objectives'] == course.lectures[0].objectives
+    assert planning['request']['template_designs'] == req['template_designs']
+
+
 def test_missing_chapter_topic_cannot_pass_plan():
     req = request()
     plan = offline.course_plan(req, CoursePlan)

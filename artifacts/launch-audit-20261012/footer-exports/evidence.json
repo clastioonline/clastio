@@ -1,0 +1,16 @@
+[
+  {
+    "mode": "disabled",
+    "slides": 2,
+    "pdf_pages": 2,
+    "teacher_name_and_numbers": "absent",
+    "legacy_numeric_footer_text": []
+  },
+  {
+    "mode": "enabled",
+    "slides": 2,
+    "pdf_pages": 2,
+    "teacher_name_and_numbers": "present",
+    "legacy_numeric_footer_text": []
+  }
+]

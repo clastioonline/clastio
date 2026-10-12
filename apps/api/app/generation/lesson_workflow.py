@@ -59,8 +59,10 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
     if req.get('flexible_slides'):
         prompt = prompt.replace(f'Exactly {req["slides_per_lecture"]} slides.', f'Between {low} and {high} slides.')
     material = await ai.structured(task='lesson_teaching', tier='planning', system=prompts.DECK_SYSTEM+"\nFor this stage return LessonMaterial: lesson_plan and numbered teaching blocks, not slide JSON.",
-        prompt=prompt, schema=LessonMaterial, max_tokens=14000, owner_id=owner_id, job_id=job_id,
-        images=reference_images, cache=True, prompt_version=prompts.PROMPT_VERSION+'-content-v2')
+        # Reasoning shares the provider's output allowance with the structured content.
+        # Leave room for a complete lesson; request fitting still enforces the budget cap.
+        prompt=prompt, schema=LessonMaterial, max_tokens=24000, effort='low', owner_id=owner_id, job_id=job_id,
+        images=reference_images, cache=True, prompt_version=prompts.PROMPT_VERSION+'-content-v3')
     count = len(material.blocks)
     if not low <= count <= high or [block.number for block in material.blocks] != list(range(1,count+1)):
         raise ContentQualityError('The lesson content did not meet its agreed slide range or sequence. No deck was published.')
@@ -85,8 +87,14 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
         system='Choose varied classroom layouts for the approved teaching content. Preserve all objectives, '
                'definitions, examples and student checks. Use exactly one first cover; the remaining layouts '
                'must suit the teaching blocks. Assign positive minutes totalling the lesson duration. '
+               'For each block name the lecture objective it serves, choose its teaching_stage, and choose '
+               'a compatible design_page_number from template_designs when available. Choose by the '
+               'subtopic and content structure: comparison for contrasts, process for ordered steps, '
+               'worked_example for solved calculations, and checks for assessment. Reuse a fitting '
+               'design instead of cycling designs for variety. Never choose an incompatible layout. '
                'Do not add generic filler or change sourced facts. Return the requested schema.',
-        prompt=json.dumps({'request': actual_req, 'content': material.model_dump(), 'budgets': budgets}),
+        prompt=json.dumps({'request': actual_req, 'content': material.model_dump(), 'budgets': budgets,
+                          'lecture_objectives': lecture.objectives}),
         schema=pipeline.DeckOutline, max_tokens=6500, owner_id=owner_id, job_id=job_id, cache=True)
     issues = pipeline.outline_issues(outline, actual_req)
     if issues:
@@ -100,6 +108,8 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
         raise ContentQualityError('The content-first slide layout plan is invalid: '+' '.join(issues))
     pipeline.fit_outline_duration(outline, float(req['lecture_minutes']))
     slides = []
+    allowed_codes = {str(outcome['code']) for outcome in (req.get('outcomes') or [])
+                     if isinstance(outcome, dict) and outcome.get('code')}
     for start in range(0, count, 3):
         planned = outline.slides[start:start+3]
         expected = [item.number for item in planned]
@@ -114,9 +124,11 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
             batch = await ai.structured(task='lesson_deck_batch', tier='content', system=prompts.DECK_SYSTEM+"\nFor this stage return SlideBatch containing only the requested slides.",
                 prompt=batch_prompt+'\nReturn only these slide numbers: '+str(expected)+
                        '\nUse the planned layouts, minutes and full approved teaching content; cover only at slide 1. '
-                       'Show worked-example solutions. Put independent-task expected answers in speaker notes.',
-                schema=SlideBatch, max_tokens=6500, owner_id=owner_id, job_id=job_id,
-                images=reference_images, cache=attempt==0, prompt_version=prompts.PROMPT_VERSION+'-batch-v2')
+                       'Show worked-example solutions. Put independent-task expected answers in speaker notes. '
+                       'Use only outcome codes from the supplied outcomes; if none were supplied, '
+                       'return an empty outcome_codes list on every slide.',
+                schema=SlideBatch, max_tokens=16000, effort='low', owner_id=owner_id, job_id=job_id,
+                images=reference_images, cache=attempt==0, prompt_version=prompts.PROMPT_VERSION+'-batch-v3')
             if ([s.number for s in batch.slides] == expected and
                     [s.layout for s in batch.slides] == [p.layout for p in planned]):
                 break
@@ -125,6 +137,11 @@ async def generate(ai, *, req, context_text, course, lecture_number, budgets, ca
             raise ContentQualityError(f'Slide batch {expected} failed its sequence/layout check. No deck was published.')
         for slide, planned_slide, block in zip(batch.slides, planned, material.blocks[start:start+3], strict=True):
             slide.timing_minutes = planned_slide.minutes
+            slide.teaching_stage = planned_slide.teaching_stage or slide.teaching_stage
+            compatible = {page['number'] for page in req.get('template_designs', []) if page['layout'] == slide.layout}
+            slide.design_page_number = planned_slide.design_page_number if planned_slide.design_page_number in compatible else None
+            # Generated metadata cannot establish curriculum alignment on its own.
+            slide.outcome_codes = [code for code in slide.outcome_codes if code in allowed_codes]
             # Attach only approved references for this block; do not stamp generic book pages on every slide.
             catalog = req.get('source_catalog', {})
             slide.sources = [dict(catalog[reference]) for reference in block.source_references if reference in catalog]

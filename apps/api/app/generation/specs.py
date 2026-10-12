@@ -262,6 +262,7 @@ class SlideSpec(BaseModel):
     # Filled by the pipeline (not by the model)
     asset_id: str | None = None
     template_image_slot: bool = False
+    design_page_number: int | None = Field(default=None, ge=1)
     sources: list[dict] = Field(default_factory=list)
     manual_objects: dict[str, ManualObjectEdit] = Field(default_factory=dict, max_length=150)
 

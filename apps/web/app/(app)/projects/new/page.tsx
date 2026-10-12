@@ -3,7 +3,7 @@
 import { Check, Sparkles, WandSparkles } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { TeacherImages, type TeacherImage } from "@/components/teacher-images";
 import { ChapterSources } from "@/components/chapter-sources";
 import { TemplatePreview } from "@/components/template-preview";
@@ -11,14 +11,15 @@ import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, Chips, Field, Input, PageHeader, Select, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
-import { GRADES, SUBJECTS, cn } from "@/lib/utils";
+import { normalizeTeacherCourseSelection, teacherCourseOptions, teacherCourseSelectionValid, type TeacherCourseClass } from "@/lib/teacher-course-options";
+import { cn } from "@/lib/utils";
 
 function NewCourse() {
   const router = useRouter();
   const params = useSearchParams();
   const { notify } = useToast();
   const { data: creditInfo } = useApi<any>("/usage/estimates");
-  const { data: profile } = useApi<any>("/me/profile");
+  const { data: profile, error: profileError, mutate: refreshProfile } = useApi<any>("/me/profile");
   const { data: teacherMemory } = useApi<any>("/memory");
   const imageChoiceTouched = useRef(false);
   useEffect(() => {
@@ -26,7 +27,9 @@ function NewCourse() {
     const saved = teacherMemory.preferences?.find((p: any) => p.key === "preferred_image_source" && p.confirmed);
     if (saved && ["hybrid", "ai", "stock"].includes(saved.value)) setForm((f) => ({...f, image_mode: saved.value}));
   }, [teacherMemory]);
-  const { data: classes } = useApi<any>("/classes");
+  const { data: classes, error: classesError, mutate: refreshClasses } = useApi<{ items: TeacherCourseClass[] }>("/classes");
+  const teachingOptions = useMemo(() => teacherCourseOptions(profile || {}, classes?.items || []), [profile, classes]);
+  const teachingChoicesReady = Boolean(profile && classes && !profileError && !classesError);
   const [form, setForm] = useState({
     topic: params.get("topic") || "",
     grade: params.get("grade") || "",
@@ -90,6 +93,15 @@ function NewCourse() {
     }));
   }, [profile, briefId]);
   useEffect(() => {
+    if (!teachingChoicesReady) return;
+    setForm((current) => {
+      const selection = normalizeTeacherCourseSelection(current, teachingOptions);
+      if (selection.grade === current.grade && selection.subject === current.subject
+        && selection.class_section_id === current.class_section_id) return current;
+      return { ...current, ...selection };
+    });
+  }, [teachingChoicesReady, teachingOptions, form.grade, form.subject, form.class_section_id]);
+  useEffect(() => {
     if (!profile || form.template_id || !templates?.items?.length) return;
     const preferred = templates.items.find((t: any) => t.is_default) || templates.items.find((t: any) => t.status === "ready");
     if (preferred) setForm((f) => ({ ...f, template_id: f.template_id || preferred.id }));
@@ -100,18 +112,27 @@ function NewCourse() {
   const visibleDesigns = showAllDesigns ? designItems : designItems.filter((t: any, i: number) => i < 6 || t.id === form.template_id);
   const selectedDesign = designItems.find((t: any) => t.id === form.template_id);
 
-  const cls = classes?.items?.find((c: any) => c.id === form.class_section_id);
+  const cls = teachingOptions.classes.find((c) => c.id === form.class_section_id);
   const curriculum = cls?.curriculum || profile?.curriculum || "british";
-  const { data: outcomes } = useApi<any>(form.subject && form.grade ? `/curricula/${curriculum}/outcomes?subject=${encodeURIComponent(form.subject)}&grade=${form.grade}` : null);
+  const { data: outcomes } = useApi<any>(teachingChoicesReady && teacherCourseSelectionValid(form, teachingOptions)
+    ? `/curricula/${curriculum}/outcomes?subject=${encodeURIComponent(form.subject)}&grade=${encodeURIComponent(form.grade)}` : null);
+  useEffect(() => { setSelected([]); }, [curriculum, form.grade, form.subject]);
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
+  const setTeachingChoice = (key: "grade" | "subject", value: string) => {
+    setForm((current) => ({ ...current, [key]: value, class_section_id: "" }));
+  };
   const onClass = (id: string) => {
-    const c = classes?.items?.find((x: any) => x.id === id);
+    const c = teachingOptions.classes.find((item) => item.id === id);
     setForm((f) => ({ ...f, class_section_id: id, ...(c ? { grade: c.grade, subject: c.subject } : {}) }));
   };
   const estimate = creditInfo ? creditInfo.costs.course_plan + (form.auto_generate && form.chapter_mode !== "parts" ? (form.flexible_slides ? Math.min(30, form.slides_per_lecture + 3) : form.slides_per_lecture) * creditInfo.costs.slide : 0) : null;
 
   const submit = async () => {
+    if (!teachingChoicesReady || !teacherCourseSelectionValid(form, teachingOptions)) {
+      setError("Choose a subject and grade from your teaching profile before planning.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -119,7 +140,8 @@ function NewCourse() {
         ...form, class_section_id: form.class_section_id || null, template_id: form.template_id || null,
         instructions: form.instructions || null, previous_taught: form.previous_taught || null,
         revision_needed: form.revision_needed || null,
-        outcomes: selected.map((o) => ({code:o.code,text:o.text})),
+        outcomes: selected.filter((item) => outcomes?.items?.some((outcome: any) => outcome.code === item.code))
+          .map((o) => ({code:o.code,text:o.text})),
       };
       let r;
       if (baseTemplate) {
@@ -159,21 +181,26 @@ function NewCourse() {
               <Field label="Chapter / topic">
                 <Input autoFocus value={form.topic} onChange={(e) => set("topic", e.target.value)} placeholder="e.g. Photosynthesis" className="h-12 text-base" />
               </Field>
+              {(profileError || classesError) ? <Alert tone="danger">Could not load your teaching subjects and classes. <Button size="sm" variant="outline" onClick={() => { refreshProfile(); refreshClasses(); }}>Try again</Button></Alert>
+                : !teachingChoicesReady ? <p className="text-sm text-muted">Loading your teaching subjects and classes…</p>
+                : <p className="text-sm text-muted">{teachingOptions.subjects.length && teachingOptions.grades.length ? "Showing the subjects and grades from your teaching profile." : "Add the subjects and grades you teach to prepare your first chapter."} <Link href="/settings" className="font-semibold text-brand-700 underline">Update teaching profile</Link></p>}
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field label="Class (optional)">
-                  <Select value={form.class_section_id} onChange={(e) => onClass(e.target.value)}>
+                  <Select aria-label="Class" value={form.class_section_id} disabled={!teachingChoicesReady} onChange={(e) => onClass(e.target.value)}>
                     <option value="">No specific class</option>
-                    {(classes?.items || []).map((c: any) => <option key={c.id} value={c.id}>{c.name} · Grade {c.grade} {c.subject}</option>)}
+                    {teachingOptions.classes.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.grade === "KG" ? "KG" : `Grade ${c.grade}`} {c.subject}</option>)}
                   </Select>
                 </Field>
                 <Field label="Grade">
-                  <Select aria-label="Grade" value={form.grade} onChange={(e) => set("grade", e.target.value)}>
-                    {GRADES.map((g) => <option key={g} value={g}>{g === "KG" ? "KG" : `Grade ${g}`}</option>)}
+                  <Select aria-label="Grade" value={form.grade} disabled={!teachingChoicesReady || !teachingOptions.grades.length} onChange={(e) => setTeachingChoice("grade", e.target.value)}>
+                    {!form.grade && <option value="">Select your grade</option>}
+                    {teachingOptions.grades.map((g) => <option key={g} value={g}>{g === "KG" ? "KG" : `Grade ${g}`}</option>)}
                   </Select>
                 </Field>
                 <Field label="Subject">
-                  <Select aria-label="Subject" value={form.subject} onChange={(e) => set("subject", e.target.value)}>
-                    {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+                  <Select aria-label="Subject" value={form.subject} disabled={!teachingChoicesReady || !teachingOptions.subjects.length} onChange={(e) => setTeachingChoice("subject", e.target.value)}>
+                    {!form.subject && <option value="">Select your subject</option>}
+                    {teachingOptions.subjects.map((s) => <option key={s}>{s}</option>)}
                   </Select>
                 </Field>
               </div>
@@ -295,7 +322,7 @@ function NewCourse() {
             <div className="mt-3 text-xs text-muted">{estimate === null ? "Loading credit estimate…" : `Reserve up to ${estimate} credits; charge only generated slides`}
               {creditInfo && <p className="mt-1">{creditInfo.remaining === null ? "Unlimited plan credits" : `${creditInfo.remaining} credits available`} · Resets {new Date(creditInfo.reset_at).toLocaleDateString()}</p>}</div>
             {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
-            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || !form.grade || !form.subject || sourcesBlocked || imagesBlocked}>
+            <Button className="mt-4 w-full" size="lg" onClick={submit} loading={busy} disabled={form.topic.trim().length < 2 || !teachingChoicesReady || !teacherCourseSelectionValid(form, teachingOptions) || sourcesBlocked || imagesBlocked}>
               <WandSparkles className="h-5 w-5" /> {form.auto_generate && form.chapter_mode !== "parts" ? "Plan chapter & build first lesson" : "Plan chapter"}
             </Button>
           </Card>

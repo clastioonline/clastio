@@ -829,10 +829,14 @@ async def handle_demo(ctx: JobContext):
             slides=content.slide_payload.slides, colors=spec['colors'], job_id=ctx.job_id,
             allow_ai_images=0, image_mode='auto', teaching_context=f'{request.grade} {request.subject}: {request.topic}',
             source_images=spec.get('source_images'), require_real_image=bool(spec.get('preserve_slots')))
+        from app.services.presentation_files import presentation_properties
+
+        profile = (await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user.id))).scalars().first()
+        core_props = {'title': plan.title, **presentation_properties(user, profile.metadata_policy if profile else {})}
         await db.commit()
     outcome = await pipeline.render_with_qc(ai, base_pptx=base, template_spec=spec,
         deck=content.slide_payload, budgets=budgets, images=images, language=request.language,
-        core_props={'title': plan.title, 'author': user.name or 'Teacher'},
+        core_props=core_props,
         context_text=evidence[0], grade=request.grade, owner_id=user.id, job_id=ctx.job_id, max_rounds=2)
     if any(report.get('overflow') for report in outcome.reports):
         raise ContentQualityError('The demo presentation still has overflowing content. No presentation was published.')

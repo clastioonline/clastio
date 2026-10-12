@@ -46,7 +46,8 @@ async def test_stock_mode_has_no_paid_or_placeholder_fallback(environment, monke
     images, counts = await assets.resolve_images(db, owner_id=owner, slides=[item], colors={}, image_mode='stock', allow_ai_images=4)
     assert images == {} and counts['ai'] == 0 and counts['placeholder'] == 0
     assert item.visual.kind == 'none' and item.layout == 'concept'
-    assert 'No matching licensed stock photo' in item.speaker_notes
+    assert 'No suitable image was available from the enabled image sources' in item.speaker_notes
+    assert 'instead of a placeholder' in item.speaker_notes
     ai.image.assert_not_awaited()
     storage.put.assert_not_awaited()
 

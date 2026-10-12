@@ -38,6 +38,7 @@ from app.engine.pptx_xml import (
 from app.engine.render.textfit import FitResult, Para, fit, is_arabic
 from app.engine.style.common import mix, readable_text_on
 from app.engine.style.design_details import apply_chart_style, apply_table_style
+from app.engine.style.footer_numbers import is_footer_number_shape
 from app.generation.specs import SlideSpec
 
 EMU_PER_PT = 12700
@@ -175,12 +176,15 @@ class DeckRenderer:
         if donor is None or not ids:
             return
         tree = slide.shapes._spTree
+        donor_shapes = {shape.shape_id: shape for shape in donor.shapes}
         next_id = self._max_shape_id(slide) + 1
         insert_at = 2
         for el in list(donor.shapes._spTree):
             c = el.find(".//" + qn("p:cNvPr"))
             if c is None or not c.get("id", "").isdigit() or int(c.get("id")) not in ids:
                 continue
+            original_shape = donor_shapes.get(int(c.get("id")))
+            page_number = original_shape is not None and is_footer_number_shape(original_shape, self.W, self.H)
             new_el = copy_element_with_rels(el, donor.part, slide.part)
             if int(c.get("id")) in (clear_text_ids or []):
                 for text in new_el.iter(qn("a:t")):
@@ -188,12 +192,15 @@ class DeckRenderer:
             for c2 in new_el.iter(qn("p:cNvPr")):
                 c2.set("id", str(next_id))
                 next_id += 1
-            if is_number and number is not None:
+            if page_number and number is not None:
                 runs = list(new_el.iter(qn("a:t")))
                 if runs:
                     runs[0].text = str(number)
                     for extra in runs[1:]:
                         extra.text = ""
+            if page_number:
+                for name in new_el.iter(qn('p:cNvPr')):
+                    name.set('name', 'Template page number')
             if is_number:
                 tree.append(new_el)
             else:
@@ -211,8 +218,10 @@ class DeckRenderer:
         donor = self.donors[donor_idx] if donor_idx is not None and donor_idx < len(self.donors) else None
         if donor is not None and cfg.get("copy_background"):
             copy_background(donor, slide)
-        self._copy_items(slide, donor, cfg.get("item_ids", []), clear_text_ids=cfg.get("clear_text_ids"))
-        self._copy_items(slide, donor, cfg.get("slide_number_ids", []), number=number, is_number=True)
+        items = cfg.get("item_ids", [])
+        self._copy_items(slide, donor, items, number=number, clear_text_ids=cfg.get("clear_text_ids"))
+        self._copy_items(slide, donor, [shape_id for shape_id in cfg.get("slide_number_ids", []) if shape_id not in items],
+                         number=number, is_number=True)
         return slide
 
     def _placeholder(self, slide, kind: str):
@@ -933,6 +942,10 @@ class DeckRenderer:
                          "exit_ticket": "evaluate", "quiz": "evaluate", "summary": "self_reflect",
                          "discussion": "engage", "worked_example": "explore"}.get(spec.layout, "explain")
         variant = stages.get(spec.teaching_stage or default_stage)
+        selected = next((page for page in self.spec.get('page_variants', [])
+                         if page['number'] == spec.design_page_number and page['layout'] == spec.layout), None)
+        if selected is not None:
+            variant = selected
         if variant is None:
             matching = [page for page in self.spec.get("page_variants", []) if page["layout"] == spec.layout]
             if matching:
@@ -1063,6 +1076,8 @@ class DeckRenderer:
         cp.keywords = props.get("keywords", "")
         cp.comments = props.get("comments", "")
         cp.category = ""
+        from app.engine.render.watermark import apply_watermark
+        apply_watermark(self.prs, props)
         out = io.BytesIO()
         self.prs.save(out)
         return out.getvalue()

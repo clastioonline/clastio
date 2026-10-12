@@ -54,6 +54,7 @@ export default function SupportPage() {
     <div className="space-y-6">
       <DashHeader title="Help & support" subtitle="Ask a question, report a problem or suggest a feature. We reply here and by email."
         actions={<>
+          <Button href="/tutorials" variant="outline">Tutorials</Button>
           <Button variant="outline" onClick={() => { setForm({ kind: "review", subject: "My Clastio experience", body: "" }); setOpen(true); }}>Leave a review</Button>
           <Button variant="outline" onClick={() => start("feature_request")}><Lightbulb className="h-4 w-4" /> Suggest a feature</Button>
           <Button onClick={() => start("support")}><Plus className="h-4 w-4" /> New request</Button>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BOOK_CURRICULA, BookLibraryCard, bookCurriculum, bookLanguage, type LibraryBook } from "@/components/book-library-card";
+import { BookSourceCatalogue, type TextbookSources } from "@/components/book-source-catalogue";
 import { ChapterSources } from "@/components/chapter-sources";
 import { EDUCATION_STAGES } from "@/components/educator-workspace";
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select } from "@/components/ui";
@@ -13,7 +14,7 @@ import { GRADES, SUBJECTS } from "@/lib/utils";
 
 type Source = {label:string;url:string;access:string;note:string};
 type Catalog = {items:(LibraryBook & {catalogue_id:string;license:string;license_url:string})[];
-  directories:Record<string,{subject:string;sources:Source[]}[]>};
+  directories:Record<string,{subject:string;sources:Source[]}[]>} & TextbookSources;
 type SearchResult = {title:string;publisher:string;source_url:string;pdf_url:string|null;access:string;
   subject:string;grade:string;language:string;edition:string;curriculum:string};
 
@@ -80,7 +81,7 @@ export default function BooksPage() {
   const available = [...saved.filter(book => book.status === "ready"), ...sharedAvailable];
   const readyCount = available.length;
   return <div className="mx-auto max-w-6xl space-y-5">
-    <PageHeader title="Books & notes" subtitle="Browse by curriculum and subject. Saved PDFs and published catalogue books are ready to reuse without a new search."/>
+    <PageHeader title="Books & notes" subtitle="Browse official UAE and British textbook collections, reviewed reference books and your reusable saved PDFs."/>
     <Card className="space-y-4 p-5">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Field label="Book curriculum"><Select aria-label="Book curriculum" value={curriculum} onChange={e => changeScope(e.target.value,setCurriculum)}>{BOOK_CURRICULA.map(item => <option key={item.code} value={item.code}>{item.label}</option>)}</Select></Field>
@@ -95,6 +96,7 @@ export default function BooksPage() {
     {catalogError && <Alert tone="danger">The shared catalogue could not be loaded. <button className="underline" onClick={() => refreshCatalog()}>Retry</button></Alert>}
     {error && <Alert tone="danger">Your saved books could not be loaded. <button className="underline" onClick={() => mutate()}>Retry</button></Alert>}
     {jobId && <Alert tone="brand">{job?.stage || "Adding your book in the background"}. Follow progress in <Link href="/activity" className="underline">Activity</Link>.</Alert>}
+    {availability !== "ready" && catalog && <BookSourceCatalogue catalogue={catalog} curriculum={curriculum} subject={subject} grade={grade} language={language} />}
     <section className="space-y-3" aria-label="Available book PDFs">
       <h2 className="text-lg font-semibold">Available PDFs · {label}</h2>
       {visibleSaved.map(book => <BookLibraryCard key={book.id} book={book} canPublish={can("settings.modify")} onSaved={refresh}/>)}

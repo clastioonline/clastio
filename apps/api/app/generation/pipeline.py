@@ -14,7 +14,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -141,6 +141,9 @@ class PlannedSlide(BaseModel):
     purpose: str
     teaching_content: str = Field(description="Specific idea, example/problem with answer, or student task")
     minutes: float = Field(ge=0)
+    teaching_stage: Literal['topic', 'engage', 'objective', 'explore', 'explain', 'elaborate', 'evaluate', 'self_reflect'] | None = None
+    design_page_number: int | None = Field(default=None, ge=1, description='Compatible page number from supplied template designs; null when none fits')
+    objective: str = Field(default='', description='Lecture objective addressed by this teaching block and why the layout suits its content')
 
 
 class DeckOutline(BaseModel):

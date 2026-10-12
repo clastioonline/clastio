@@ -1,0 +1,31 @@
+services:
+  migrate:
+    volumes:
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/app:/app/app:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic:/app/alembic:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic.ini:/app/alembic.ini:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/tests:/app/tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/unit_tests:/app/unit_tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/pyproject.toml:/app/pyproject.toml:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/constraints.txt:/app/constraints.txt:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/samples:/samples:ro
+  api:
+    volumes:
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/app:/app/app:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic:/app/alembic:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic.ini:/app/alembic.ini:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/tests:/app/tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/unit_tests:/app/unit_tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/pyproject.toml:/app/pyproject.toml:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/constraints.txt:/app/constraints.txt:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/samples:/samples:ro
+  worker:
+    volumes:
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/app:/app/app:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic:/app/alembic:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/alembic.ini:/app/alembic.ini:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/tests:/app/tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/unit_tests:/app/unit_tests:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/pyproject.toml:/app/pyproject.toml:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/apps/api/constraints.txt:/app/constraints.txt:ro
+      - /Users/macbookpro/development/ai-teacher-assistant/samples:/samples:ro

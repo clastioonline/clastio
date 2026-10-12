@@ -2,6 +2,7 @@
 
 import base64
 import uuid
+from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -9,7 +10,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from sqlalchemy import func, select
 
-from app.core.db import get_sessionmaker
+from app.core.db import get_sessionmaker, utcnow
+from app.models import UserSession
 from app.models.push import PushDelivery, PushSubscription
 from app.services import push
 from tests.conftest import make_user
@@ -82,7 +84,8 @@ async def test_duplicate_events_and_revoked_sessions_do_not_send(client, monkeyp
 
     monkeypatch.setattr(push, "push_configured", lambda: True)
     user = await make_user(client, plan="free")
-    response = await client.post("/api/v1/me/push/subscriptions", headers=user["headers"], json=subscription())
+    device = subscription()
+    response = await client.post("/api/v1/me/push/subscriptions", headers=user["headers"], json=device)
     assert response.status_code == 200
     async with get_sessionmaker()() as db:
         for _ in range(2):
@@ -94,10 +97,32 @@ async def test_duplicate_events_and_revoked_sessions_do_not_send(client, monkeyp
     provider = AsyncMock(return_value=201)
     monkeypatch.setattr(push, "deliver_push", provider)
     await push.send_pending_push()
-    provider.assert_not_awaited()
+    # The session-scoped test database may also contain other teachers' valid
+    # queued campaigns. Logout must suppress this device's private delivery.
+    assert all(call.args[0].endpoint != device["endpoint"] for call in provider.await_args_list)
     async with get_sessionmaker()() as db:
         row = (await db.execute(select(PushDelivery).where(PushDelivery.user_id == uuid.UUID(user["id"])))) .scalar_one()
         assert row.status == "suppressed"
+
+
+async def test_ordinary_session_expiry_preserves_device_consent(client, monkeypatch):
+    user = await make_user(client, plan="free")
+    response = await client.post("/api/v1/me/push/subscriptions", headers=user["headers"], json=subscription())
+    assert response.status_code == 200
+    device_id = uuid.UUID(response.json()["id"])
+    async with get_sessionmaker()() as db:
+        device = await db.get(PushSubscription, device_id)
+        session = await db.get(UserSession, device.session_id)
+        session.expires_at = utcnow() - timedelta(days=1)
+        assert await push.queue_push(db, uuid.UUID(user["id"]), "product", "Review your PPT", "Open it", "/lessons", "expiry:one") == 1
+        await db.commit()
+    provider = AsyncMock(return_value=201)
+    monkeypatch.setattr(push, "deliver_push", provider)
+    await push.send_pending_push()
+    assert any(call.args[0].id == device_id for call in provider.await_args_list)
+    async with get_sessionmaker()() as db:
+        delivery = (await db.execute(select(PushDelivery).where(PushDelivery.subscription_id == device_id))).scalar_one()
+        assert delivery.status == "sent"
 
 
 async def test_announcement_requires_separate_push_consent_and_category(client, monkeypatch):

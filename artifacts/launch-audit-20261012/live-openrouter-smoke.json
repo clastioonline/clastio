@@ -1,0 +1,115 @@
+{
+  "actual_cost_usd": 0.03843675,
+  "actual_input_conservative_estimate_usd": 0.11881013,
+  "calls": [
+    {
+      "input_bytes": 5719,
+      "model": "anthropic/claude-sonnet-4.6",
+      "quality": {
+        "all_questions_have_answers": true,
+        "definition_present": true,
+        "eight_numbered_blocks": true,
+        "exit_answer_correct": true,
+        "guided_answer_correct": true,
+        "independent_answer_correct": true,
+        "no_invented_codes": true,
+        "no_invented_references": true,
+        "phase_minutes_match": true,
+        "schema_valid": true,
+        "titles_and_purposes": true,
+        "worked_example_present": true
+      },
+      "schema": "LessonMaterial",
+      "task": "lesson_teaching",
+      "usage": {
+        "cache_write_tokens": 1660,
+        "cached_tokens": 0,
+        "images": 0,
+        "input_tokens": 309,
+        "output_tokens": 1691,
+        "reasoning_tokens": 20,
+        "reported": true,
+        "reported_cost_usd": 0.032517,
+        "video_seconds": 0
+      }
+    },
+    {
+      "input_bytes": 11631,
+      "model": "openai/gpt-5.4-mini",
+      "quality": {
+        "independent_answer_in_notes": true,
+        "layouts_match_plan": true,
+        "no_images_or_assets": true,
+        "no_invented_references": true,
+        "schema_valid": true,
+        "student_text_word_limit": true,
+        "supplied_objective_only": true,
+        "three_numbered_slides": true,
+        "titles_and_purposes": true,
+        "worked_example_correct": true
+      },
+      "schema": "SlideBatch",
+      "task": "lesson_deck_batch",
+      "usage": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+        "images": 0,
+        "input_tokens": 1563,
+        "output_tokens": 1055,
+        "reasoning_tokens": 107,
+        "reported": true,
+        "reported_cost_usd": 0.00591975,
+        "video_seconds": 0
+      }
+    }
+  ],
+  "conservative_estimate_usd": 0.1238085,
+  "finished_at": "2026-10-11T21:04:36.928295+00:00",
+  "fixed_existing_reservations_usd": [
+    0.8,
+    0.25
+  ],
+  "max_upstream_requests": 2,
+  "models": {
+    "content": "openai/gpt-5.4-mini",
+    "planning": "anthropic/claude-sonnet-4.6"
+  },
+  "operational_ledger": [
+    {
+      "charged_usd": 0.032517,
+      "model": "anthropic/claude-sonnet-4.6",
+      "reserved_usd": 0.8,
+      "status": "settled",
+      "success": true,
+      "task": "lesson_teaching"
+    },
+    {
+      "charged_usd": 0.00591975,
+      "model": "openai/gpt-5.4-mini",
+      "reserved_usd": 0.25,
+      "status": "settled",
+      "success": true,
+      "task": "lesson_deck_batch"
+    }
+  ],
+  "output_tokens_per_call": 4000,
+  "run": "launch-smoke-f7d54297d6d1",
+  "settings_changed": false,
+  "started_at": "2026-10-11T21:03:54.601009+00:00",
+  "status": "passed",
+  "synthetic_only": true,
+  "upstream_metadata": [
+    {
+      "finish_reason": "stop",
+      "http_status": 200,
+      "reported_model": "anthropic/claude-sonnet-4.6"
+    },
+    {
+      "finish_reason": "stop",
+      "http_status": 200,
+      "reported_model": "openai/gpt-5.4-mini"
+    }
+  ],
+  "upstream_requests": 2,
+  "user_artifacts_saved": false
+}

@@ -77,17 +77,28 @@ async def test_daily_builds_one_lesson_and_accepts_revision_for_next(client, tea
     reflected = await client.post(f"/api/v1/lessons/{first['id']}/reflection", headers=h,
                                    json={'outcome': 'struggled', 'note': 'Revise adjacent versus opposite', 'covered_until_slide': 2})
     assert reflected.status_code == 200
+    preparation = {'lessons': [2], 'previous_taught': 'Sine examples', 'revision_needed': 'Adjacent versus opposite',
+                   'instructions': 'Begin with two quick questions'}
+    unreviewed = await client.post(f"/api/v1/courses/{course['id']}/generate", headers=h, json=preparation)
+    assert unreviewed.status_code == 409, unreviewed.text
+    assert unreviewed.json()['error']['code'] == 'review_required'
+    approved = await client.post(f"/api/v1/lessons/{first['id']}/approve", headers=h,
+                                json={'version': first['version'], 'feedback': 'Keep the triangle-side recap.'})
+    assert approved.status_code == 200, approved.text
+    assert approved.json()['review_approved'] is True
     generated = await client.post(f"/api/v1/courses/{course['id']}/generate", headers=h,
-                                   json={'lessons': [2], 'previous_taught': 'Sine examples', 'revision_needed': 'Adjacent versus opposite',
-                                         'instructions': 'Begin with two quick questions'})
-    assert generated.status_code == 200, generated.text
+                                  json=preparation)
+    assert generated.status_code == 202, generated.text
     project = (await client.get('/api/v1/projects/' + course['project_id'], headers=h)).json()
     assert all(lesson['has_pptx'] for lesson in project['lessons'])
     from app.models import GenerationJob
     async with get_sessionmaker()() as db:
         jobs = (await db.execute(select(GenerationJob).where(GenerationJob.id.in_(
             [uuid.UUID(value) for value in generated.json()['job_ids']])))).scalars().all()
+        assert len(jobs) == 1 and jobs[0].status == 'succeeded'
+        assert jobs[0].payload['previous_taught'] == 'Sine examples'
         assert jobs[0].payload['revision_needed'] == 'Adjacent versus opposite'
+        assert jobs[0].payload['instructions'] == 'Begin with two quick questions'
 
 
 async def test_manual_image_and_table_edits_survive_rebuild(client, teacher):

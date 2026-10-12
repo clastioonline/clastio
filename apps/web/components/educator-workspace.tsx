@@ -1,11 +1,13 @@
 "use client";
 
 import { FileText, Printer } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { ChapterSources } from "@/components/chapter-sources";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Progress, Select } from "@/components/ui";
 import { useApi, type Job } from "@/lib/hooks";
+import { normalizeTeacherCourseSelection, teacherCourseOptions, teacherEducationStage, teacherEducationStages, type TeacherCourseClass } from "@/lib/teacher-course-options";
 
 export const EDUCATION_STAGES = [
   { value: "early_years", label: "Early Years" },
@@ -31,10 +33,20 @@ type EducatorProfile = {
   regulatory_authority?: string; education_stages?: string[];
 };
 
+export function useEducatorTeachingScope() {
+  const { data: profile, error: profileError, mutate: refreshProfile } = useApi<EducatorProfile>("/me/profile");
+  const { data: classes, error: classesError, mutate: refreshClasses } = useApi<{ items: TeacherCourseClass[] }>("/classes");
+  const options = useMemo(() => teacherCourseOptions(profile || {}, classes?.items || []), [profile, classes]);
+  const stages = useMemo(() => teacherEducationStages(profile || {}, options.grades), [profile, options.grades]);
+  const ready = Boolean(profile && classes && !profileError && !classesError);
+  return { profile, options, stages, ready, error: profileError || classesError, refresh: () => { refreshProfile(); refreshClasses(); } };
+}
+
 /** Saved preferences fill the form once; they never replace an in-progress brief. */
-export function useEducatorContext(initial: EducatorContext = INITIAL_EDUCATOR_CONTEXT): [EducatorContext, Dispatch<SetStateAction<EducatorContext>>] {
+export function useEducatorContext(initial: EducatorContext = INITIAL_EDUCATOR_CONTEXT): [EducatorContext, Dispatch<SetStateAction<EducatorContext>>, ReturnType<typeof useEducatorTeachingScope>] {
   const [value, setValue] = useState<EducatorContext>({ ...initial });
-  const { data: profile } = useApi<EducatorProfile>("/me/profile");
+  const teaching = useEducatorTeachingScope();
+  const { profile } = teaching;
   const initialized = useRef(false);
   const edited = useRef(false);
   useEffect(() => {
@@ -55,8 +67,20 @@ export function useEducatorContext(initial: EducatorContext = INITIAL_EDUCATOR_C
         education_stage: stage, framework: stage === "university" && ["khda", "adek", "moe"].includes(framework) ? "not_specified" : framework };
     });
   }, [profile]);
+  useEffect(() => {
+    if (!teaching.ready) return;
+    setValue(previous => {
+      const selection = normalizeTeacherCourseSelection({ ...previous, class_section_id: "" }, teaching.options);
+      const inferredStage = teacherEducationStage(selection.grade);
+      const stage = teaching.stages.includes(previous.education_stage) ? previous.education_stage
+        : inferredStage && teaching.stages.includes(inferredStage) ? inferredStage : teaching.stages[0] || "";
+      const framework = stage === "university" && ["khda", "adek", "moe"].includes(previous.framework) ? "not_specified" : previous.framework;
+      if (previous.subject === selection.subject && previous.grade === selection.grade && previous.education_stage === stage && previous.framework === framework) return previous;
+      return { ...previous, subject: selection.subject, grade: selection.grade, education_stage: stage, framework };
+    });
+  }, [teaching.ready, teaching.options, teaching.stages]);
   const update = useCallback<Dispatch<SetStateAction<EducatorContext>>>(next => { edited.current = true; setValue(next); }, []);
-  return [value, update];
+  return [value, update, teaching];
 }
 
 /** Shared deep links make completed work reachable from Activity and browser history. */
@@ -75,12 +99,20 @@ export function useEducatorSelection(): [string | null, (id: string | null) => v
 export function EducatorContextFields({ value, onChange, topicLabel = "Topic", showFramework = true }: {
   value: EducatorContext; onChange: (next: EducatorContext) => void; topicLabel?: string; showFramework?: boolean;
 }) {
+  const teaching = useEducatorTeachingScope();
   const update = (key: keyof EducatorContext, next: string) => onChange({ ...value, [key]: next });
   return <div className="grid min-w-0 gap-4 sm:grid-cols-2">
     <Field label={topicLabel} className="sm:col-span-2"><Input required maxLength={300} value={value.topic} onChange={event => update("topic", event.target.value)} placeholder="Ecosystems and UAE mangroves" /></Field>
-    <Field label="Subject"><Input required maxLength={80} value={value.subject} onChange={event => update("subject", event.target.value)} placeholder="Science" /></Field>
-    <Field label="Education stage"><Select value={value.education_stage} onChange={event => onChange({ ...value, education_stage: event.target.value, framework: event.target.value === "university" ? "not_specified" : value.framework })}>{EDUCATION_STAGES.map(stage => <option key={stage.value} value={stage.value}>{stage.label}</option>)}</Select></Field>
-    <Field label={value.education_stage === "university" ? "Course level / year" : "Grade / year"}><Input required maxLength={30} value={value.grade} onChange={event => update("grade", event.target.value)} placeholder={value.education_stage === "university" ? "Undergraduate year 1" : "6"} /></Field>
+    <div className="sm:col-span-2">{teaching.error ? <Alert tone="danger">Could not load your teaching profile. <Button size="sm" variant="outline" onClick={teaching.refresh}>Try again</Button></Alert>
+      : <p className="text-sm text-muted">{!teaching.ready ? "Loading your teaching subjects and grades…" : teaching.options.subjects.length && teaching.options.grades.length ? "Choose from the subjects and grades in your teaching profile." : "Add your teaching subjects and grades before generating resources."} <Link href="/settings" className="font-semibold text-brand-700 underline">Update teaching profile</Link></p>}</div>
+    <Field label="Subject"><Select aria-label="Subject" required value={teaching.options.subjects.includes(value.subject) ? value.subject : ""} disabled={!teaching.ready || !teaching.options.subjects.length} onChange={event => update("subject", event.target.value)}><option value="" disabled>Select your subject</option>{teaching.options.subjects.map(subject => <option key={subject}>{subject}</option>)}</Select></Field>
+    <Field label="Education stage"><Select aria-label="Education stage" required value={teaching.stages.includes(value.education_stage) ? value.education_stage : ""} disabled={!teaching.ready || !teaching.stages.length} onChange={event => onChange({ ...value, education_stage: event.target.value, framework: event.target.value === "university" ? "not_specified" : value.framework })}><option value="" disabled>Select education stage</option>{EDUCATION_STAGES.filter(stage => teaching.stages.includes(stage.value)).map(stage => <option key={stage.value} value={stage.value}>{stage.label}</option>)}</Select></Field>
+    <Field label={value.education_stage === "university" ? "Course level / year" : "Grade / year"}><Select aria-label="Grade / year" required value={teaching.options.grades.includes(value.grade) ? value.grade : ""} disabled={!teaching.ready || !teaching.options.grades.length} onChange={event => {
+      const grade = event.target.value;
+      const inferredStage = teacherEducationStage(grade);
+      const education_stage = inferredStage && teaching.stages.includes(inferredStage) ? inferredStage : value.education_stage;
+      onChange({ ...value, grade, education_stage, framework: education_stage === "university" ? "not_specified" : value.framework });
+    }}><option value="" disabled>Select your grade / year</option>{teaching.options.grades.map(grade => <option key={grade}>{grade}</option>)}</Select></Field>
     <Field label="Curriculum"><Select value={value.curriculum} onChange={event => update("curriculum", event.target.value)}>{Array.from(new Set([value.curriculum, "UAE MoE", "British", "American", "IB", "CBSE", "University", "Other"])).map(curriculum => <option key={curriculum}>{curriculum}</option>)}</Select></Field>
     <Field label="Output language"><Select value={value.language} onChange={event => update("language", event.target.value)}><option value="en">English</option><option value="ar">Arabic</option></Select></Field>
     {showFramework && <Field label="Planning framework" hint={value.education_stage === "university" ? "Choose your institution’s framework or no school framework. School inspection frameworks do not apply to university lessons." : "Choose the framework used by your school. This is a teacher-reviewed draft, not regulator approval."}><Select value={value.framework} onChange={event => update("framework", event.target.value)}>{value.education_stage !== "university" && <><option value="khda">Dubai · KHDA</option><option value="adek">Abu Dhabi · ADEK</option><option value="moe">UAE · MoE</option></>}<option value="other">Other framework</option><option value="not_specified">No school framework</option></Select></Field>}

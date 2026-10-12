@@ -3,6 +3,7 @@
 import { BookOpen, LibraryBig, Sparkles } from "lucide-react";
 import { Suspense, useState } from "react";
 import { bookCurriculum, type LibraryBook } from "@/components/book-library-card";
+import type { TextbookSources } from "@/components/book-source-catalogue";
 import { EDUCATION_STAGES, EducatorContextFields, EducatorDocument, EducatorJobStatus, EducatorSources, SavedEducatorItems, useEducatorContext, useEducatorSelection, type EducatorItem } from "@/components/educator-workspace";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Spinner, Textarea } from "@/components/ui";
@@ -32,7 +33,7 @@ function DigitalLibraryPage() {
   const [selected, setSelected] = useEducatorSelection();
   const [jobId, setJobId] = useState<string | null>(null);
   const { data: books, error: booksError } = useApi<{ items: LibraryBook[] }>("/books");
-  const { data: catalogue, error: catalogueError } = useApi<{ items: LibraryBook[] }>("/books/catalogue");
+  const { data: catalogue, error: catalogueError } = useApi<{ items: LibraryBook[] } & TextbookSources>("/books/catalogue");
   const query = new URLSearchParams(); if (stage) query.set("education_stage", stage); if (subject.trim()) query.set("subject", subject.trim());
   const { data: list, error: listError, mutate: refreshList } = useApi<{ items: EducatorItem[] }>(`/digital-resources?${query}`, { refreshInterval: data => data?.items.some((item: EducatorItem) => ["queued", "generating"].includes(item.status)) ? 3000 : 0 });
   const { data: detail, error: detailError, mutate: refreshDetail } = useApi<EducatorItem>(selected ? `/digital-resources/${selected}` : null, { refreshInterval: data => data && ["queued", "generating"].includes(data.status) ? 2000 : 0 });
@@ -59,7 +60,8 @@ function DigitalLibraryPage() {
     catch (error) { notify({ tone: "error", title: "Could not retry guide", body: errorMessage(error) }); }
     finally { setBusy(false); }
   };
-  return <div className="space-y-5"><PageHeader title="Digital library" eyebrow="Early Years to University" subtitle="Keep books, subject primers and study guides available for future lessons." actions={<Button href="/books" variant="outline"><BookOpen className="h-4 w-4" /> Books & uploaded PDFs</Button>} />
+  return <div className="space-y-5"><PageHeader title="Digital library" eyebrow="Early Years to University" subtitle="Keep books, subject primers and study guides available for future lessons." actions={<Button href="/books" variant="outline"><BookOpen className="h-4 w-4" /> Textbook catalogue & PDFs</Button>} />
+    {!!catalogue?.collections?.length && <Card className="space-y-3 p-4 sm:p-5"><h2 className="font-semibold">Find your school textbooks</h2><p className="text-sm text-muted">Browse {catalogue.collections.length} official collections and {catalogue.reference_books?.length || 0} reviewed book titles. UAE MoE and British sources come first; book access and reuse follow the publisher’s licence.</p><div className="flex flex-wrap gap-x-5 gap-y-2">{catalogue.collections.filter(item => ["moe-minhaji", "british-cambridge-resources"].includes(item.id)).map(collection => <a key={collection.id} href={collection.source_url} target="_blank" rel="noopener noreferrer" className="focus-ring text-sm font-semibold text-brand-700 underline">{collection.title} ↗</a>)}</div></Card>}
     <Card className="p-4 sm:p-5"><div className="mb-4 flex items-center gap-2 font-semibold"><LibraryBig className="h-5 w-5 text-brand-600" /> Browse your saved resources</div><div className="flex flex-wrap gap-2"><Button variant={stage === "" ? "primary" : "outline"} size="sm" aria-pressed={stage === ""} onClick={() => browseStage("")}>All stages</Button>{EDUCATION_STAGES.map(item => <Button key={item.value} variant={stage === item.value ? "primary" : "outline"} size="sm" aria-pressed={stage === item.value} onClick={() => browseStage(item.value)}>{item.label}</Button>)}</div><Field label="Subject filter" className="mt-4 max-w-md" hint="Use the saved subject name to filter guides."><Input value={subject} onChange={event => setSubject(event.target.value)} placeholder="Science, Mathematics, Arabic…" /></Field></Card>
     <section aria-label="Saved books and notes" className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-semibold">Saved books & notes</h2><Button href="/books" variant="outline" size="sm">Manage book collection</Button></div>
       {(booksError || catalogueError) && <Alert tone="warn">Some saved books could not be loaded. Open Books & notes to retry.</Alert>}

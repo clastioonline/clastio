@@ -10,6 +10,7 @@ from app.core.errors import AppError, NotFound
 from app.core.storage import get_storage
 from app.models import SourceChunk, UploadedFile, User
 from app.services.book_library import book_out
+from app.services.book_sources import textbook_sources
 
 CURRICULA = {
     'moe': 'UAE Ministry of Education', 'british': 'British / Cambridge / Pearson',
@@ -60,6 +61,7 @@ async def catalog(db):
     books = (await db.execute(published_query().order_by(UploadedFile.created_at.desc()))).scalars().all()
     return {'curricula': [{'code': code, 'label': label} for code, label in CURRICULA.items()],
             'subjects': SUBJECTS, 'directories': {code: source_directory(code) for code in CURRICULA},
+            **textbook_sources(),
             'items': [{**book_out(book), 'catalogue_id': str(book.id),
                        'license': book.meta['catalogue'].get('license'),
                        'license_url': book.meta['catalogue'].get('license_url')} for book in books]}

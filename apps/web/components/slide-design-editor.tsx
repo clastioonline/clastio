@@ -15,11 +15,12 @@ export function SlideDesignEditor({ objects, preview, edits, onChange }: { objec
   const [zoom, setZoom] = useState(100);
   const [snap, setSnap] = useState(true);
   const commit = (next: Edits, remember = true) => {
-    if (remember) { setPast((items) => [...items.slice(-49), draft.current]); setFuture([]); }
+    const current = draft.current;
+    if (remember) { setPast((items) => [...items.slice(-49), current]); setFuture([]); }
     draft.current = next; onChange(next);
   };
-  const undo = () => { const previous = past.at(-1); if (!previous) return; setFuture((items) => [...items, draft.current]); setPast(past.slice(0, -1)); commit(previous, false); };
-  const redo = () => { const next = future.at(-1); if (!next) return; setPast((items) => [...items, draft.current]); setFuture(future.slice(0, -1)); commit(next, false); };
+  const undo = () => { const previous = past.at(-1); if (!previous) return; const current = draft.current; setFuture((items) => [...items, current]); setPast(past.slice(0, -1)); commit(previous, false); };
+  const redo = () => { const next = future.at(-1); if (!next) return; const current = draft.current; setPast((items) => [...items, current]); setFuture(future.slice(0, -1)); commit(next, false); };
   const added = Object.entries(edits).filter(([id, edit]) => id.startsWith("custom-") && edit.object_type && !objects.some((item) => item.id === id)).map(([id, edit]) => ({ id, name: `Added ${edit.object_type}`, kind: edit.object_type, text: edit.text ?? "", x: .1, y: .1, width: .4, height: .15, ...edit } as ObjectInfo));
   const order = (id: string) => edits[id]?.layer === "back" ? -1 : edits[id]?.layer === "front" ? 1 : 0;
   const items = [...objects, ...added].filter((item) => !edits[item.id]?.hidden).sort((a, b) => order(a.id) - order(b.id));
@@ -35,6 +36,7 @@ export function SlideDesignEditor({ objects, preview, edits, onChange }: { objec
     const origin = { ...item, ...draft.current[item.id] };
     const startX = event.clientX, startY = event.clientY;
     const target = event.currentTarget as HTMLElement;
+    target.focus();
     target.setPointerCapture(event.pointerId);
     const move = (next: PointerEvent) => {
       const quantize = (value: number) => snap ? Math.round(value * 100) / 100 : value;
@@ -44,6 +46,24 @@ export function SlideDesignEditor({ objects, preview, edits, onChange }: { objec
     };
     const stop = () => { if (draft.current !== before) { setPast((items) => [...items.slice(-49), before]); setFuture([]); } target.removeEventListener("pointermove", move); target.removeEventListener("pointerup", stop); target.removeEventListener("pointercancel", stop); };
     target.addEventListener("pointermove", move); target.addEventListener("pointerup", stop); target.addEventListener("pointercancel", stop);
+  };
+  const selectAtPoint = (event: React.PointerEvent) => {
+    if (event.button !== 0) return;
+    const bounds = canvas.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const x = (event.clientX - bounds.left) / bounds.width, y = (event.clientY - bounds.top) / bounds.height;
+    const hits = items.filter((item) => {
+      const p = { ...item, ...draft.current[item.id] };
+      const angle = -(p.rotation || 0) * Math.PI / 180;
+      const dx = (x - p.x - p.width / 2) * bounds.width, dy = (y - p.y - p.height / 2) * bounds.height;
+      const localX = (dx * Math.cos(angle) - dy * Math.sin(angle)) / bounds.width + p.width / 2;
+      const localY = (dx * Math.sin(angle) + dy * Math.cos(angle)) / bounds.height + p.height / 2;
+      return localX >= 0 && localX <= p.width && localY >= 0 && localY <= p.height;
+    }).sort((a, b) => {
+      const pa = { ...a, ...draft.current[a.id] }, pb = { ...b, ...draft.current[b.id] };
+      return order(b.id) - order(a.id) || pa.width * pa.height - pb.width * pb.height;
+    });
+    if (hits[0]) drag(event, hits[0]); else setSelected("");
   };
   return <div className="space-y-3 rounded-xl border border-line p-3">
     <div className="flex flex-wrap items-center gap-2"><h3 className="mr-auto font-semibold">Design canvas</h3>
@@ -55,15 +75,23 @@ export function SlideDesignEditor({ objects, preview, edits, onChange }: { objec
     <p className="text-xs text-muted">Select an object to edit its text and formatting below. Double-click text to start editing. Drag its frame to move it, or drag the corner to resize. Draft overlays appear over the saved slide; Save &amp; rebuild refreshes the exact PowerPoint preview.</p>
     <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => insert("text")}>Insert text box</Button><Button size="sm" variant="outline" onClick={() => insert("rectangle")}>Rectangle</Button><Button size="sm" variant="outline" onClick={() => insert("ellipse")}>Ellipse</Button></div>
     {!objects.length && <p className="text-sm">Save this slide once to load its editable objects.</p>}
-    <div className="overflow-auto rounded-lg bg-surface-2 p-2"><div ref={canvas} className="relative overflow-hidden rounded border border-line bg-surface-2" style={{ aspectRatio: objects[0]?.aspect_ratio || 16 / 9, width: `${zoom}%`, minWidth: 0 }}>
+    <div className="overflow-auto rounded-lg bg-surface-2 p-2"><div ref={canvas} tabIndex={0} aria-label="Editable slide canvas" onPointerDown={selectAtPoint} onDoubleClick={() => { if (selected) document.getElementById(`object-text-${selected}`)?.focus(); }} onKeyDown={(event) => {
+      if (!active || !value || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const step = event.shiftKey ? .001 : .01;
+      patch(active.id, { x: Math.max(0, Math.min(1 - value.width, value.x + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0))), y: Math.max(0, Math.min(1 - value.height, value.y + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0))) });
+    }} className="relative touch-none overflow-hidden rounded border border-line bg-surface-2" style={{ aspectRatio: objects[0]?.aspect_ratio || 16 / 9, width: `${zoom}%`, minWidth: 0 }}>
       {preview && <img src={preview} alt="Current saved slide design" className="h-full w-full object-fill" draggable={false} />}
+      {objects.filter((item) => Object.keys(edits[item.id] || {}).length > 0).map((item) => <div key={`mask-${item.id}`} aria-hidden className="pointer-events-none absolute bg-white" style={{ left: `${item.x * 100}%`, top: `${item.y * 100}%`, width: `${item.width * 100}%`, height: `${item.height * 100}%` }} />)}
       {items.map((item) => {
         const position = { ...item, ...edits[item.id] };
         return <div key={item.id} role="button" tabIndex={0} aria-label={`Select ${item.name}`} onClick={() => setSelected(item.id)} onDoubleClick={() => { setSelected(item.id); window.setTimeout(() => document.getElementById(`object-text-${item.id}`)?.focus(), 0); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelected(item.id); }} onPointerDown={(event) => drag(event, item)}
-          className={`absolute cursor-move touch-none border ${selected === item.id ? "border-brand-600 bg-brand-100/20" : "border-transparent hover:border-brand-300"}`}
+          className={`pointer-events-none absolute cursor-move touch-none border ${selected === item.id ? "border-brand-600 bg-brand-100/20" : "border-transparent hover:border-brand-300"}`}
           style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%`, width: `${position.width * 100}%`, height: `${position.height * 100}%`, transform: `rotate(${position.rotation || 0}deg)`, background: position.fill, borderRadius: position.object_type === "ellipse" ? "50%" : undefined }}>
           {edits[item.id]?.text !== undefined && <div className="h-full w-full overflow-hidden whitespace-pre-wrap p-1" style={{ background: position.object_type ? "transparent" : "white", fontStyle: position.italic ? "italic" : "normal", color: position.color || "#000000", fontFamily: position.font_family, fontSize: `${(position.font_size || 20) * 0.8}px`, fontWeight: position.bold ? "bold" : "normal" }}>{position.text}</div>}
-          {selected === item.id && <span onPointerDown={(event) => drag(event, item, true)} className="absolute -bottom-1 -right-1 h-3 w-3 cursor-se-resize bg-brand-600" />}
+          {preview && !position.object_type && edits[item.id]?.text === undefined && Object.keys(edits[item.id] || {}).length > 0 && <div aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: `url(${JSON.stringify(preview)})`, backgroundSize: `${100 / item.width}% ${100 / item.height}%`, backgroundPosition: `${item.width >= 1 ? 0 : item.x / (1 - item.width) * 100}% ${item.height >= 1 ? 0 : item.y / (1 - item.height) * 100}%` }} />}
+          {selected === item.id && <span onPointerDown={(event) => drag(event, item, true)} className="pointer-events-auto absolute -bottom-1 -right-1 z-10 h-3 w-3 cursor-se-resize bg-brand-600" />}
         </div>;
       })}
     </div></div>

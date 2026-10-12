@@ -13,6 +13,7 @@ import { UploadDropzone } from "@/components/upload";
 import { api, ApiError } from "@/lib/api";
 import { useApi, useMe } from "@/lib/hooks";
 import { adminLandingPath } from "@/lib/navigation";
+import { synchronizeOnboardingTeachingClasses } from "@/lib/teacher-course-options";
 import { CURRICULA, DAYS, GRADES, SUBJECTS, cn } from "@/lib/utils";
 
 const STEPS = ["About you", "Your slides", "How you teach", "Your classes", "Choose a plan", "Ready"];
@@ -38,7 +39,10 @@ function Onboarding() {
     homework_last: true, quiz_length: 5, preferred_activities: ["think-pair-share", "group work"], real_world_examples: true,
     local_context: true, bilingual_vocabulary: false,
   });
-  const [classes, setClasses] = useState([{ name: "8A", grade: "8", subject: "Science" }]);
+  const [classes, setClasses] = useState([{ name: "", grade: "8", subject: "Science" }]);
+  useEffect(() => {
+    setClasses((current) => synchronizeOnboardingTeachingClasses(current, basics));
+  }, [basics.subjects, basics.grades]);
   const { data: plans } = useApi<{ trial: { enabled: boolean; days: number } }>("/billing/plans");
   const { data: billing } = useApi<any>(user ? "/billing/subscription" : null);
   const hasBillingInProgress = billing?.pending_checkout || (billing?.subscription && ["stripe", "dodo", "manual"].includes(billing.subscription.provider));
@@ -62,6 +66,10 @@ function Onboarding() {
   }, [user, error, router]);
 
   const saveBasics = async () => {
+    if (!basics.subjects.length || !basics.grades.length) {
+      notify({ tone: "error", title: "Choose your teaching subjects and grades", body: "Select at least one subject and grade to personalize your lessons." });
+      return;
+    }
     setSaving(true);
     try {
       await api("/me/profile", { method: "PUT", body: basics });
@@ -86,7 +94,7 @@ function Onboarding() {
   const saveClasses = async () => {
     setSaving(true);
     try {
-      for (const c of classes.filter((c) => c.name.trim())) {
+      for (const c of synchronizeOnboardingTeachingClasses(classes, basics).filter((c) => c.name.trim())) {
         await api("/classes", { body: { ...c, curriculum: basics.curriculum } });
       }
       await api("/me/onboarding/complete", { method: "POST" });
@@ -137,7 +145,7 @@ function Onboarding() {
                 <Chips options={CURRICULA.map((c) => ({ value: c.code, label: c.label }))} value={basics.curriculum} onChange={(v) => setBasics({ ...basics, curriculum: v })} />
               </Field>
               <Field label="Subjects you teach" className="sm:col-span-2">
-                <Chips multiple options={SUBJECTS.slice(0, 13).map((s) => ({ value: s, label: s }))} value={basics.subjects} onChange={(v) => setBasics({ ...basics, subjects: v })} />
+                <Chips multiple options={SUBJECTS.map((s) => ({ value: s, label: s }))} value={basics.subjects} onChange={(v) => setBasics({ ...basics, subjects: v })} />
               </Field>
               <Field label="Grades" className="sm:col-span-2">
                 <Chips multiple options={GRADES.map((g) => ({ value: g, label: g === "KG" ? "KG" : `Grade ${g}` }))} value={basics.grades} onChange={(v) => setBasics({ ...basics, grades: v })} />
@@ -161,7 +169,7 @@ function Onboarding() {
               </Field>
             </div>
             <div className="mt-6 flex justify-end">
-              <Button onClick={saveBasics} loading={saving}>Continue <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Button>
+              <Button onClick={saveBasics} loading={saving} disabled={!basics.subjects.length || !basics.grades.length}>Continue <ArrowRight className="h-4 w-4 rtl:rotate-180" /></Button>
             </div>
           </Card>
         )}
@@ -217,21 +225,21 @@ function Onboarding() {
             <div className="mt-6 space-y-3">
               {classes.map((c, i) => (
                 <div key={i} className="grid grid-cols-[1fr_1fr_1.4fr_auto] items-end gap-2">
-                  <Field label={i === 0 ? "Class" : ""}><Input value={c.name} onChange={(e) => setClasses(classes.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="8A" /></Field>
+                  <Field label={i === 0 ? "Class" : ""}><Input value={c.name} onChange={(e) => setClasses(classes.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder={`e.g. ${c.grade || basics.grades[0]}A`} /></Field>
                   <Field label={i === 0 ? "Grade" : ""}>
                     <Select value={c.grade} onChange={(e) => setClasses(classes.map((x, j) => j === i ? { ...x, grade: e.target.value } : x))}>
-                      {GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+                      {basics.grades.map((g) => <option key={g} value={g}>{g}</option>)}
                     </Select>
                   </Field>
                   <Field label={i === 0 ? "Subject" : ""}>
                     <Select value={c.subject} onChange={(e) => setClasses(classes.map((x, j) => j === i ? { ...x, subject: e.target.value } : x))}>
-                      {SUBJECTS.map((s) => <option key={s}>{s}</option>)}
+                      {basics.subjects.map((s) => <option key={s}>{s}</option>)}
                     </Select>
                   </Field>
                   <Button variant="ghost" size="icon" onClick={() => setClasses(classes.filter((_, j) => j !== i))} aria-label="Remove class"><Trash className="h-4 w-4" /></Button>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={() => setClasses([...classes, { name: "", grade: basics.grades[0] || "8", subject: basics.subjects[0] || "Science" }])}>
+              <Button variant="outline" size="sm" onClick={() => setClasses([...classes, { name: "", grade: basics.grades[0] || "", subject: basics.subjects[0] || "" }])}>
                 <Plus className="h-4 w-4" /> Add class
               </Button>
             </div>
