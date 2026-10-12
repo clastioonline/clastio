@@ -62,6 +62,9 @@ async function scenario(name, options, check) {
     const response = await page.goto(base + slug);
     assert.equal(response.status(), 200, `${name}: route ${slug} must render`);
     await page.getByRole('heading', { name: heading, exact: true, level: 1 }).waitFor();
+    // A Suspense fallback can share the final page heading; wait for checked content as well.
+    await page.waitForFunction(expected => document.querySelector('.sys-card h1')?.textContent === expected
+      && !document.querySelector('.sys-description')?.textContent?.startsWith('Loading the current account status'), heading);
     const robots = await page.locator('meta[name="robots"]').getAttribute('content');
     assert.match(robots, /noindex/);
     assert.match(robots, /nofollow/);

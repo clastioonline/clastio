@@ -2,11 +2,13 @@
 
 import { Clapperboard, Download, ImageIcon, Info, Sparkles, Trash, WandSparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { LoadError } from "@/components/load-error";
 import { errorMessage, useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, Chips, EmptyState, Field, PageHeader, Select, Skeleton, Spinner, Tabs, Textarea } from "@/components/ui";
 import { api, formatDate } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
+import { safePaymentDestination } from "@/lib/account-state";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -45,7 +47,10 @@ function MediaPreview({ item }: { item: Item }) {
 function Studio() {
   const params = useSearchParams();
   const { notify } = useToast();
-  const { data, mutate } = useApi<any>("/media", { refreshInterval: (d) => (pending(d) ? 3000 : 0) });
+  const paymentReturn = ["success", "cancelled", "failed"].includes(params.get("status") || "");
+  const [checkingBalance, setCheckingBalance] = useState(paymentReturn);
+  const { data, error, isValidating, mutate } = useApi<any>("/media", { shouldRetryOnError: false,
+    refreshInterval: (d) => checkingBalance ? 2000 : pending(d) ? 3000 : 0 });
   const [kind, setKind] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("photorealistic");
@@ -53,6 +58,14 @@ function Studio() {
   const [seconds, setSeconds] = useState(4);
   const [busy, setBusy] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!paymentReturn) { setCheckingBalance(false); return; }
+    setCheckingBalance(true);
+    const timer = setTimeout(() => setCheckingBalance(false), 45000);
+    return () => clearTimeout(timer);
+  }, [paymentReturn]);
+
+  if (error) return <LoadError label="your media studio and credit balance" retry={mutate} />;
   if (!data) return <Skeleton className="h-96" />;
   const cost = kind === "image" ? data.pricing.image : data.pricing.video_per_second * seconds;
   const short = data.balance < cost;
@@ -74,7 +87,9 @@ function Studio() {
     setBusy(code);
     try {
       const r = await api<{ url: string }>(`/media/packs/${code}/checkout`, { method: "POST" });
-      window.location.href = r.url;
+      const destination = safePaymentDestination(r.url, window.location.origin);
+      if (!destination) throw new Error("The checkout destination could not be confirmed. Contact support.");
+      window.location.href = destination;
     } catch (e) {
       notify({ tone: "error", title: "Checkout unavailable", body: errorMessage(e) });
       setBusy(null);
@@ -89,10 +104,13 @@ function Studio() {
     <div className="space-y-6">
       <PageHeader title="Media studio" eyebrow="Add-on"
         subtitle="Create images and short videos for your lessons. Everything you make is labelled as AI-generated."
-        actions={<div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm">
+        actions={<div aria-label="Current media credit balance" className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm">
           <Sparkles className="h-4 w-4 text-accent-500" /><span className="font-semibold tabular-nums text-ink">{data.balance}</span><span className="text-muted">media credits</span>
         </div>} />
-      {params.get("status") === "success" && <Alert tone="success" title="Payment received">Your credits appear here as soon as the payment is confirmed (usually within a minute).</Alert>}
+      {paymentReturn && <Alert tone="brand" title={checkingBalance ? "Checking your media credit balance" : "Review your media credit balance"}>
+        <p>{checkingBalance ? "We’re checking for account balance updates for up to 45 seconds." : "The latest account balance is shown above. Refresh if you expected a change."} Use your payment-provider receipt to confirm a particular purchase. Contact support if a purchase is missing.</p>
+        <div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" loading={isValidating} onClick={() => void mutate()}>Refresh balance</Button><Button variant="outline" href="/support">Payment help</Button></div>
+      </Alert>}
       {!data.enabled && <Alert tone="warn" title="The media studio is switched off">An administrator has paused image and video generation.</Alert>}
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">

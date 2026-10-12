@@ -336,7 +336,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { data: sysHealth } = useApi<any>(user?.role === "admin" && can("system.logs.view") ? "/admin/system/health" : null, { refreshInterval: 120_000 });
 
   useEffect(() => {
-    if (error instanceof ApiError && error.status === 401) router.replace(`/session-expired?next=${encodeURIComponent(pathname)}`);
+    if (error instanceof ApiError && error.status === 401) router.replace(`/session-expired?next=${encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)}`);
     else if (error instanceof ApiError && error.status === 403) router.replace("/account-suspended");
   }, [error, pathname, router]);
   const admin = user?.role === "admin";

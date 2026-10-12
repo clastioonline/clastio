@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "realAccountMutations": 0,
+  "evidence": [
+    {
+      "destination": "/billing?status=success&session_id=synthetic-checkout",
+      "sessionReturnPreserved": true,
+      "loginReturnPreserved": true,
+      "realGatewayRequests": 0,
+      "mockedWrites": [
+        "/auth/login"
+      ]
+    },
+    {
+      "destination": "/media?status=success&payment_id=synthetic-payment",
+      "sessionReturnPreserved": true,
+      "loginReturnPreserved": true,
+      "realGatewayRequests": 0,
+      "mockedWrites": [
+        "/auth/login"
+      ]
+    }
+  ]
+}

@@ -52,7 +52,8 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     }
     previous.current.statuses = new Map(data.items.map((item) => [item.id, item.status]));
     if (changed) {
-      void refreshCache((key) => typeof key === "string" && /^\/(lessons|documents|projects|templates|media|assistant|me\/notifications)/.test(key));
+      void refreshCache((key) => typeof key === "string" && (/^\/(lessons|documents|projects|templates|media|assistant|me\/notifications)/.test(key)
+        || ["/me/usage", "/usage/estimates", "/billing/subscription"].includes(key)));
     }
   }, [data, identity, teacher, notify, refreshCache]);
   useEffect(() => {

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { AuthLayout, OAuthButtons } from "@/components/auth-card";
 import { Alert, Button, Field, Input } from "@/components/ui";
-import { adminLandingPath, safeInternalPath } from "@/lib/navigation";
+import { postSignInPath, safeSignInReturnPath } from "@/lib/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useSWRConfig } from "swr";
 
@@ -34,11 +34,11 @@ function LoginForm() {
       const res = await api<{ user: { onboarding_completed: boolean; role: string; permissions: string[] } }>("/auth/login", { body: { email, password } });
       await mutate("/auth/me", await api("/auth/me"), { revalidate: false });
       if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && params.get("legacy") === "1") {
-        router.replace("/login");
+        router.replace(`/login?next=${encodeURIComponent(safeSignInReturnPath(params.get("next")))}`);
         return;
       }
       const next = params.get("next");
-      router.replace(res.user.role === "admin" ? adminLandingPath(res.user.permissions) : !res.user.onboarding_completed ? "/onboarding" : safeInternalPath(next));
+      router.replace(postSignInPath(res.user, next));
     } catch (err: any) {
       setError(err.message);
       if (err instanceof ApiError) setRecovery(err.code === "account_suspended" ? "/account-suspended" : err.code === "account_banned" ? "/account-deactivated" : err.code === "account_pending_deletion" ? "/account-deleted" : null);

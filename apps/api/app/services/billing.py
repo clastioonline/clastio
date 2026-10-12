@@ -701,8 +701,12 @@ async def handle_dodo_event(db: AsyncSession, event: dict[str, Any], event_id: s
     if etype.startswith("subscription."):
         sub = await _find_sub(db, data.get("subscription_id"))
         plan_code, interval = meta.get("plan_code"), meta.get("interval")
-        if not plan_code and data.get("product_id") in by_product:  # e.g. a plan change made in the portal
-            plan_code, _, interval = by_product[data["product_id"]].rpartition("_")
+        if data.get("product_id") in by_product:
+            # Checkout metadata can retain the original plan after a portal change.
+            # The signed current product, mapped to an existing plan, is authoritative.
+            mapped_plan, _, mapped_interval = by_product[data["product_id"]].rpartition("_")
+            if mapped_interval in ("month", "year") and await db.get(Plan, mapped_plan) is not None:
+                plan_code, interval = mapped_plan, mapped_interval
         if sub is None and meta.get("user_id"):
             sub = Subscription(user_id=uuid.UUID(meta["user_id"]), provider="dodo",
                                provider_subscription_id=data.get("subscription_id"), plan_code=plan_code or "teacher")

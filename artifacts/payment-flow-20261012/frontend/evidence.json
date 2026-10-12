@@ -1,0 +1,62 @@
+{
+  "base": "http://localhost:3005",
+  "scenarios": [
+    {
+      "name": "Delayed media balance updates never certify a URL payment",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Media return polling is bounded and explicit refresh stays available",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Media API failure has explicit recovery and safe checkout error",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/media/packs/starter/checkout",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Failed or cancelled return labels cannot assert a transaction result",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Media checkout follows the API destination without granting a balance",
+      "passed": true,
+      "writes": [
+        {
+          "endpoint": "/media/packs/starter/checkout",
+          "method": "POST"
+        }
+      ]
+    },
+    {
+      "name": "Billing badges reflect paid failed pending and refunded states",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Financial displays refresh after job succeeded",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Financial displays refresh after job failed",
+      "passed": true,
+      "writes": []
+    },
+    {
+      "name": "Financial displays refresh after job cancelled",
+      "passed": true,
+      "writes": []
+    }
+  ],
+  "realAccountMutations": 0,
+  "realGatewayRequests": 0
+}

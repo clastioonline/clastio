@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-12",
+  "livePublicSite": { "provider": "dodo", "onlinePayments": true, "mode": "live", "modeEvidence": "owner confirmation" },
+  "localPublicSite": { "provider": null, "onlinePayments": false },
+  "backendFocusedPaymentUnits": { "passed": 56, "failed": 0, "networkDisabled": true, "mockedDatabaseAndProviders": true, "python": "3.12", "newDodoPlanCases": 7 },
+  "frontendUnits": { "passed": 70, "failed": 0 },
+  "typecheck": "passed",
+  "backendLint": "passed",
+  "whitespaceCheck": "passed",
+  "productionImageBuilds": { "api": "passed", "web": "passed" },
+  "mediaAndFinancialBrowser": { "passed": 9, "failed": 0, "apiMocked": true, "evidence": "frontend/evidence.json" },
+  "accountAndBillingBrowser": { "passed": 16, "failed": 0, "apiMocked": true, "evidence": "../system-pages-20261012/account/evidence.json" },
+  "paymentReturnAuthBrowser": { "passed": 2, "failed": 0, "authMocked": true, "evidence": "auth-return.json" },
+  "localServices": { "api": "healthy", "web": "healthy", "worker": "running", "readinessHttpStatus": 200, "activeGenerationJobsBeforeRestart": 0 },
+  "realGatewayTransactions": 0,
+  "realAccountMutations": 0,
+  "providerConfigurationChanges": 0,
+  "databaseMigrations": 0,
+  "externalDeployment": false,
+  "remaining": ["live signed webhook delivery and correct product mapping", "actual checkout-return-subscription-allowance chain", "receipt delivery", "renewal and cancellation in gateway sandbox", "refund/dispute credit and entitlement reversal policy and implementation"]
+}

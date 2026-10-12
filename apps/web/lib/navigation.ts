@@ -7,6 +7,21 @@ export function safeInternalPath(value: string | null | undefined, fallback = "/
   } catch { return fallback; }
 }
 
+/** A sign-in return must also avoid authentication loops and raw API endpoints. */
+export function safeSignInReturnPath(value: string | null | undefined): string {
+  const path = safeInternalPath(value);
+  return /^\/(?:auth|api|login|signup|session-expired)(?:\/|\?|#|$)/.test(path) ? "/dashboard" : path;
+}
+
+export function clerkCallbackPath(value: string | null | undefined): string {
+  return `/auth/clerk?next=${encodeURIComponent(safeSignInReturnPath(value))}`;
+}
+
+export function postSignInPath(user: { role: string; permissions?: string[]; onboarding_completed: boolean }, next?: string | null): string {
+  if (user.role === "admin") return adminLandingPath(user.permissions);
+  return user.onboarding_completed ? safeSignInReturnPath(next) : "/onboarding";
+}
+
 /** Staff land on a page their verified permissions allow. */
 export function adminLandingPath(permissions: string[] = []): string {
   const routes: [string, string][] = [

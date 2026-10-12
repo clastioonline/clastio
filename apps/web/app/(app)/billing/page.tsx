@@ -192,7 +192,7 @@ function Billing() {
             <thead className="text-xs uppercase tracking-wide text-muted"><tr><th className="py-2 text-start font-medium">Date</th><th className="text-start font-medium">Amount</th><th className="text-start font-medium">VAT</th><th className="text-start font-medium">Status</th><th /></tr></thead>
             <tbody className="divide-y divide-line">
               {data.payments.map((p: any, i: number) => (
-                <tr key={i}><td className="py-2.5">{formatDate(p.date)}</td><td>{p.currency} {p.amount.toFixed(2)}</td><td>{p.tax.toFixed(2)}</td><td><Badge tone="success">{p.status}</Badge></td>
+                <tr key={i}><td className="py-2.5">{formatDate(p.date)}</td><td>{p.currency} {p.amount.toFixed(2)}</td><td>{p.tax.toFixed(2)}</td><td><Badge tone={["paid", "succeeded", "completed"].includes(p.status) ? "success" : ["failed", "declined", "unpaid"].includes(p.status) ? "danger" : ["pending", "processing", "past_due"].includes(p.status) ? "warn" : "neutral"}>{p.status}</Badge></td>
                   <td className="text-end">{p.invoice_url && <a href={p.invoice_url} target="_blank" rel="noreferrer" className="font-semibold text-brand-600 hover:underline">Invoice</a>}</td></tr>
               ))}
             </tbody>
